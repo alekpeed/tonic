@@ -7,8 +7,11 @@ import java.time.Instant
  * scheduling, mastery evaluation — takes a [Clock] instead. This is what
  * makes those functions replayable from a stored seed and testable with a
  * fixed instant instead of real time. See CLAUDE.md §5.
+ *
+ * `fun interface` so test fakes can be written as `Clock { fixedInstant }`
+ * via SAM conversion instead of a throwaway anonymous object every time.
  */
-interface Clock {
+fun interface Clock {
     fun now(): Instant
 }
 

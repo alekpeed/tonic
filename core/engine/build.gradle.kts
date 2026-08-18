@@ -6,6 +6,18 @@ plugins {
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ktlint)
+    alias(libs.plugins.kover)
+}
+
+// docs/01-PRODUCT-SPEC.md §5 criterion 8: >=85% line coverage on this module.
+kover {
+    reports {
+        verify {
+            rule {
+                minBound(85)
+            }
+        }
+    }
 }
 
 kotlin {
