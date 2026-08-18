@@ -7,7 +7,34 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.kapt)
+    alias(libs.plugins.hilt.android)
     alias(libs.plugins.ktlint)
+    alias(libs.plugins.kover)
+}
+
+// docs/01-PRODUCT-SPEC.md §5 criterion 8 sets a coverage floor for
+// :core:model/:core:curriculum/:core:engine specifically, not :core:audio —
+// this module mixes pure render logic (fully testable on the JVM) with
+// thin Android wrappers (AudioTrackPlayer, AudioFocusManager) that need a
+// real device to exercise meaningfully and are excluded here rather than
+// padded with tests that would just be asserting mocks called each other.
+kover {
+    reports {
+        filters {
+            excludes {
+                classes(
+                    "com.tonic.core.audio.player.*",
+                    "com.tonic.core.audio.focus.*",
+                )
+            }
+        }
+        verify {
+            rule {
+                minBound(85)
+            }
+        }
+    }
 }
 
 android {
@@ -40,6 +67,9 @@ dependencies {
     implementation(libs.core.ktx)
     implementation(libs.coroutines.core)
     implementation(libs.coroutines.android)
+
+    implementation(libs.hilt.android)
+    kapt(libs.hilt.compiler)
 
     testImplementation(libs.junit.jupiter.api)
     testImplementation(libs.junit.jupiter.params)

@@ -10,6 +10,7 @@ plugins {
     alias(libs.plugins.hilt.android) apply false
     alias(libs.plugins.room) apply false
     alias(libs.plugins.ktlint) apply false
+    alias(libs.plugins.kover) apply false
 }
 
 tasks.register("jvmTestAll") {
