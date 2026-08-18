@@ -3,7 +3,6 @@ package com.tonic.core.engine.simulation
 import com.tonic.core.curriculum.generators.GenerationHistory
 import com.tonic.core.curriculum.generators.M2ItemGenerator
 import com.tonic.core.curriculum.graph.SkillGraph
-import com.tonic.core.engine.confusion.ConfusionState
 import com.tonic.core.engine.confusion.ConfusionTracker
 import com.tonic.core.engine.mastery.MasteryEvaluator
 import com.tonic.core.engine.scheduling.AxisScheduler
@@ -12,6 +11,7 @@ import com.tonic.core.model.attempts.Attempt
 import com.tonic.core.model.ids.SkillId
 import com.tonic.core.model.items.DifficultyAxis
 import com.tonic.core.model.music.ScaleDegree
+import com.tonic.core.model.state.ConfusionState
 import com.tonic.core.model.state.MasteryVerdict
 import com.tonic.core.model.time.Clock
 import java.time.Instant

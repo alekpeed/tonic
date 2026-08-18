@@ -43,3 +43,38 @@ data class ConfusionCell(
     val windowCount: Int,
     val updatedAt: Instant,
 )
+
+/**
+ * Per-skill confusion-tracking algorithmic state — the sliding window and
+ * all-time counts that [ConfusionMatrix] is derived from. Threaded by the
+ * caller across successive `ConfusionTracker.record` calls
+ * (docs/07-ADAPTIVE-ENGINE.md §4). Lives here, not in `:core:engine` where
+ * the tracking logic itself lives, because `:core:data` needs to persist
+ * and reload it (docs/05-DATA-MODEL.md §1) without depending on
+ * `:core:engine` (docs/04-ARCHITECTURE.md §2) - the same reasoning as
+ * [SkillStateReplayer].
+ */
+data class ConfusionState(
+    val skillId: SkillId,
+    val recentPairs: List<Pair<String, String>> = emptyList(),
+    val allTimeCounts: Map<Pair<String, String>, Int> = emptyMap(),
+    val updatedAt: Instant = Instant.EPOCH,
+)
+
+/**
+ * The pure confusion-tracking algorithm (`ConfusionTracker` in
+ * `:core:engine`), injected into `:core:data`'s `ConfusionRepository` the
+ * same way [SkillStateReplayer] is injected into `SkillStateRepository`:
+ * `:core:data` depends on this interface only; `:core:engine` implements
+ * it; the composition root wires the two together.
+ */
+interface ConfusionTracking {
+    fun record(
+        state: ConfusionState,
+        target: String,
+        response: String,
+        now: Instant,
+    ): ConfusionState
+
+    fun toMatrix(state: ConfusionState): ConfusionMatrix
+}

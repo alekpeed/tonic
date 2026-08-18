@@ -1,6 +1,7 @@
 package com.tonic.core.engine.confusion
 
 import com.tonic.core.model.ids.SkillIds
+import com.tonic.core.model.state.ConfusionState
 import com.tonic.core.model.time.Clock
 import java.time.Instant
 import kotlin.test.Test

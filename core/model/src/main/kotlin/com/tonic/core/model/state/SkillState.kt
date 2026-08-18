@@ -25,4 +25,29 @@ data class SkillState(
     val fsrs: FsrsState,
     val totalAttempts: Int,
     val updatedAt: Instant,
-)
+) {
+    companion object {
+        /**
+         * The state of a skill node before any attempt has ever been recorded
+         * for it. `:core:data` has no access to `:core:curriculum`'s
+         * prerequisite graph (docs/04-ARCHITECTURE.md §2), so it cannot itself
+         * decide LOCKED vs. AVAILABLE - [MasteryState.LOCKED] is the
+         * conservative default; a caller that does have prerequisite
+         * information (a `:feature:*` ViewModel) is expected to call
+         * `SkillStateRepository.update()` with the correct status once it
+         * determines the node is actually unlocked.
+         */
+        fun initial(skillId: SkillId): SkillState =
+            SkillState(
+                skillId = skillId,
+                axisLevels = DifficultyAxis.entries.associateWith { 0 },
+                staircaseStates = emptyMap(),
+                activeAxis = null,
+                masteryState = MasteryState.LOCKED,
+                masteredAt = null,
+                fsrs = FsrsState(stability = 0.0, difficulty = 0.0, lastReview = null, due = null),
+                totalAttempts = 0,
+                updatedAt = Instant.EPOCH,
+            )
+    }
+}

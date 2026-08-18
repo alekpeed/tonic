@@ -55,18 +55,15 @@ Materialized per-skill state. Rebuildable from `attempts` — provide a rebuild 
 | `totalAttempts` | Int | |
 | `updatedAt` | Long | |
 
-### `confusion_cells`
+### `confusion_state`
 
 | Column | Type |
 |---|---|
-| `skillId` | String, PK part |
-| `targetLabel` | String, PK part |
-| `responseLabel` | String, PK part |
-| `count` | Int |
-| `windowCount` | Int (count within the current rolling window) |
+| `skillId` | String PK |
+| `stateJson` | String |
 | `updatedAt` | Long |
 
-Composite PK `(skillId, targetLabel, responseLabel)`.
+**Deviation from the original plan** (an aggregated `confusion_cells` table, one row per `(skillId, targetLabel, responseLabel)` with plain `count`/`windowCount` columns): that shape can *display* a snapshot but can't correctly *maintain* a true last-100-attempts sliding window on its own — when the window slides and the oldest pair drops out, you need to know which specific pair that was, and an aggregated count can't tell you. `stateJson` stores the engine's actual `ConfusionState` (the ordered `recentPairs` list plus `allTimeCounts`) as JSON, the same way `staircaseStateJson` already stores other algorithmic internal state. The aggregated `ConfusionMatrix` a caller needs is derived on demand from this via `ConfusionTracker.toMatrix()`. Same tolerance rules as §2 apply.
 
 ### `sessions`
 

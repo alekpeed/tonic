@@ -1,9 +1,11 @@
 package com.tonic.core.engine.confusion
 
-import com.tonic.core.model.ids.SkillId
 import com.tonic.core.model.state.ConfusionCell
 import com.tonic.core.model.state.ConfusionMatrix
+import com.tonic.core.model.state.ConfusionState
+import com.tonic.core.model.state.ConfusionTracking
 import com.tonic.core.model.time.Clock
+import java.time.Instant
 import kotlin.math.max
 
 /**
@@ -13,7 +15,7 @@ import kotlin.math.max
  * column describes (last 100 attempts); `allTimeCounts` is that same
  * table's plain `count` column.
  */
-object ConfusionTracker {
+object ConfusionTracker : ConfusionTracking {
     const val WINDOW_SIZE = 100
     const val WEAK_DEGREE_THRESHOLD = 0.80
     const val CONFUSION_PAIR_THRESHOLD = 0.10
@@ -32,7 +34,20 @@ object ConfusionTracker {
         )
     }
 
-    fun toMatrix(state: ConfusionState): ConfusionMatrix {
+    /**
+     * [ConfusionTracking]'s entry point — `:core:data`'s `ConfusionRepository` is injected with this
+     * object through that interface (docs/04-ARCHITECTURE.md §2 forbids it depending on `:core:engine`
+     * directly; see [com.tonic.core.model.state.SkillStateReplayer] for the same pattern applied to
+     * skill-state rebuilding). Delegates to [record] with a one-shot [Clock].
+     */
+    override fun record(
+        state: ConfusionState,
+        target: String,
+        response: String,
+        now: Instant,
+    ): ConfusionState = record(state, target, response, Clock { now })
+
+    override fun toMatrix(state: ConfusionState): ConfusionMatrix {
         val windowCounts = state.recentPairs.groupingBy { it }.eachCount()
         val allPairs = (windowCounts.keys + state.allTimeCounts.keys).distinct()
         val cells =
@@ -92,11 +107,3 @@ object ConfusionTracker {
     private const val REMEDIATION_FACTOR = 2.0
     private const val MAX_WEIGHT_MULTIPLE = 2.5
 }
-
-/** Per-skill confusion-tracking state. Threaded by the caller across [ConfusionTracker.record] calls. */
-data class ConfusionState(
-    val skillId: SkillId,
-    val recentPairs: List<Pair<String, String>> = emptyList(),
-    val allTimeCounts: Map<Pair<String, String>, Int> = emptyMap(),
-    val updatedAt: java.time.Instant = java.time.Instant.EPOCH,
-)

@@ -63,6 +63,11 @@ turbine = { group = "app.cash.turbine", name = "turbine", version.ref = "turbine
 robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
 androidx-test-core = { group = "androidx.test", name = "core", version.ref = "androidxTestCore" }
 androidx-test-ext-junit = { group = "androidx.test.ext", name = "junit", version.ref = "androidxTestExtJunit" }
+# Robolectric's hook model is built on JUnit4's @RunWith - this bridges those tests into the
+# JUnit5 Platform test task (`useJUnitPlatform()`) every module already uses, rather than adding a
+# second, separate test runner. androidx-test-ext-junit (already provisioned above) supplies the
+# JUnit4 @Test/@RunWith API transitively.
+junit-vintage-engine = { group = "org.junit.vintage", name = "junit-vintage-engine", version.ref = "junitJupiter" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
