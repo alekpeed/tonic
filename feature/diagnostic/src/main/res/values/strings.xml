@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Intro - docs/08-UI-SPEC.md §5: "Frame as calibration, not testing." -->
+    <string name="diagnostic_intro_title">Let\'s find your starting point.</string>
+    <string name="diagnostic_intro_body">A few short listening questions. No scores, no timers - just answer with what you hear.</string>
+    <string name="diagnostic_begin">Begin</string>
+
+    <!-- Per sub-test prompts. Plain language throughout - no music-theory terms. -->
+    <string name="diagnostic_prompt_pitch_direction">Was the second note higher or lower?</string>
+    <string name="diagnostic_prompt_same_different">Same, or different?</string>
+    <string name="diagnostic_prompt_tonal_memory">Did that repeat exactly, or was something different?</string>
+    <string name="diagnostic_prompt_amusia_screen">Did that sound right, or did something sound off?</string>
+
+    <!-- Answer button labels, shared by every sub-test that uses the same choice pair. -->
+    <string name="diagnostic_answer_higher">Higher</string>
+    <string name="diagnostic_answer_lower">Lower</string>
+    <string name="diagnostic_answer_same">Same</string>
+    <string name="diagnostic_answer_different">Different</string>
+    <string name="diagnostic_answer_sounded_right">Sounded right</string>
+    <string name="diagnostic_answer_something_off">Something was off</string>
+
+    <string name="diagnostic_replay">Replay</string>
+
+    <!-- Result - docs/08-UI-SPEC.md §5: "states where the user is starting and why in plain terms -
+         never a level, grade, percentile, or diagnosis." The remediation copy is neutral and
+         forward-looking with no implication of deficit - docs/02-PEDAGOGY.md §8. -->
+    <string name="diagnostic_result_proceed_title">You\'re ready to start.</string>
+    <string name="diagnostic_result_proceed_body">You\'ll begin hearing notes in the context of a key, and naming where they sit.</string>
+    <string name="diagnostic_result_fundamentals_title">Starting with the fundamentals.</string>
+    <string name="diagnostic_result_fundamentals_body">You\'ll build up from simple listening exercises, one step at a time.</string>
+    <string name="diagnostic_continue">Continue</string>
+</resources>

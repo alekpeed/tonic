@@ -9,6 +9,35 @@ plugins {
     alias(libs.plugins.kotlin.kapt)
     alias(libs.plugins.hilt.android)
     alias(libs.plugins.ktlint)
+    alias(libs.plugins.kover)
+}
+
+// Same shape as :feature:practice's Stage 7 setup: DiagnosticLoopEngine and DiagnosticViewModel are
+// plain, Android-framework-free logic exercised end to end by their own test suites.
+// DiagnosticScreen's composables and Hilt-generated boilerplate can't be meaningfully unit-tested on
+// the JVM without a real composition, so they're excluded the same way :core:ui/:feature:practice
+// exclude their own Compose packages.
+kover {
+    reports {
+        filters {
+            excludes {
+                classes(
+                    "com.tonic.feature.diagnostic.ModuleMarker",
+                    "com.tonic.feature.diagnostic.ui.ComposableSingletons\$DiagnosticScreenKt",
+                    "hilt_aggregated_deps.*",
+                    "*_HiltModules*",
+                    "*_Factory",
+                    "*_MembersInjector",
+                )
+                annotatedBy("androidx.compose.runtime.Composable")
+            }
+        }
+        verify {
+            rule {
+                minBound(85)
+            }
+        }
+    }
 }
 
 android {
@@ -73,6 +102,8 @@ dependencies {
     testImplementation(libs.turbine)
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)
+    testImplementation(libs.androidx.test.ext.junit)
+    testRuntimeOnly(libs.junit.vintage.engine)
 
     androidTestImplementation(platform(libs.compose.bom))
     androidTestImplementation(libs.compose.ui.test.junit4)

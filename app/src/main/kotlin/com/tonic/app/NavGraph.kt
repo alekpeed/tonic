@@ -10,6 +10,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.tonic.feature.diagnostic.ui.DiagnosticScreen
 import com.tonic.feature.practice.ui.PracticeScreen
 
 /**
@@ -46,7 +47,19 @@ sealed interface TonicRoute {
 fun TonicNavGraph(navController: NavHostController = rememberNavController()) {
     NavHost(navController = navController, startDestination = TonicRoute.Home.route) {
         composable(TonicRoute.Home.route) { PlaceholderScreen("Home") }
-        composable(TonicRoute.Diagnostic.route) { PlaceholderScreen("Diagnostic") }
+        composable(TonicRoute.Diagnostic.route) {
+            DiagnosticScreen(
+                onContinue = {
+                    // Both placement outcomes land on Home for now: M1 remediation's actual training
+                    // content is out of Phase 1 scope (CLAUDE.md §2), and Home itself is Stage 9, not
+                    // yet built - there is nowhere else to route either outcome to yet. Revisit once
+                    // both exist; this screen's own placement decision doesn't need to change.
+                    navController.navigate(TonicRoute.Home.route) {
+                        popUpTo(TonicRoute.Diagnostic.route) { inclusive = true }
+                    }
+                },
+            )
+        }
         composable(TonicRoute.Practice.route) { PracticeScreen() }
         composable(TonicRoute.Progress.route) { PlaceholderScreen("Progress") }
         composable(TonicRoute.Settings.route) { PlaceholderScreen("Settings") }

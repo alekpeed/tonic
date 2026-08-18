@@ -35,14 +35,38 @@ object SynthEngine {
         sampleRate: Int = PcmBuffer.DEFAULT_SAMPLE_RATE,
         seed: Long = 0L,
         a4Hz: Double = Tuning.DEFAULT_A4_HZ,
+    ): PcmBuffer = renderTone(Tuning.midiToHz(midi, a4Hz), timbre, durationMs, sampleRate, seed)
+
+    /**
+     * Same rendering pipeline as [renderNote], but by exact frequency rather than a quantized MIDI
+     * note - the M0 diagnostic's pitch-direction/same-different/tonal-memory tasks probe sub-semitone
+     * cent differences (docs/03-CURRICULUM.md §3), which [renderNote]'s integer `midi` can't express.
+     * [renderNote] is now a thin wrapper over this.
+     */
+    fun renderTone(
+        frequencyHz: Double,
+        timbre: TimbreId,
+        durationMs: Long,
+        sampleRate: Int = PcmBuffer.DEFAULT_SAMPLE_RATE,
+        seed: Long = 0L,
     ): PcmBuffer {
         val durationSamples = PcmBuffer.msToSamples(durationMs, sampleRate)
-        val freq = Tuning.midiToHz(midi, a4Hz)
-        val raw = TimbreBank.render(timbre, freq, durationSamples, sampleRate, seed)
+        val raw = TimbreBank.render(timbre, frequencyHz, durationSamples, sampleRate, seed)
         val envelope = ADSR_BY_TIMBRE.getValue(timbre).render(durationSamples, sampleRate)
         val enveloped = FloatArray(durationSamples) { raw[it] * envelope[it] }
         val normalized = Dsp.normalizeToRms(enveloped, TARGET_RMS)
         return PcmBuffer(Dsp.softLimit(normalized), sampleRate)
+    }
+
+    /**
+     * Concatenates whole rendered buffers in sequence - the M0 diagnostic's building block for playing
+     * several discrete tones/phrases back to back, since unlike [renderItem]'s `ReferencePlan`-driven
+     * shape there's no reference-plan structure to drive it. All buffers must share a sample rate.
+     */
+    fun concatBuffers(buffers: List<PcmBuffer>): PcmBuffer {
+        val sampleRate = buffers.first().sampleRate
+        require(buffers.all { it.sampleRate == sampleRate }) { "all buffers must share a sample rate" }
+        return PcmBuffer(concat(buffers.map { it.samples }), sampleRate)
     }
 
     /** One [ReferenceElement], as audio. [seed] only matters for elements whose voices are PLUCK. */
