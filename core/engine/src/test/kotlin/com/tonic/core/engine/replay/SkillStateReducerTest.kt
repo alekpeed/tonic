@@ -1,5 +1,6 @@
 package com.tonic.core.engine.replay
 
+import com.tonic.core.curriculum.graph.SkillGraph
 import com.tonic.core.model.attempts.Attempt
 import com.tonic.core.model.ids.SkillIds
 import com.tonic.core.model.items.DifficultyAxis
@@ -27,9 +28,11 @@ class SkillStateReducerTest {
         target: String = "1",
         isWarmup: Boolean = false,
         isAbandoned: Boolean = false,
+        isIndependenceCheckProbe: Boolean = false,
         axisLevels: Map<DifficultyAxis, Int> = emptyMap(),
+        skillId: com.tonic.core.model.ids.SkillId = skill,
     ) = Attempt(
-        skillId = skill,
+        skillId = skillId,
         sessionId = 1L,
         itemSeed = index.toLong(),
         axisLevels = axisLevels,
@@ -45,6 +48,7 @@ class SkillStateReducerTest {
         timestamp = Instant.EPOCH.plus(index.toLong(), ChronoUnit.SECONDS),
         isWarmup = isWarmup,
         isAbandoned = isAbandoned,
+        isIndependenceCheckProbe = isIndependenceCheckProbe,
     )
 
     @Test
@@ -138,5 +142,65 @@ class SkillStateReducerTest {
         val first = SkillStateReducer.replay(skill, attempts)
         val second = SkillStateReducer.replay(skill, attempts)
         assertEquals(first, second)
+    }
+
+    @Test
+    fun `a failed independence check's fade-axis reduction survives a rebuild over later ordinary review attempts`() {
+        // docs/09-BUILD-PLAN.md Stage 6: the check's failure consequence must be re-derivable from the
+        // attempt log on every rebuild, not a one-off write - otherwise a later ordinary (non-probe)
+        // attempt triggers a rebuild that replays the whole history from scratch and, since the fold
+        // freezes axisLevels at whatever they were AT mastery, silently recomputes the reduction away.
+        val node = SkillIds.M2_FULL_DIATONIC
+        val degrees = SkillGraph.activeDegreesFor(node).map { it.degree.toString() }
+        val random = Random(7)
+        val attempts = mutableListOf<Attempt>()
+        var index = 0
+        var mastered = false
+        while (!mastered && index < 2000) {
+            val correct = random.nextDouble() < 0.95
+            attempts += attempt(index, correct, target = degrees[index % degrees.size], skillId = node)
+            index++
+            if (SkillStateReducer.replay(node, attempts).masteryState == MasteryState.MASTERED) mastered = true
+        }
+        assertTrue(mastered, "expected M2_FULL_DIATONIC to reach mastery within 2000 attempts at 95% accuracy")
+
+        val cadenceBeforeCheck =
+            SkillStateReducer
+                .replay(node, attempts)
+                .axisLevels
+                .getValue(DifficultyAxis.CADENCE_FADE)
+
+        // 30 forced-L6 probes, mostly wrong - a clean fail (well under the 85% pass threshold).
+        repeat(30) { probeIndex ->
+            attempts +=
+                attempt(
+                    index,
+                    correct = probeIndex % 4 == 0,
+                    target = degrees[index % degrees.size],
+                    isIndependenceCheckProbe = true,
+                    axisLevels = mapOf(DifficultyAxis.CADENCE_FADE to 6),
+                    skillId = node,
+                )
+            index++
+        }
+        val stateRightAfterCheck = SkillStateReducer.replay(node, attempts)
+        assertEquals(
+            cadenceBeforeCheck - 1,
+            stateRightAfterCheck.axisLevels[DifficultyAxis.CADENCE_FADE],
+            "a failed check must lower the fade axis one step immediately",
+        )
+
+        // Post-check ordinary review-block attempts - exactly what would trigger a later rebuild in
+        // the real practice loop (persistAndAdapt calls rebuildFromAttempts on every non-probe attempt).
+        repeat(12) {
+            attempts += attempt(index, correct = true, target = degrees[index % degrees.size], skillId = node)
+            index++
+        }
+        val finalState = SkillStateReducer.replay(node, attempts)
+        assertEquals(
+            cadenceBeforeCheck - 1,
+            finalState.axisLevels[DifficultyAxis.CADENCE_FADE],
+            "the reduction must still hold after later ordinary attempts force a full rebuild",
+        )
     }
 }

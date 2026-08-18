@@ -38,4 +38,14 @@ data class Attempt(
     val isWarmup: Boolean = false,
     /** True if the item was abandoned (interruption, session kill) rather than genuinely answered or skipped. */
     val isAbandoned: Boolean = false,
+    /**
+     * True for one of the 30 forced-`CADENCE_FADE`-L6 probes that make up
+     * `M2.INDEPENDENCE_CHECK` (docs/03-CURRICULUM.md §5.6). Still recorded
+     * against the mastered node's [skillId] so the attempt log stays
+     * complete and replayable, but excluded from that node's ordinary
+     * mastery window and FSRS review-block accumulation — "a separate,
+     * non-blocking assessment," not a regular review, and not run at "the
+     * node's own mastered axis levels" FSRS reviews use.
+     */
+    val isIndependenceCheckProbe: Boolean = false,
 )

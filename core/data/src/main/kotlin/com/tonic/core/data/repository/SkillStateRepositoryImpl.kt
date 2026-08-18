@@ -32,9 +32,16 @@ internal class SkillStateRepositoryImpl
 
         override suspend fun rebuildFromAttempts() {
             for (raw in attemptDao.allSkillIds()) {
-                val skillId = SkillId(raw)
-                val attempts = attemptDao.allForSkill(raw).map { it.toDomain() }
-                skillStateDao.upsert(replayer.replay(skillId, attempts).toEntity())
+                rebuildOne(SkillId(raw))
             }
+        }
+
+        override suspend fun rebuildFromAttempts(skillId: SkillId) {
+            rebuildOne(skillId)
+        }
+
+        private suspend fun rebuildOne(skillId: SkillId) {
+            val attempts = attemptDao.allForSkill(skillId.raw).map { it.toDomain() }
+            skillStateDao.upsert(replayer.replay(skillId, attempts).toEntity())
         }
     }

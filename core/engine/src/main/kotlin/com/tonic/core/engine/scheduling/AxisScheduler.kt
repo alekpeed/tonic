@@ -55,8 +55,25 @@ object AxisScheduler {
         var result = activated.copy(levels = levels, staircases = staircases, recentCorrectness = recentCorrectness)
 
         val finalStaircase = staircases.getValue(axis)
-        val atMax = finalStaircase.level >= axis.maxLevel
-        if (finalStaircase.hasConverged || atMax) {
+        // "Reaching max level also freezes... even without 6 reversals" - but only to *reconfirm* a
+        // ceiling the axis was already sitting at, not to canonize the first trial that happens to land
+        // there. A sharp difficulty cliff right at the ceiling (e.g. CADENCE_FADE 6->7, where a learner
+        // dependent on the cadence crutch craters from ~92% to chance-level) makes that distinction
+        // matter for real: with stepSize=1, hopping from one level below max onto max needs only two
+        // *lucky* correct answers at whatever the second-to-last level's true accuracy is - a low
+        // per-attempt probability that a long practice history (hundreds of reactivations of the
+        // highest-priority axis) makes likely to happen eventually anyway, and once it does, the old
+        // "freeze on first arrival" rule locked it in forever with zero corroborating evidence, since a
+        // maxed axis is never reactivated by a maintenance pass. Requiring the level to have *already*
+        // been at max before this trial gives a freshly-arrived level one more genuine trial to reveal a
+        // cliff (a miss there reverses back down immediately, same as any other staircase step) before
+        // anything is locked in - confirmed directly by running a cadence-dependent learner through a
+        // long, realistic session end to end (the headless practice loop, docs/09-BUILD-PLAN.md Stage 6),
+        // which reproduced exactly this failure before this fix. A genuinely well-supported ascent (six
+        // real reversals) still freezes immediately via [StaircaseState.hasConverged], unaffected.
+        val wasAlreadyAtMax = currentStaircase.level >= axis.maxLevel
+        val reconfirmedAtMax = wasAlreadyAtMax && finalStaircase.level >= axis.maxLevel
+        if (finalStaircase.hasConverged || reconfirmedAtMax) {
             result = freezeAndAdvance(result, axis, finalStaircase)
         }
 

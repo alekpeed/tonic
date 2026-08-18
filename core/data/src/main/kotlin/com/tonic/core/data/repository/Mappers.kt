@@ -41,6 +41,7 @@ internal fun Attempt.toEntity(): AttemptEntity =
         timestamp = timestamp.toEpochMilli(),
         isWarmup = isWarmup,
         isAbandoned = isAbandoned,
+        isIndependenceCheckProbe = isIndependenceCheckProbe,
     )
 
 internal fun AttemptEntity.toDomain(): Attempt =
@@ -62,6 +63,7 @@ internal fun AttemptEntity.toDomain(): Attempt =
         timestamp = Instant.ofEpochMilli(timestamp),
         isWarmup = isWarmup,
         isAbandoned = isAbandoned,
+        isIndependenceCheckProbe = isIndependenceCheckProbe,
     )
 
 internal fun SkillState.toEntity(): SkillStateEntity =

@@ -29,6 +29,9 @@ The append-only event log. Everything else is derivable from this table; treat i
 | `timbreId` | String | |
 | `cadenceFadeLevel` | Int | Denormalized from axes for cheap querying — this is the axis that matters most |
 | `timestamp` | Long | Epoch millis, injected clock |
+| `isWarmup` | Boolean | Recorded but excluded from mastery evaluation and the staircase — `07-ADAPTIVE-ENGINE.md` §8 |
+| `isAbandoned` | Boolean | Interruption/session kill (incoming call, headphone unplug, backgrounded, rotated) discarded the item rather than scoring it — excluded from every adaptive computation |
+| `isIndependenceCheckProbe` | Boolean | One of the 30 forced-`CADENCE_FADE`-L6 `M2.INDEPENDENCE_CHECK` probes (`03-CURRICULUM.md` §5.6). Still folded into axis-level replay (a failed check lowers `CADENCE_FADE`, and that has to survive a rebuild the same way any other axis move does) but excluded from the ordinary mastery window and FSRS review-block accumulation |
 
 Indices: `(skillId, timestamp)`, `(sessionId)`, `(skillId, targetLabel, responseLabel)`.
 

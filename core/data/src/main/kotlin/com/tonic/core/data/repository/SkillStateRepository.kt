@@ -18,4 +18,12 @@ interface SkillStateRepository {
 
     /** Reconstructs every skill's state from scratch by replaying [AttemptRepository]'s full log. */
     suspend fun rebuildFromAttempts()
+
+    /**
+     * Reconstructs just [skillId]'s state from its own attempt history. The scoped equivalent of
+     * [rebuildFromAttempts] - the practice loop calls this after every real attempt (docs/09-BUILD-PLAN.md
+     * Stage 6), and re-replaying one skill's history is cheap at Phase 1's scale, but there is no reason
+     * to also recompute every *other* skill's state on each answer.
+     */
+    suspend fun rebuildFromAttempts(skillId: SkillId)
 }

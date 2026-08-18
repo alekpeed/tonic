@@ -76,7 +76,7 @@ Algorithm:
 if activeAxis == null:
     activeAxis = highest-priority axis not yet at max
 run staircase on activeAxis only
-if activeAxis staircase has converged (6 reversals) OR is at max:
+if activeAxis staircase has converged (6 reversals) OR reconfirms max on a trial after already having arrived there:
     freeze activeAxis at its converged level
     activeAxis = next axis by priority not yet frozen/maxed
     reset staircase state for the new activeAxis
@@ -85,6 +85,8 @@ if the user's accuracy drops below 60% over 15 items:
 ```
 
 The last rule is a safety valve. A user who is drowning must be rescued regardless of what the staircase thinks.
+
+**Arriving at max vs. reconfirming it:** the first trial that lands an axis on its max level does *not* freeze it — that would let two lucky correct answers on a sharp difficulty cliff (e.g. `CADENCE_FADE` 6→7, where a learner dependent on the cadence crutch craters from ~92% to chance-level) permanently lock the axis at a level with zero corroborating evidence, and a maxed axis is never revisited by the maintenance pass. The level needs to have already been sitting at max *before* the triggering trial — one more genuine trial to confirm it's sustainable — before freezing. A miss on that confirming trial steps back down immediately, same as any other staircase step. Six real reversals still freeze immediately regardless, unaffected by this rule.
 
 **Revisiting frozen axes:** after all axes are frozen, run a maintenance pass — the scheduler unfreezes the highest-priority non-max axis and resumes. Progression is a loop, not a single sweep.
 

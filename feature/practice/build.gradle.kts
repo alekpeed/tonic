@@ -9,6 +9,26 @@ plugins {
     alias(libs.plugins.kotlin.kapt)
     alias(libs.plugins.hilt.android)
     alias(libs.plugins.ktlint)
+    alias(libs.plugins.kover)
+}
+
+// Everything currently in this module (PracticeLoopEngine + its data classes) is plain,
+// Android-framework-free logic exercised end to end by PracticeLoopEngineTest - no thin device
+// wrapper to exclude yet, unlike :core:audio/:core:data. ModuleMarker is the one exception: a
+// content-free Stage 0 placeholder object, excluded the same way :core:data excludes pure DI wiring.
+kover {
+    reports {
+        filters {
+            excludes {
+                classes("com.tonic.feature.practice.ModuleMarker")
+            }
+        }
+        verify {
+            rule {
+                minBound(85)
+            }
+        }
+    }
 }
 
 android {
@@ -82,4 +102,8 @@ dependencies {
 tasks.withType<Test> {
     useJUnitPlatform()
     failOnNoDiscoveredTests = false
+    // PracticeLoopEngineTest drives full sessions (up to ~200 simulated minutes, thousands of items)
+    // through the real curriculum/engine reduction to prove replayability end to end - the default
+    // forked-JVM heap isn't enough headroom for that.
+    maxHeapSize = "2g"
 }

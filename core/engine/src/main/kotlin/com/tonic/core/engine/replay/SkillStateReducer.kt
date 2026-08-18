@@ -2,6 +2,7 @@ package com.tonic.core.engine.replay
 
 import com.tonic.core.curriculum.graph.SkillGraph
 import com.tonic.core.engine.fsrs.FsrsScheduler
+import com.tonic.core.engine.mastery.IndependenceCheck
 import com.tonic.core.engine.mastery.MasteryEvaluator
 import com.tonic.core.engine.scheduling.AxisScheduler
 import com.tonic.core.engine.scheduling.AxisSchedulerState
@@ -48,11 +49,22 @@ object SkillStateReducer : SkillStateReplayer {
         // Abandoned attempts never update any state - docs/07-ADAPTIVE-ENGINE.md §2's rule for the
         // staircase specifically, applied here to the whole reduction: an abandoned attempt was never
         // genuinely answered, so nothing it "shows" about the learner is real evidence.
-        val real = attempts.filterNot { it.isAbandoned }
+        val chronological = attempts.filterNot { it.isAbandoned }
+        // Independence-check probes are excluded from the *ordinary* mastery window and FSRS
+        // review-block accumulation - docs/03-CURRICULUM.md §5.6 calls M2.INDEPENDENCE_CHECK "a
+        // separate, non-blocking assessment," run at a forced CADENCE_FADE=6 rather than the node's
+        // normal mastered axis levels, so folding its 30 items in there would corrupt both with data
+        // that was never meant to represent them. They are NOT excluded from axis-level replay below:
+        // a failed check lowers CADENCE_FADE ("failure is not punitive: it lowers the fade axis" -
+        // docs/03-CURRICULUM.md §5.6), and that adjustment has to be re-derivable purely from the
+        // attempt log the same way every other axis move is, or a later ordinary review attempt
+        // (which calls this same replay from scratch) would recompute axisLevels without any memory
+        // of the check ever having failed and silently undo it.
+        val real = chronological.filterNot { it.isIndependenceCheckProbe }
         if (real.isEmpty()) return SkillState.initial(skillId)
 
         val totalAttempts = real.size
-        val updatedAt = real.last().timestamp
+        val updatedAt = chronological.last().timestamp
 
         if (skillId.moduleId != ModuleId.M2) {
             return SkillState(
@@ -75,8 +87,25 @@ object SkillStateReducer : SkillStateReplayer {
         var masteredAt: Instant? = null
         var fsrs = FsrsState(stability = 0.0, difficulty = 0.0, lastReview = null, due = null)
         var reviewBlock = mutableListOf<Attempt>()
+        var independenceCheckBlock = mutableListOf<Attempt>()
 
-        for (attempt in real) {
+        for (attempt in chronological) {
+            if (attempt.isIndependenceCheckProbe) {
+                // Only meaningful once mastered - the check can only run against a mastered node - but
+                // still walked chronologically rather than pre-filtered so a block only resolves once
+                // all REQUIRED_ITEMS of it have actually been seen in order.
+                if (masteryState != MasteryState.MASTERED) continue
+                independenceCheckBlock.add(attempt)
+                if (independenceCheckBlock.size >= IndependenceCheck.REQUIRED_ITEMS) {
+                    val result = IndependenceCheck.evaluate(independenceCheckBlock.toList())
+                    if (!result.passed) {
+                        axisState = axisState.copy(levels = IndependenceCheck.applyFailure(axisState.levels))
+                    }
+                    independenceCheckBlock = mutableListOf()
+                }
+                continue
+            }
+
             if (masteryState == MasteryState.MASTERED) {
                 // Post-mastery: every subsequent attempt is a review-block probe, not staircase input -
                 // "only mastered nodes are scheduled for review; nodes in progress are being practiced

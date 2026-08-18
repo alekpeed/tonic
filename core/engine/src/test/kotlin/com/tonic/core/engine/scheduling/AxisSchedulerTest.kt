@@ -59,6 +59,51 @@ class AxisSchedulerTest {
     }
 
     @Test
+    fun `arriving at max for the first time does not instantly freeze - only reconfirming it on a later trial does`() {
+        // Starts one level below max, with the reversal history already at the halved step size so a
+        // single pair of correct answers can hop straight onto max in one move - the exact shape of the
+        // real bug this guards against: a learner who is genuinely poor at the ceiling level can still
+        // get lucky twice in a row and land there.
+        val preArrival =
+            StaircaseState(level = DifficultyAxis.OCTAVE_DISPLACE.maxLevel - 1, reversals = listOf(0, 1), stepSize = 1)
+        var state =
+            AxisSchedulerState(
+                levels = mapOf(DifficultyAxis.OCTAVE_DISPLACE to DifficultyAxis.OCTAVE_DISPLACE.maxLevel - 1),
+                staircases = mapOf(DifficultyAxis.OCTAVE_DISPLACE to preArrival),
+                activeAxis = DifficultyAxis.OCTAVE_DISPLACE,
+            )
+
+        state = AxisScheduler.update(state, correct = true) // consecutiveCorrect = 1, no move yet
+        // consecutiveCorrect hits 2 -> moves onto max, arriving for the first time.
+        state = AxisScheduler.update(state, correct = true)
+        assertEquals(DifficultyAxis.OCTAVE_DISPLACE.maxLevel, state.levels.getValue(DifficultyAxis.OCTAVE_DISPLACE))
+        assertTrue(
+            DifficultyAxis.OCTAVE_DISPLACE !in state.frozen,
+            "a first-time arrival at max must not instantly freeze - it needs one more trial to confirm the level is genuinely sustainable",
+        )
+        assertEquals(
+            DifficultyAxis.OCTAVE_DISPLACE,
+            state.activeAxis,
+            "should still be the active axis, awaiting reconfirmation",
+        )
+
+        // A miss right here reveals a cliff, same as any other staircase step - not a freeze at a level
+        // the learner cannot actually sustain.
+        val afterMiss = AxisScheduler.update(state, correct = false)
+        assertTrue(
+            afterMiss.levels.getValue(DifficultyAxis.OCTAVE_DISPLACE) < DifficultyAxis.OCTAVE_DISPLACE.maxLevel,
+            "a miss right after arriving at max must step back down, not get locked in",
+        )
+
+        // But reconfirming (correct again, on a fresh copy of the post-arrival state) does freeze it.
+        val reconfirmed = AxisScheduler.update(state, correct = true)
+        assertTrue(
+            DifficultyAxis.OCTAVE_DISPLACE in reconfirmed.frozen,
+            "reconfirming max on a later trial should freeze it",
+        )
+    }
+
+    @Test
     fun `safety valve steps the active axis down 2 and clears reversal history below 60 percent over 15 items`() {
         // Constructed directly rather than driven through 14 real update() calls: 14 straight incorrect
         // answers would bottom the staircase out at the axis floor via its own 1-down-per-miss mechanics

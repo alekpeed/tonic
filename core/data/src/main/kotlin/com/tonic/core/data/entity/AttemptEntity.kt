@@ -37,4 +37,5 @@ internal data class AttemptEntity(
     val timestamp: Long,
     val isWarmup: Boolean,
     val isAbandoned: Boolean,
+    val isIndependenceCheckProbe: Boolean,
 )

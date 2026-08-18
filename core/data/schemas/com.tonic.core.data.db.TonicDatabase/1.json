@@ -2,11 +2,11 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "a179aef60c0dea126521346cf3fa4576",
+    "identityHash": "ed2d8e0adebf6e77276db0aabc734386",
     "entities": [
       {
         "tableName": "attempts",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `skillId` TEXT NOT NULL, `sessionId` INTEGER NOT NULL, `itemSeed` INTEGER NOT NULL, `axisLevelsJson` TEXT NOT NULL, `targetLabel` TEXT NOT NULL, `responseLabel` TEXT, `correct` INTEGER NOT NULL, `latencyMs` INTEGER NOT NULL, `replayCount` INTEGER NOT NULL, `keyPitchClass` INTEGER NOT NULL, `targetMidi` INTEGER NOT NULL, `timbreId` TEXT NOT NULL, `cadenceFadeLevel` INTEGER NOT NULL, `timestamp` INTEGER NOT NULL, `isWarmup` INTEGER NOT NULL, `isAbandoned` INTEGER NOT NULL)",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `skillId` TEXT NOT NULL, `sessionId` INTEGER NOT NULL, `itemSeed` INTEGER NOT NULL, `axisLevelsJson` TEXT NOT NULL, `targetLabel` TEXT NOT NULL, `responseLabel` TEXT, `correct` INTEGER NOT NULL, `latencyMs` INTEGER NOT NULL, `replayCount` INTEGER NOT NULL, `keyPitchClass` INTEGER NOT NULL, `targetMidi` INTEGER NOT NULL, `timbreId` TEXT NOT NULL, `cadenceFadeLevel` INTEGER NOT NULL, `timestamp` INTEGER NOT NULL, `isWarmup` INTEGER NOT NULL, `isAbandoned` INTEGER NOT NULL, `isIndependenceCheckProbe` INTEGER NOT NULL)",
         "fields": [
           {
             "fieldPath": "id",
@@ -106,6 +106,12 @@
           {
             "fieldPath": "isAbandoned",
             "columnName": "isAbandoned",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isIndependenceCheckProbe",
+            "columnName": "isIndependenceCheckProbe",
             "affinity": "INTEGER",
             "notNull": true
           }
@@ -392,7 +398,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'a179aef60c0dea126521346cf3fa4576')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'ed2d8e0adebf6e77276db0aabc734386')"
     ]
   }
 }
