@@ -1,0 +1,210 @@
+package com.tonic.feature.practice.ui
+
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.tonic.core.model.ids.SkillIds
+import com.tonic.core.model.items.Item
+import com.tonic.core.model.state.AppSettings
+import com.tonic.core.model.state.LabelStyle
+import com.tonic.core.model.state.MasteryState
+import com.tonic.core.model.state.SkillState
+import com.tonic.core.model.time.Clock
+import com.tonic.feature.practice.engine.FakeAttemptRepository
+import com.tonic.feature.practice.engine.FakeAudioPlayer
+import com.tonic.feature.practice.engine.FakeConfusionRepository
+import com.tonic.feature.practice.engine.FakeSessionRepository
+import com.tonic.feature.practice.engine.FakeSkillStateRepository
+import com.tonic.feature.practice.engine.PracticeLoopEngine
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.withTimeout
+import org.junit.After
+import org.junit.Before
+import org.junit.Test
+import org.junit.runner.RunWith
+import java.time.Instant
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
+
+/**
+ * docs/09-BUILD-PLAN.md Stage 7: the ViewModel is thin by design (docs/04-ARCHITECTURE.md §3, "no
+ * pedagogical logic") - these tests cover the two things that genuinely live here: resolving which
+ * node to practice (docs/08-UI-SPEC.md §2's Home screen doesn't exist yet, see [PracticeViewModel]'s
+ * KDoc), and the docs/08-UI-SPEC.md §3/§4 feedback-and-pacing sequencing around the headless engine
+ * proven correct in Stage 6. Runs under Robolectric (docs/10-TESTING.md's established pattern for
+ * anything that touches `Dispatchers.Main`, since `viewModelScope` needs a real `Looper` to
+ * initialize against - a plain JVM unit test's unmocked `android.os.Looper` throws). Main is set to a
+ * REAL dispatcher rather than a virtual-time `TestDispatcher`: [PracticeLoopEngine]'s own pre-rendering
+ * genuinely runs on `Dispatchers.Default` (Stage 6, by design), so a virtual-time scheduler on Main
+ * alone can't reliably wait for that cross-dispatcher work - real time plus [Fixture.awaitItemChangeFrom]
+ * (below) is simpler and matches Stage 6's own `runBlocking`-based tests.
+ */
+@RunWith(AndroidJUnit4::class)
+class PracticeViewModelTest {
+    @Before
+    fun setUp() {
+        Dispatchers.setMain(Dispatchers.Default)
+    }
+
+    @After
+    fun tearDown() {
+        Dispatchers.resetMain()
+    }
+
+    private class Fixture(
+        settings: AppSettings = AppSettings(),
+    ) {
+        val attemptRepository = FakeAttemptRepository()
+        val skillStateRepository = FakeSkillStateRepository(attemptRepository)
+        val confusionRepository = FakeConfusionRepository()
+        val sessionRepository = FakeSessionRepository()
+        val audioPlayer = FakeAudioPlayer()
+        val settingsRepository = FakeSettingsRepository(settings)
+        val clock = Clock { Instant.EPOCH }
+        val engine =
+            PracticeLoopEngine(
+                attemptRepository,
+                skillStateRepository,
+                confusionRepository,
+                sessionRepository,
+                audioPlayer,
+                clock,
+            )
+        val viewModel = PracticeViewModel(engine, skillStateRepository, settingsRepository, clock)
+
+        /** Waits for input to actually be accepted, not just for an item to exist - matching how the real ladder gates input on [PracticeUiState.inputEnabled]. */
+        suspend fun startAndAwaitFirstItem(): Item.FunctionalRecognitionItem {
+            viewModel.startIfNeeded()
+            return withTimeout(TIMEOUT_MS) {
+                viewModel.uiState.first { it.item != null && it.inputEnabled }.item!!
+            }
+        }
+
+        suspend fun awaitItemChangeFrom(previous: Item.FunctionalRecognitionItem) {
+            withTimeout(TIMEOUT_MS) { viewModel.uiState.first { it.item != null && it.item != previous } }
+        }
+
+        companion object {
+            const val TIMEOUT_MS = 5_000L
+        }
+    }
+
+    @Test
+    fun `startIfNeeded resolves the first non-mastered M2 node and populates the first item`() =
+        runBlocking {
+            val fixture = Fixture()
+            val item = fixture.startAndAwaitFirstItem()
+
+            assertFalse(fixture.viewModel.uiState.value.isLoading)
+            assertEquals(SkillIds.M2_DEG_SET_1, item.skill)
+        }
+
+    @Test
+    fun `startIfNeeded is idempotent - calling it twice does not start a second session`() =
+        runBlocking {
+            val fixture = Fixture()
+            val firstItem = fixture.startAndAwaitFirstItem()
+
+            fixture.viewModel.startIfNeeded()
+            // No new session means no second "item changed" event to await - a short real wait is the
+            // simplest way to assert the negative (nothing happened) without a matching event to key off.
+            delay(200)
+
+            assertEquals(firstItem, fixture.viewModel.uiState.value.item)
+        }
+
+    @Test
+    fun `startIfNeeded skips an already-mastered node and resolves its successor`() =
+        runBlocking {
+            val fixture = Fixture()
+            fixture.skillStateRepository.update(
+                SkillState.initial(SkillIds.M2_DEG_SET_1).copy(masteryState = MasteryState.MASTERED),
+            )
+
+            val item = fixture.startAndAwaitFirstItem()
+
+            assertEquals(SkillIds.M2_DEG_SET_2, item.skill)
+        }
+
+    @Test
+    fun `the label style in uiState reflects settings`() =
+        runBlocking {
+            val fixture = Fixture(AppSettings(labelStyle = LabelStyle.SOLFEGE))
+            fixture.startAndAwaitFirstItem()
+
+            assertEquals(LabelStyle.SOLFEGE, fixture.viewModel.uiState.value.labelStyle)
+        }
+
+    @Test
+    fun `selecting the correct degree eventually advances to a new item`() =
+        runBlocking {
+            val fixture = Fixture()
+            val item = fixture.startAndAwaitFirstItem()
+
+            fixture.viewModel.onDegreeSelected(item.targetDegree)
+            fixture.awaitItemChangeFrom(item)
+
+            assertEquals(1, fixture.attemptRepository.all.size)
+            assertTrue(
+                fixture.attemptRepository.all
+                    .single()
+                    .correct,
+            )
+        }
+
+    @Test
+    fun `selecting an incorrect degree plays the contrast sequence before advancing`() =
+        runBlocking {
+            val fixture = Fixture()
+            val item = fixture.startAndAwaitFirstItem()
+            val wrongDegree = item.activeDegrees.first { it != item.targetDegree }
+            val buffersBefore = fixture.audioPlayer.playedBuffers.size
+
+            fixture.viewModel.onDegreeSelected(wrongDegree)
+            fixture.awaitItemChangeFrom(item)
+
+            assertEquals(1, fixture.attemptRepository.all.size)
+            assertFalse(
+                fixture.attemptRepository.all
+                    .single()
+                    .correct,
+            )
+            // target-in-context + chosen note + target again, then the next item's own auto-play.
+            assertTrue(fixture.audioPlayer.playedBuffers.size >= buffersBefore + 4)
+        }
+
+    @Test
+    fun `skip abandons the current item without recording a response`() =
+        runBlocking {
+            val fixture = Fixture()
+            val item = fixture.startAndAwaitFirstItem()
+
+            fixture.viewModel.onSkip()
+            fixture.awaitItemChangeFrom(item)
+
+            val recorded = fixture.attemptRepository.all.single()
+            assertTrue(recorded.isAbandoned)
+            assertEquals(null, recorded.responseLabel)
+        }
+
+    @Test
+    fun `replay plays the current item again without advancing or recording an attempt`() =
+        runBlocking {
+            val fixture = Fixture()
+            val item = fixture.startAndAwaitFirstItem()
+            val buffersBefore = fixture.audioPlayer.playedBuffers.size
+
+            fixture.viewModel.onReplay()
+            withTimeout(Fixture.TIMEOUT_MS) {
+                while (fixture.audioPlayer.playedBuffers.size == buffersBefore) delay(10)
+            }
+
+            assertEquals(buffersBefore + 1, fixture.audioPlayer.playedBuffers.size)
+            assertTrue(fixture.attemptRepository.all.isEmpty())
+            assertEquals(item, fixture.viewModel.uiState.value.item)
+        }
+}

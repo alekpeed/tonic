@@ -10,6 +10,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.tonic.feature.practice.ui.PracticeScreen
 
 /**
  * Routes for the four top-level destinations. Real screens are wired in as
@@ -46,7 +47,7 @@ fun TonicNavGraph(navController: NavHostController = rememberNavController()) {
     NavHost(navController = navController, startDestination = TonicRoute.Home.route) {
         composable(TonicRoute.Home.route) { PlaceholderScreen("Home") }
         composable(TonicRoute.Diagnostic.route) { PlaceholderScreen("Diagnostic") }
-        composable(TonicRoute.Practice.route) { PlaceholderScreen("Practice") }
+        composable(TonicRoute.Practice.route) { PracticeScreen() }
         composable(TonicRoute.Progress.route) { PlaceholderScreen("Progress") }
         composable(TonicRoute.Settings.route) { PlaceholderScreen("Settings") }
     }

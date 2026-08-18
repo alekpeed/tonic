@@ -110,10 +110,19 @@ class PracticeLoopEngine
             advance()
         }
 
-        /** Records [responseLabel] against the currently pending item, adapts state, and advances. */
+        /**
+         * Records [responseLabel] against the currently pending item, adapts state, and — unless
+         * [autoAdvance] is false — advances immediately. A caller with its own feedback timing to run
+         * first (docs/08-UI-SPEC.md §3: on an incorrect answer, a visual flash and then the
+         * [playIncorrectContrast] audio sequence must complete *before* the next item appears) passes
+         * `autoAdvance = false`, does that work, then calls [proceedToNextItem] itself. [pending] stays
+         * valid the whole time — only [advance] clears it — so [playIncorrectContrast] can still reach
+         * the item that was just answered.
+         */
         suspend fun submitAnswer(
             responseLabel: String,
             latencyMs: Long = 0,
+            autoAdvance: Boolean = true,
         ) {
             val current = pending ?: return
             val correctLabel =
@@ -124,15 +133,60 @@ class PracticeLoopEngine
             persistAndAdapt(attempt)
             itemsCompleted++
             _state.update { it.copy(lastFeedback = AnswerFeedback(correct, correctLabel)) }
-            advance()
+            if (autoAdvance) advance()
         }
 
-        /** Replays the current item's already-rendered audio. Unlimited and unpenalized — docs/08-UI-SPEC.md §? / docs/02-PEDAGOGY.md. */
+        /** Replays the current item's already-rendered audio. Unlimited and unpenalized — docs/08-UI-SPEC.md §4. */
         suspend fun replay() {
             val current = pending ?: return
             replayCountForCurrent++
             audioPlayer.play(current.buffer)
         }
+
+        /**
+         * docs/02-PEDAGOGY.md §6: "On an incorrect answer, the app replays the target note in its tonal
+         * context, then plays the note the learner chose, then the target again. Discrimination is
+         * trained by contrast, not by being told a label." Deliberately bypasses [replay] rather than
+         * calling it: this is a system-triggered corrective playback, not the user pulling the replay
+         * button, so it must not inflate [Attempt.replayCount] — that field means "how many times the
+         * user asked to hear it again," and conflating the two would corrupt that diagnostic signal.
+         * Must be called with [responseLabel] still [pending] (i.e. after `submitAnswer(autoAdvance =
+         * false)`, before [proceedToNextItem]) — a no-op otherwise.
+         */
+        suspend fun playIncorrectContrast(responseLabel: String) {
+            val current = pending ?: return
+            val item = current.item
+            audioPlayer.play(current.buffer).awaitCompletion()
+
+            val chosenDegree =
+                requireNotNull(item.activeDegrees.firstOrNull { it.degree.toString() == responseLabel }) {
+                    "responseLabel '$responseLabel' is not one of this item's active degrees"
+                }
+            val chosenMidi =
+                item.targetMidi - item.targetDegree.semitoneOffset(item.mode) + chosenDegree.semitoneOffset(item.mode)
+            audioPlayer
+                .play(
+                    SynthEngine.renderNote(
+                        chosenMidi,
+                        item.timbre,
+                        item.timing.targetDurationMs,
+                        seed = item.seed + CONTRAST_CHOSEN_NOTE_SEED_OFFSET,
+                    ),
+                ).awaitCompletion()
+
+            audioPlayer
+                .play(
+                    SynthEngine.renderNote(
+                        item.targetMidi,
+                        item.timbre,
+                        item.timing.targetDurationMs,
+                        seed = item.seed + CONTRAST_TARGET_REPEAT_SEED_OFFSET,
+                    ),
+                ).awaitCompletion()
+        }
+
+        /** Exposes [advance] for a caller that answered with `submitAnswer(autoAdvance = false)`. */
+        suspend fun proceedToNextItem() = advance()
 
         /**
          * Discards the current item rather than scoring it - docs/09-BUILD-PLAN.md Stage 6: "incoming
@@ -368,5 +422,10 @@ class PracticeLoopEngine
 
         companion object {
             private const val INDEPENDENCE_CHECK_CADENCE_LEVEL = 6
+
+            // Distinct from renderItemAudio's own `seed + 999_999L` target offset so a contrast-sequence
+            // render never collides with the item's original rendering.
+            private const val CONTRAST_CHOSEN_NOTE_SEED_OFFSET = 5_000_001L
+            private const val CONTRAST_TARGET_REPEAT_SEED_OFFSET = 5_000_002L
         }
     }

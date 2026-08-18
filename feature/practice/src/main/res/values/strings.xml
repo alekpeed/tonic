@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- docs/08-UI-SPEC.md §7: "Session completion acknowledgment: brief, factual." No fanfare. -->
+    <string name="practice_session_complete">Session complete.</string>
+    <string name="practice_replay">Replay</string>
+    <string name="practice_skip">Skip</string>
+</resources>

@@ -266,6 +266,72 @@ class PracticeLoopEngineTest {
         }
 
     @Test
+    fun `submitAnswer with autoAdvance=false does not advance until proceedToNextItem is called`() =
+        runBlocking {
+            val fixture = Fixture()
+            fixture.engine.start(
+                freshNode(),
+                dueReviews = emptyList(),
+                sessionLengthMinutes = 5,
+                rootSeed = 1L,
+                now = Instant.EPOCH,
+            )
+            val item = fixture.engine.state.value.currentItem!!
+            val wrongLabel =
+                item.activeDegrees
+                    .first { it != item.targetDegree }
+                    .degree
+                    .toString()
+
+            fixture.engine.submitAnswer(wrongLabel, autoAdvance = false)
+
+            assertEquals(1, fixture.attemptRepository.all.size, "the attempt is still recorded immediately")
+            assertEquals(item, fixture.engine.state.value.currentItem, "must not have advanced past the answered item")
+
+            fixture.engine.proceedToNextItem()
+            assertTrue(
+                fixture.engine.state.value.currentItem != item || fixture.engine.state.value.isFinished,
+                "proceedToNextItem should now advance",
+            )
+        }
+
+    @Test
+    fun `playIncorrectContrast plays target-in-context, chosen note, then target again - not via replayCount`() =
+        runBlocking {
+            val fixture = Fixture()
+            fixture.engine.start(
+                freshNode(),
+                dueReviews = emptyList(),
+                sessionLengthMinutes = 5,
+                rootSeed = 1L,
+                now = Instant.EPOCH,
+            )
+            val item = fixture.engine.state.value.currentItem!!
+            val wrongDegree = item.activeDegrees.first { it != item.targetDegree }
+            val wrongLabel = wrongDegree.degree.toString()
+
+            fixture.engine.submitAnswer(wrongLabel, autoAdvance = false)
+            val buffersBefore = fixture.audioPlayer.playedBuffers.size
+            fixture.engine.playIncorrectContrast(wrongLabel)
+
+            assertEquals(
+                buffersBefore + 3,
+                fixture.audioPlayer.playedBuffers.size,
+                "target-in-context, chosen note, target again - three plays",
+            )
+            assertEquals(
+                0,
+                fixture.attemptRepository.all
+                    .single()
+                    .replayCount,
+                "a system-triggered contrast replay must not be counted as a user replay",
+            )
+
+            fixture.engine.proceedToNextItem()
+            assertTrue(fixture.engine.state.value.currentItem != item)
+        }
+
+    @Test
     fun `mastering a node unlocks its successor, seeded from its axis levels with cadence fade reduced one step`() =
         runBlocking {
             val fixture = Fixture()

@@ -7,6 +7,27 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ktlint)
+    alias(libs.plugins.kover)
+}
+
+// Composables can't be meaningfully unit-tested on the JVM without a real composition (Robolectric +
+// ComposeTestRule) - out of scope for this module the same way :core:audio excludes its
+// device-dependent wrappers. `labels/` is plain, non-Compose logic and is held to the same bar as
+// :core:model since it's exactly that kind of pure mapping.
+kover {
+    reports {
+        filters {
+            excludes {
+                packages("com.tonic.core.ui.theme", "com.tonic.core.ui.ladder", "com.tonic.core.ui.components")
+                classes("com.tonic.core.ui.ModuleMarker")
+            }
+        }
+        verify {
+            rule {
+                minBound(90)
+            }
+        }
+    }
 }
 
 android {

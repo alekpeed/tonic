@@ -12,15 +12,27 @@ plugins {
     alias(libs.plugins.kover)
 }
 
-// Everything currently in this module (PracticeLoopEngine + its data classes) is plain,
-// Android-framework-free logic exercised end to end by PracticeLoopEngineTest - no thin device
-// wrapper to exclude yet, unlike :core:audio/:core:data. ModuleMarker is the one exception: a
-// content-free Stage 0 placeholder object, excluded the same way :core:data excludes pure DI wiring.
+// PracticeLoopEngine + its data classes are plain, Android-framework-free logic exercised end to end
+// by PracticeLoopEngineTest. PracticeViewModel is exercised the same way by PracticeViewModelTest
+// (Robolectric, since it touches Dispatchers.Main). PracticeScreen's composables and PreviewStates
+// can't be meaningfully unit-tested on the JVM without a real composition - same exclusion :core:ui
+// applies to its own Compose packages. ModuleMarker is a content-free Stage 0 placeholder, excluded
+// the same way :core:data excludes pure DI wiring.
 kover {
     reports {
         filters {
             excludes {
-                classes("com.tonic.feature.practice.ModuleMarker")
+                classes(
+                    "com.tonic.feature.practice.ModuleMarker",
+                    "com.tonic.feature.practice.ui.PreviewStates",
+                    "com.tonic.feature.practice.ui.ComposableSingletons\$PracticeScreenKt",
+                    // Hilt-generated boilerplate - same pattern :core:data excludes, docs/09-BUILD-PLAN.md Stage 5.
+                    "hilt_aggregated_deps.*",
+                    "*_HiltModules*",
+                    "*_Factory",
+                    "*_MembersInjector",
+                )
+                annotatedBy("androidx.compose.runtime.Composable")
             }
         }
         verify {
@@ -93,6 +105,8 @@ dependencies {
     testImplementation(libs.turbine)
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)
+    testImplementation(libs.androidx.test.ext.junit)
+    testRuntimeOnly(libs.junit.vintage.engine)
 
     androidTestImplementation(platform(libs.compose.bom))
     androidTestImplementation(libs.compose.ui.test.junit4)
