@@ -8,6 +8,19 @@ plugins {
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ktlint)
+    alias(libs.plugins.kover)
+}
+
+// docs/01-PRODUCT-SPEC.md §5 success criterion 8 / docs/09-BUILD-PLAN.md
+// Stage 1: >=90% line coverage on this module, enforced, not just measured.
+kover {
+    reports {
+        verify {
+            rule {
+                minBound(90)
+            }
+        }
+    }
 }
 
 kotlin {
