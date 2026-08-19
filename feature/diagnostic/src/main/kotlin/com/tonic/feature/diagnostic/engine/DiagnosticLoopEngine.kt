@@ -314,7 +314,14 @@ class DiagnosticLoopEngine
             const val TONAL_MEMORY_ALTERATION_CENTS = 50.0
             const val TONAL_MEMORY_MIN_LENGTH = 2
             const val TONAL_MEMORY_MAX_LENGTH = 8
-            const val TONAL_MEMORY_MAX_ITEMS = 16
+
+            // Trimmed from 16 after measuring the real thing against 01-PRODUCT-SPEC.md §5's
+            // under-6-minute target (docs/11-ONBOARDING-CLARITY.md §9.2 requires that measurement, not an
+            // estimate). This sub-test dominated the budget: 97-109s of a ~205s total for an accurate
+            // responder, because each item is a sequence *plus* its replay and a strong responder climbs
+            // to the longest sequences. The other three sub-tests' counts are fixed by
+            // docs/03-CURRICULUM.md §3 or needed whole for d-prime, so this was the one honest knob.
+            const val TONAL_MEMORY_MAX_ITEMS = 12
             val TONAL_MEMORY_BOUNDS = TONAL_MEMORY_MIN_LENGTH..TONAL_MEMORY_MAX_LENGTH
 
             const val AMUSIA_INTACT_COUNT = 8

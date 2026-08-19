@@ -22,7 +22,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.tonic.core.ui.components.BinaryChoiceButtons
-import com.tonic.core.ui.components.MinimalProgressIndicator
 import com.tonic.core.ui.components.PlaybackPhase
 import com.tonic.core.ui.components.PlaybackPhaseIndicator
 import com.tonic.core.ui.theme.TonicSpacing
@@ -86,9 +85,11 @@ private fun RunningState(
     Column(
         modifier = Modifier.fillMaxSize().padding(TonicSpacing.md),
     ) {
-        MinimalProgressIndicator(itemsCompleted = uiState.subTestIndex, itemsPlanned = uiState.totalSubTests)
-        Spacer(modifier = Modifier.height(TonicSpacing.sm))
-
+        // No progress *bar* here, deliberately - docs/11-ONBOARDING-CLARITY.md §9.2: each sub-test's
+        // length is adaptive and genuinely unknown in advance, so a continuous fill implies a precision
+        // the app does not have, and "an indicator that moves when it wants to is worse than no
+        // indicator, because it actively misleads." The honest signal is the sub-test counter below:
+        // how many of the four named sections are done, and which one this is.
         // Which of the 4 sections this is, and what it's called - shown for the whole section, not
         // just once at the diagnostic's own intro screen.
         if (subTest != null) {
