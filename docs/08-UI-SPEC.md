@@ -26,7 +26,7 @@ The user is listening, not reading. The screen's job is to stay out of the way.
 | Practice | `practice` | The core loop |
 | Session summary | `summary/{sessionId}` | What happened, what's next |
 | Progress | `progress` | Mastery map, per-degree accuracy, confusion view |
-| Settings | `settings` | Label style, tuning, session length, theme, reminder opt-in |
+| Settings | `settings` | Label style, tuning, session length, theme, reminder opt-in, discard saved session (clears only the resumable session — never placement or skill progress) |
 
 No bottom navigation bar with four tabs. Home is the hub; Progress and Settings are reachable from it. The app has one job and the navigation should reflect that.
 

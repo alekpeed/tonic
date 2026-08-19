@@ -59,6 +59,13 @@ class FakeSessionRepository : SessionRepository {
             existing.copy(completedItemCount = completedItemCount, endedAt = endedAt, resumeState = null)
     }
 
+    override suspend fun discardResumable(now: java.time.Instant): Boolean {
+        val resumable = findResumable() ?: return false
+        val id = resumable.id ?: return false
+        complete(id, resumable.completedItemCount, now)
+        return true
+    }
+
     override suspend fun findResumable(): Session? =
         sessions.values.firstOrNull { it.endedAt == null && it.resumeState != null }
 

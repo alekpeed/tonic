@@ -14,6 +14,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -44,6 +45,8 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
             onThemeModeChanged = viewModel::onThemeModeChanged,
             onReduceMotionChanged = viewModel::onReduceMotionChanged,
             onDailyReminderChanged = viewModel::onDailyReminderChanged,
+            discardResult = uiState.discardResult,
+            onDiscardSavedSession = viewModel::onDiscardSavedSession,
         )
     }
 }
@@ -59,6 +62,8 @@ private fun SettingsContent(
     onThemeModeChanged: (ThemeMode) -> Unit,
     onReduceMotionChanged: (Boolean) -> Unit,
     onDailyReminderChanged: (Boolean, String?) -> Unit,
+    discardResult: DiscardResult? = null,
+    onDiscardSavedSession: () -> Unit = {},
 ) {
     LazyColumn(modifier = Modifier.fillMaxSize().padding(TonicSpacing.md)) {
         item {
@@ -151,6 +156,37 @@ private fun SettingsContent(
                 onDailyReminderChanged = onDailyReminderChanged,
             )
         }
+
+        item {
+            SettingsSection(stringResource(R.string.settings_saved_session_heading)) {
+                Text(
+                    text = stringResource(R.string.settings_discard_session_body),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Spacer(modifier = Modifier.height(TonicSpacing.sm))
+                TextButton(
+                    onClick = onDiscardSavedSession,
+                    modifier = Modifier.testTag("settings_discard_session"),
+                ) {
+                    Text(stringResource(R.string.settings_discard_session))
+                }
+                // §2a: the press visibly did something, whichever way it went.
+                discardResult?.let { result ->
+                    Text(
+                        text =
+                            stringResource(
+                                when (result) {
+                                    DiscardResult.DISCARDED -> R.string.settings_discard_session_done
+                                    DiscardResult.NOTHING_SAVED -> R.string.settings_discard_session_none
+                                },
+                            ),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.testTag("settings_discard_result"),
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -223,6 +259,8 @@ private fun DailyReminderSection(
     enabled: Boolean,
     time: String?,
     onDailyReminderChanged: (Boolean, String?) -> Unit,
+    discardResult: DiscardResult? = null,
+    onDiscardSavedSession: () -> Unit = {},
 ) {
     val defaultTime = stringResource(R.string.settings_daily_reminder_time_morning)
     SettingsSection(stringResource(R.string.settings_daily_reminder_heading)) {

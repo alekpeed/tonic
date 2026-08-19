@@ -26,4 +26,12 @@
     <string name="settings_daily_reminder_time_morning">08:00</string>
     <string name="settings_daily_reminder_time_afternoon">14:00</string>
     <string name="settings_daily_reminder_time_evening">20:00</string>
+
+    <!-- Saved-session escape hatch. Copy is factual and reassuring about what is NOT touched -
+         docs/08-UI-SPEC.md §2a (visible confirmation) and §7 (no loss framing). -->
+    <string name="settings_saved_session_heading">Saved session</string>
+    <string name="settings_discard_session">Discard saved session</string>
+    <string name="settings_discard_session_body">If a saved practice session keeps bringing back a problem, discard it here. Your calibration and skill progress are kept — only the unfinished session goes.</string>
+    <string name="settings_discard_session_done">Saved session discarded. Your progress is untouched.</string>
+    <string name="settings_discard_session_none">No saved session to discard.</string>
 </resources>

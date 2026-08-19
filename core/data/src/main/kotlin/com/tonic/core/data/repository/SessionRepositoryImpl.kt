@@ -44,6 +44,15 @@ internal class SessionRepositoryImpl
             )
         }
 
+        override suspend fun discardResumable(now: Instant): Boolean {
+            val resumable = findResumable() ?: return false
+            val id = resumable.id ?: return false
+            // Same operation as declining a resume offer: complete() clears resumeStateJson and stamps
+            // the end. The attempts recorded before the interruption stay exactly as they were.
+            complete(id, resumable.completedItemCount, now)
+            return true
+        }
+
         override suspend fun complete(
             sessionId: Long,
             completedItemCount: Int,

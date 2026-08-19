@@ -2,9 +2,11 @@ package com.tonic.feature.settings.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.tonic.core.data.repository.SessionRepository
 import com.tonic.core.data.settings.SettingsRepository
 import com.tonic.core.model.state.LabelStyle
 import com.tonic.core.model.state.ThemeMode
+import com.tonic.core.model.time.Clock
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -29,6 +31,8 @@ class SettingsViewModel
     @Inject
     constructor(
         private val settingsRepository: SettingsRepository,
+        private val sessionRepository: SessionRepository,
+        private val clock: Clock,
     ) : ViewModel() {
         private val _uiState = MutableStateFlow(SettingsUiState())
         val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
@@ -37,6 +41,21 @@ class SettingsViewModel
             viewModelScope.launch {
                 settingsRepository.settings.collect { settings ->
                     _uiState.update { it.copy(settings = settings, isLoading = false) }
+                }
+            }
+        }
+
+        /**
+         * Clears the in-progress/resumable session and nothing else - see
+         * [SessionRepository.discardResumable] for exactly what is (and is not) touched. The escape
+         * hatch for a session saved under a since-fixed bug: without it, the resume offer keeps
+         * restoring the broken state across an update.
+         */
+        fun onDiscardSavedSession() {
+            viewModelScope.launch {
+                val discarded = sessionRepository.discardResumable(clock.now())
+                _uiState.update {
+                    it.copy(discardResult = if (discarded) DiscardResult.DISCARDED else DiscardResult.NOTHING_SAVED)
                 }
             }
         }

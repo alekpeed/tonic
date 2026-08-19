@@ -3,6 +3,7 @@ package com.tonic.feature.settings.ui
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.tonic.core.model.state.LabelStyle
 import com.tonic.core.model.state.ThemeMode
+import com.tonic.core.model.time.Clock
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -12,6 +13,7 @@ import org.junit.After
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.time.Instant
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
@@ -35,8 +37,10 @@ class SettingsViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun viewModel(repository: FakeSettingsRepository = FakeSettingsRepository()) =
-        SettingsViewModel(repository) to repository
+    private fun viewModel(
+        repository: FakeSettingsRepository = FakeSettingsRepository(),
+        sessionRepository: FakeSessionRepository = FakeSessionRepository(),
+    ) = SettingsViewModel(repository, sessionRepository, Clock { Instant.EPOCH }) to repository
 
     @Test
     fun `the initial DataStore read is reflected once loading completes`() =
@@ -126,5 +130,55 @@ class SettingsViewModelTest {
                 disabled.settings.dailyReminderTime,
                 "disabling must always clear the time - docs/05-DATA-MODEL.md §3",
             )
+        }
+
+    /**
+     * The escape hatch clears ONLY the saved session. Settings (which carry diagnostic placement's
+     * `diagnostic_completed` flag) pass through this ViewModel and must be bit-identical afterwards;
+     * skill mastery lives in Room behind repositories this ViewModel cannot even reach - its only
+     * injected data ports are SettingsRepository and SessionRepository.discardResumable.
+     */
+    @Test
+    fun `discarding the saved session touches nothing else and confirms visibly`() =
+        runBlocking {
+            val sessions =
+                FakeSessionRepository(
+                    resumable =
+                        com.tonic.core.model.state.Session(
+                            id = 7L,
+                            rootSeed = 1L,
+                            plannedItemCount = 27,
+                            completedItemCount = 4,
+                            startedAt = Instant.EPOCH,
+                            endedAt = null,
+                            resumeState = null,
+                        ),
+                )
+            val settingsRepo = FakeSettingsRepository()
+            val viewModel =
+                SettingsViewModel(settingsRepo, sessions, Clock { Instant.EPOCH }).also { vm ->
+                    vm.uiState.first { !it.isLoading }
+                }
+            val settingsBefore = settingsRepo.settings.value
+
+            viewModel.onDiscardSavedSession()
+            val state = viewModel.uiState.first { it.discardResult != null }
+
+            assertEquals(DiscardResult.DISCARDED, state.discardResult)
+            assertEquals(null, sessions.findResumable(), "the saved session is gone")
+            assertEquals(
+                settingsBefore,
+                settingsRepo.settings.value,
+                "settings - diagnostic placement's flag included - are bit-identical",
+            )
+        }
+
+    @Test
+    fun `with nothing saved, the control says so instead of silently doing nothing`() =
+        runBlocking {
+            val (viewModel, _) = viewModel(sessionRepository = FakeSessionRepository(resumable = null))
+            viewModel.onDiscardSavedSession()
+            val state = viewModel.uiState.first { it.discardResult != null }
+            assertEquals(DiscardResult.NOTHING_SAVED, state.discardResult)
         }
 }

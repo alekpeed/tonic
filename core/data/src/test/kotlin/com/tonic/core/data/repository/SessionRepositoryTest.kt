@@ -110,4 +110,36 @@ class SessionRepositoryTest {
 
             assertEquals(1, repository.recentCompletedSessions(limit = 1).size)
         }
+
+    @Test
+    fun `discardResumable clears exactly the resumable session and leaves its attempts' row history intact`() =
+        runBlocking {
+            val session = repository.create(rootSeed = 9L, plannedItemCount = 27, startedAt = Instant.EPOCH)
+            repository.updateResumeState(
+                session.id!!,
+                completedItemCount = 4,
+                resumeState =
+                    ResumeState(
+                        plan = SessionPlan(rootSeed = 9L, plannedSlots = emptyList()),
+                        completedSlotIndex = 3,
+                    ),
+            )
+            kotlin.test.assertNotNull(repository.findResumable(), "precondition: a resumable session exists")
+
+            val discarded = repository.discardResumable(Instant.EPOCH.plusSeconds(60))
+
+            kotlin.test.assertTrue(discarded)
+            kotlin.test.assertNull(repository.findResumable(), "the offer must stop recurring")
+            val row = repository.findById(session.id!!)
+            kotlin.test.assertNotNull(row, "the row is closed, not deleted - attempts reference it")
+            kotlin.test.assertEquals(4, row.completedItemCount, "the work done before discarding stays recorded")
+        }
+
+    @Test
+    fun `discardResumable with nothing saved is a no-op that says so`() =
+        runBlocking {
+            val session = repository.create(rootSeed = 10L, plannedItemCount = 27, startedAt = Instant.EPOCH)
+            repository.complete(session.id!!, 27, Instant.EPOCH.plusSeconds(300))
+            kotlin.test.assertFalse(repository.discardResumable(Instant.EPOCH.plusSeconds(600)))
+        }
 }
