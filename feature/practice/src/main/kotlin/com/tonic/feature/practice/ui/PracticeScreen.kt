@@ -6,6 +6,7 @@ import android.content.ContextWrapper
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -67,6 +68,19 @@ fun PracticeScreen(
 
     BackgroundingObserver(onBackgrounded = viewModel::onAppBackgrounded)
 
+    // Above every other state: docs/11-ONBOARDING-CLARITY.md §1 requires this before the first item
+    // plays, and §5 makes it recallable at any point afterwards.
+    if (uiState.showIntro) {
+        M2IntroContent(
+            answerLabel = viewModel.workedExampleAnswer,
+            answerRevealed = uiState.introAnswerRevealed,
+            onPlayExample = viewModel::onPlayWorkedExample,
+            onRevealAnswer = viewModel::onRevealWorkedExampleAnswer,
+            onStart = viewModel::onIntroDismissed,
+        )
+        return
+    }
+
     val resumable = uiState.resumableSession
     if (resumable != null) {
         ResumeOfferState(onContinue = viewModel::onResumeSession, onStartFresh = viewModel::onStartFreshSession)
@@ -88,6 +102,7 @@ fun PracticeScreen(
         onDegreeSelected = viewModel::onDegreeSelected,
         onReplay = viewModel::onReplay,
         onSkip = viewModel::onSkip,
+        onOpenIntro = viewModel::onOpenIntro,
     )
 }
 
@@ -230,6 +245,7 @@ private fun PracticeContent(
     onDegreeSelected: (ScaleDegree) -> Unit,
     onReplay: () -> Unit,
     onSkip: () -> Unit,
+    onOpenIntro: () -> Unit = {},
 ) {
     Column(
         modifier =
@@ -294,15 +310,30 @@ private fun PracticeContent(
 
         Spacer(modifier = Modifier.height(TonicSpacing.sm))
 
-        TextButton(
-            onClick = onSkip,
-            modifier = Modifier.align(Alignment.End).testTag("skip_button"),
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
-                text = stringResource(R.string.practice_skip),
-                color = LocalContentColor.current.copy(alpha = 0.6f),
-                style = MaterialTheme.typography.labelLarge,
-            )
+            // docs/11-ONBOARDING-CLARITY.md §5: "a small, low-emphasis help affordance on the practice
+            // screen itself." Same screen, same worked example, never an abbreviated version.
+            TextButton(onClick = onOpenIntro, modifier = Modifier.testTag("practice_help")) {
+                Text(
+                    text = stringResource(R.string.m2_intro_help),
+                    color = LocalContentColor.current.copy(alpha = 0.6f),
+                    style = MaterialTheme.typography.labelLarge,
+                )
+            }
+            TextButton(
+                onClick = onSkip,
+                modifier = Modifier.testTag("skip_button"),
+            ) {
+                Text(
+                    text = stringResource(R.string.practice_skip),
+                    color = LocalContentColor.current.copy(alpha = 0.6f),
+                    style = MaterialTheme.typography.labelLarge,
+                )
+            }
         }
     }
 }

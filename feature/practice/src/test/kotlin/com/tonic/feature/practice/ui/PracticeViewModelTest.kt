@@ -79,7 +79,7 @@ class PracticeViewModelTest {
                 clock,
             )
         val viewModel =
-            PracticeViewModel(engine, skillStateRepository, sessionRepository, settingsRepository, clock)
+            PracticeViewModel(engine, audioPlayer, skillStateRepository, sessionRepository, settingsRepository, clock)
 
         /** Waits for input to actually be accepted, not just for an item to exist - matching how the real ladder gates input on [PracticeUiState.inputEnabled]. */
         suspend fun startAndAwaitFirstItem(): Item.FunctionalRecognitionItem {

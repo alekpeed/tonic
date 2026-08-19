@@ -27,6 +27,9 @@ interface SettingsRepository {
 
     suspend fun setDiagnosticCompleted(completed: Boolean)
 
+    /** See [com.tonic.core.model.state.AppSettings.module2IntroSeen]. */
+    suspend fun setModule2IntroSeen(seen: Boolean)
+
     /** [enabled] and [time] must agree: false always pairs with a null time - docs/05-DATA-MODEL.md §3. */
     suspend fun setDailyReminder(
         enabled: Boolean,

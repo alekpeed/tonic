@@ -2,6 +2,8 @@ package com.tonic.feature.practice.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.tonic.core.audio.player.AudioPlayer
+import com.tonic.core.audio.synth.SynthEngine
 import com.tonic.core.curriculum.graph.SkillGraph
 import com.tonic.core.data.repository.SessionRepository
 import com.tonic.core.data.repository.SkillStateRepository
@@ -43,6 +45,7 @@ class PracticeViewModel
     @Inject
     constructor(
         private val engine: PracticeLoopEngine,
+        private val audioPlayer: AudioPlayer,
         private val skillStateRepository: SkillStateRepository,
         private val sessionRepository: SessionRepository,
         private val settingsRepository: SettingsRepository,
@@ -57,11 +60,23 @@ class PracticeViewModel
         private var phaseJob: Job? = null
         private var started = false
 
+        /** The one worked example, generated once and reused for replays so the audio never changes under the narration. */
+        private val workedExample by lazy { WorkedExample.generate() }
+
+        /** What the worked example's correct answer is, for the reveal - read off the real item, never hardcoded. */
+        val workedExampleAnswer: String get() = workedExample.targetDegree.degree.toString()
+
         /** Idempotent - a rotation or process restart re-collecting this ViewModel must not start a second session. */
         fun startIfNeeded() {
             if (started) return
             started = true
             viewModelScope.launch {
+                // docs/11-ONBOARDING-CLARITY.md §1/§5: shown automatically exactly once, before the
+                // first M2 item ever plays. The session underneath still starts, so dismissing the
+                // screen lands straight on a ready item rather than a spinner.
+                if (!settingsRepository.settings.first().module2IntroSeen) {
+                    _uiState.update { it.copy(showIntro = true) }
+                }
                 // docs/10-TESTING.md §11: "force stop mid-session -> resume offered, no data loss." An
                 // interrupted session is offered back rather than silently replaced with a fresh one -
                 // starting fresh would strand its resume row and re-plan work the user already did.
@@ -96,6 +111,49 @@ class PracticeViewModel
                 session.id?.let { sessionRepository.complete(it, session.completedItemCount, clock.now()) }
                 beginFreshSession()
             }
+        }
+
+        /**
+         * Plays the worked example through the *real* audio path — same renderer, same player as a
+         * practice item (docs/11-ONBOARDING-CLARITY.md §3: "in real audio"). Repeatable: hearing it more
+         * than once is the point.
+         */
+        fun onPlayWorkedExample() {
+            viewModelScope.launch {
+                audioPlayer.play(
+                    SynthEngine.renderItem(
+                        referencePlan = workedExample.referencePlan,
+                        gapAfterReferenceMs = workedExample.timing.gapAfterReferenceMs,
+                        targetMidi = workedExample.targetMidi,
+                        targetTimbre = workedExample.timbre,
+                        targetDurationMs = workedExample.timing.targetDurationMs,
+                        seed = workedExample.seed,
+                    ),
+                )
+            }
+        }
+
+        /** The reveal is user-driven: the answer is never shown before they've had the chance to listen. */
+        fun onRevealWorkedExampleAnswer() {
+            _uiState.update { it.copy(introAnswerRevealed = true) }
+        }
+
+        /**
+         * Dismisses the explanation and records that it has been shown, so it never appears
+         * automatically again. Recalling it later via [onOpenIntro] deliberately does not touch the flag.
+         */
+        fun onIntroDismissed() {
+            _uiState.update { it.copy(showIntro = false, introAnswerRevealed = false) }
+            viewModelScope.launch { settingsRepository.setModule2IntroSeen(true) }
+        }
+
+        /**
+         * The help affordance - docs/11-ONBOARDING-CLARITY.md §5: "always reachable on demand... the
+         * exact same explanation and worked example, not an abbreviated version."
+         */
+        fun onOpenIntro() {
+            audioPlayer.stop()
+            _uiState.update { it.copy(showIntro = true, introAnswerRevealed = false) }
         }
 
         /** Continues after an interruption paused the loop (docs/06-AUDIO-ENGINE.md §8). */

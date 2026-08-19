@@ -36,6 +36,14 @@ data class PracticeUiState(
     val isPaused: Boolean = false,
     /** Non-null only on the item where an axis moved - docs/11-ONBOARDING-CLARITY.md §9.3. */
     val axisChange: AxisChange? = null,
+    /**
+     * The Module 2 explanation screen is on top of the loop — docs/11-ONBOARDING-CLARITY.md §3/§5.
+     * Automatic on first encounter, and thereafter only when the user asks for it via the help
+     * affordance, which is why this is separate from the persisted `module2IntroSeen` flag.
+     */
+    val showIntro: Boolean = false,
+    /** The worked example's answer, revealed only once the user asks — never before they've heard it. */
+    val introAnswerRevealed: Boolean = false,
 ) {
     val activeDegrees: List<ScaleDegree> get() = item?.activeDegrees ?: emptyList()
 }

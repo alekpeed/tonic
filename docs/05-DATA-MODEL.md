@@ -129,10 +129,13 @@ Settings only. No progress data.
 | `reduce_motion` | Boolean | `false` |
 | `onboarding_completed` | Boolean | `false` |
 | `diagnostic_completed` | Boolean | `false` |
+| `module2_intro_seen` | Boolean | `false` |
 | `daily_reminder_enabled` | Boolean | `false` |
 | `daily_reminder_time` | String? | null |
 
 `daily_reminder_enabled` defaults to **false**. Opt-in only. See `08-UI-SPEC.md` §7.
+
+`module2_intro_seen` records that the Module 2 explanation screen and its worked example have been shown once — `11-ONBOARDING-CLARITY.md` §5: "shown automatically once, on first encounter with that exercise type," and never again automatically. It gates the automatic showing only; the screen stays reachable on demand forever, and recalling it does not depend on or change this flag.
 
 ---
 
