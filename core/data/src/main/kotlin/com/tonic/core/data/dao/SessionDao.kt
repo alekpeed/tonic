@@ -22,4 +22,8 @@ internal interface SessionDao {
         "SELECT * FROM sessions WHERE endedAt IS NULL AND resumeStateJson IS NOT NULL ORDER BY startedAt DESC LIMIT 1",
     )
     suspend fun findResumable(): SessionEntity?
+
+    /** Most-recently-started completed sessions, newest first — the raw material for streak computation. */
+    @Query("SELECT * FROM sessions WHERE endedAt IS NOT NULL ORDER BY startedAt DESC LIMIT :limit")
+    suspend fun recentCompleted(limit: Int): List<SessionEntity>
 }

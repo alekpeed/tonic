@@ -7,6 +7,8 @@ import com.tonic.core.model.time.Clock
 import com.tonic.feature.diagnostic.engine.DiagnosticLoopEngine
 import com.tonic.feature.diagnostic.engine.FakeAudioPlayer
 import com.tonic.feature.diagnostic.engine.FakeDiagnosticRepository
+import com.tonic.feature.diagnostic.engine.FakeSettingsRepository
+import com.tonic.feature.diagnostic.engine.FakeSkillStateRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -45,8 +47,11 @@ class DiagnosticViewModelTest {
     private class Fixture {
         val audioPlayer = FakeAudioPlayer()
         val diagnosticRepository = FakeDiagnosticRepository()
+        val skillStateRepository = FakeSkillStateRepository()
+        val settingsRepository = FakeSettingsRepository()
         val clock = Clock { Instant.EPOCH }
-        val engine = DiagnosticLoopEngine(audioPlayer, diagnosticRepository, clock)
+        val engine =
+            DiagnosticLoopEngine(audioPlayer, diagnosticRepository, skillStateRepository, settingsRepository, clock)
         val viewModel = DiagnosticViewModel(engine)
 
         suspend fun awaitInputEnabled(): DiagnosticUiState =

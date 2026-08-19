@@ -1,4 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Tonic</string>
+
+    <!-- Home - docs/08-UI-SPEC.md §2: "start session, current progress at a glance." -->
+    <string name="home_start_practice">Start</string>
+    <string name="home_open_progress">Progress</string>
+    <string name="home_open_settings">Settings</string>
+    <string name="home_progress_working_on">You\'re working on: %1$s</string>
+    <string name="home_progress_all_mastered">You\'ve mastered every set — reviews will come up as they\'re due.</string>
+
+    <!-- Summary - docs/08-UI-SPEC.md §2: "what happened, what's next." Brief and factual, no score. -->
+    <string name="summary_title">Session complete</string>
+    <string name="summary_items_completed">%1$d of %2$d</string>
+    <string name="summary_done">Done</string>
 </resources>

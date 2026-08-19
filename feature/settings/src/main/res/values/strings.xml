@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_title">Settings</string>
+
+    <string name="settings_label_style_heading">Degree labels</string>
+    <string name="settings_label_style_numbers">Numbers</string>
+    <string name="settings_label_style_solfege">Solfège</string>
+
+    <string name="settings_tuning_heading">Tuning</string>
+    <string name="settings_tuning_value">A4 = %1$d Hz</string>
+
+    <string name="settings_session_length_heading">Session length</string>
+    <string name="settings_session_length_value">%1$d minutes</string>
+
+    <string name="settings_haptics_heading">Haptics</string>
+    <string name="settings_sound_effects_heading">Sound effects</string>
+    <string name="settings_reduce_motion_heading">Reduce motion</string>
+
+    <string name="settings_theme_heading">Theme</string>
+    <string name="settings_theme_system">System</string>
+    <string name="settings_theme_light">Light</string>
+    <string name="settings_theme_dark">Dark</string>
+
+    <!-- docs/08-UI-SPEC.md §7: "a single optional daily reminder, default off, user-scheduled." -->
+    <string name="settings_daily_reminder_heading">Daily reminder</string>
+    <string name="settings_daily_reminder_time_morning">08:00</string>
+    <string name="settings_daily_reminder_time_afternoon">14:00</string>
+    <string name="settings_daily_reminder_time_evening">20:00</string>
+</resources>

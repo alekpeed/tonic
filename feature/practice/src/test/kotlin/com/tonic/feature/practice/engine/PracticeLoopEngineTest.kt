@@ -90,6 +90,10 @@ class PracticeLoopEngineTest {
             assertNotNull(state.currentItem)
             assertEquals(1, fixture.audioPlayer.playedBuffers.size)
             assertFalse(state.isFinished)
+            // The Summary screen's own `summary/{sessionId}` nav argument (docs/09-BUILD-PLAN.md Stage 9)
+            // - must be the real persisted id, not a placeholder, from the moment the session exists.
+            val sessionId = assertNotNull(state.sessionId)
+            assertEquals(sessionId, fixture.sessionRepository.get(sessionId).id!!)
         }
 
     @Test

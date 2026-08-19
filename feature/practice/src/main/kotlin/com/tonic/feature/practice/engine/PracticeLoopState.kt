@@ -12,6 +12,8 @@ data class PracticeLoopState(
     val itemsPlanned: Int = 0,
     val lastFeedback: AnswerFeedback? = null,
     val isFinished: Boolean = false,
+    /** The persisted `SessionRepository` row id for the current run, set once [PracticeLoopEngine.start] creates it - `summary/{sessionId}`'s own nav argument. */
+    val sessionId: Long? = null,
 )
 
 /** Shown briefly after [PracticeLoopEngine.submitAnswer], before the next item starts. */

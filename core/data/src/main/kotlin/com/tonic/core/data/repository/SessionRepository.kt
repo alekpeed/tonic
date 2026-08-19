@@ -27,4 +27,10 @@ interface SessionRepository {
 
     /** The most recent interrupted-but-resumable session, if any. */
     suspend fun findResumable(): Session?
+
+    /** Looks up one session by id — the Summary screen's own `sessionId` nav argument. */
+    suspend fun findById(sessionId: Long): Session?
+
+    /** Most-recently-started completed sessions, newest first — bounded by [limit]. Streak's raw material. */
+    suspend fun recentCompletedSessions(limit: Int): List<Session>
 }

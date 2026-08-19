@@ -18,6 +18,7 @@ import java.time.Instant
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 @RunWith(AndroidJUnit4::class)
 class SessionRepositoryTest {
@@ -82,5 +83,31 @@ class SessionRepositoryTest {
             val session = repository.create(rootSeed = 1L, plannedItemCount = 10, startedAt = Instant.EPOCH)
             repository.complete(session.id!!, completedItemCount = 10, endedAt = Instant.EPOCH.plusSeconds(60))
             assertNull(repository.findResumable())
+        }
+
+    @Test
+    fun `findById returns the matching session, null for an unknown id`() =
+        runBlocking {
+            val session = repository.create(rootSeed = 3L, plannedItemCount = 20, startedAt = Instant.EPOCH)
+            assertEquals(session, repository.findById(session.id!!))
+            assertNull(repository.findById(session.id!! + 999))
+        }
+
+    @Test
+    fun `recentCompletedSessions returns only ended sessions, newest first, bounded by limit`() =
+        runBlocking {
+            val incomplete = repository.create(rootSeed = 1L, plannedItemCount = 10, startedAt = Instant.EPOCH)
+            val first =
+                repository.create(rootSeed = 2L, plannedItemCount = 10, startedAt = Instant.EPOCH.plusSeconds(10))
+            repository.complete(first.id!!, completedItemCount = 10, endedAt = Instant.EPOCH.plusSeconds(20))
+            val second =
+                repository.create(rootSeed = 3L, plannedItemCount = 10, startedAt = Instant.EPOCH.plusSeconds(30))
+            repository.complete(second.id!!, completedItemCount = 10, endedAt = Instant.EPOCH.plusSeconds(40))
+
+            val recent = repository.recentCompletedSessions(limit = 10)
+            assertEquals(listOf(second.id, first.id), recent.map { it.id })
+            assertTrue(recent.none { it.id == incomplete.id })
+
+            assertEquals(1, repository.recentCompletedSessions(limit = 1).size)
         }
 }

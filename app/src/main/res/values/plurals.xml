@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Home streak - docs/08-UI-SPEC.md §7: "displayed passively," plain and factual, no urgency framing. -->
+    <plurals name="home_streak">
+        <item quantity="one">%1$d day in a row</item>
+        <item quantity="other">%1$d days in a row</item>
+    </plurals>
+</resources>

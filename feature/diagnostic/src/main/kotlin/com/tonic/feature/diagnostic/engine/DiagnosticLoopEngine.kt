@@ -4,6 +4,8 @@ import com.tonic.core.audio.player.AudioPlayer
 import com.tonic.core.audio.synth.PcmBuffer
 import com.tonic.core.curriculum.generators.M0ItemGenerators
 import com.tonic.core.data.repository.DiagnosticRepository
+import com.tonic.core.data.repository.SkillStateRepository
+import com.tonic.core.data.settings.SettingsRepository
 import com.tonic.core.engine.diagnostic.PitchDifficultyLadder
 import com.tonic.core.engine.diagnostic.PlacementCalculator
 import com.tonic.core.engine.session.SessionComposer
@@ -11,9 +13,12 @@ import com.tonic.core.engine.staircase.DPrime
 import com.tonic.core.engine.staircase.Staircase
 import com.tonic.core.model.ids.SkillIds
 import com.tonic.core.model.items.AnswerAlphabet
+import com.tonic.core.model.items.DifficultyAxis
 import com.tonic.core.model.items.Item
 import com.tonic.core.model.music.TimbreId
 import com.tonic.core.model.state.DiagnosticResult
+import com.tonic.core.model.state.MasteryState
+import com.tonic.core.model.state.SkillState
 import com.tonic.core.model.state.StaircaseState
 import com.tonic.core.model.time.Clock
 import kotlinx.coroutines.CompletableDeferred
@@ -42,6 +47,8 @@ class DiagnosticLoopEngine
     constructor(
         private val audioPlayer: AudioPlayer,
         private val diagnosticRepository: DiagnosticRepository,
+        private val skillStateRepository: SkillStateRepository,
+        private val settingsRepository: SettingsRepository,
         private val clock: Clock,
     ) {
         private val _state = MutableStateFlow(DiagnosticLoopState())
@@ -75,9 +82,34 @@ class DiagnosticLoopEngine
                     seed = rootSeed,
                 )
             diagnosticRepository.save(result)
+            applyPlacement(result)
 
             _state.value =
                 _state.value.copy(currentItem = null, inputEnabled = false, isFinished = true, result = result)
+        }
+
+        /**
+         * Unlocks `M2.DEG_SET_1` at the placement's axis levels - otherwise nothing built anywhere in
+         * Phase 1 ever turns a completed diagnostic into a practiceable skill, and Home (docs/09-BUILD-PLAN.md
+         * Stage 9) would find every node permanently [MasteryState.LOCKED]. Applied on both placement
+         * outcomes, matching `NavGraph`'s existing routing decision that both land on Home: M1 remediation
+         * content is out of Phase 1 scope (CLAUDE.md §2), so a [DiagnosticResult.recommendedEntry] of
+         * `M1_REMEDIATION` still needs *something* practiceable, and falls back to the same all-axes-zero
+         * default [SkillState.initial] already uses elsewhere. Deliberately does not read
+         * [DiagnosticResult.amusiaIndicatorFlag] - see [DiagnosticResult]'s own KDoc on why that field must
+         * stay reachable only through [DiagnosticRepository].
+         */
+        private suspend fun applyPlacement(result: DiagnosticResult) {
+            val axisLevels =
+                result.initialAxisLevels.ifEmpty { DifficultyAxis.entries.associateWith { 0 } }
+            skillStateRepository.update(
+                SkillState.initial(SkillIds.M2_DEG_SET_1).copy(
+                    masteryState = MasteryState.AVAILABLE,
+                    axisLevels = axisLevels,
+                    updatedAt = clock.now(),
+                ),
+            )
+            settingsRepository.setDiagnosticCompleted(true)
         }
 
         /** Records the response to the currently pending item. A no-op if nothing is pending or input isn't enabled yet. */

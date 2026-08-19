@@ -150,5 +150,13 @@ class FakeSessionRepository : SessionRepository {
                 it.resumeState != null
         }
 
+    override suspend fun findById(sessionId: Long): Session? = sessions[sessionId]
+
+    override suspend fun recentCompletedSessions(limit: Int): List<Session> =
+        sessions.values
+            .filter { it.endedAt != null }
+            .sortedByDescending { it.startedAt }
+            .take(limit)
+
     fun get(sessionId: Long): Session = requireNotNull(sessions[sessionId])
 }

@@ -60,4 +60,9 @@ internal class SessionRepositoryImpl
         }
 
         override suspend fun findResumable(): Session? = dao.findResumable()?.toDomain()
+
+        override suspend fun findById(sessionId: Long): Session? = dao.findById(sessionId)?.toDomain()
+
+        override suspend fun recentCompletedSessions(limit: Int): List<Session> =
+            dao.recentCompleted(limit).map { it.toDomain() }
     }

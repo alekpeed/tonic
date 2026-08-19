@@ -33,13 +33,20 @@ import com.tonic.feature.practice.R
 
 /** docs/08-UI-SPEC.md §4: progress indicator, playback state, replay, ladder, skip - top to bottom. */
 @Composable
-fun PracticeScreen(viewModel: PracticeViewModel = hiltViewModel()) {
+fun PracticeScreen(
+    onSessionComplete: (Long) -> Unit,
+    viewModel: PracticeViewModel = hiltViewModel(),
+) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val haptic = LocalHapticFeedback.current
 
     LaunchedEffect(Unit) { viewModel.startIfNeeded() }
     LaunchedEffect(Unit) {
         viewModel.hapticEvents.collect { haptic.performHapticFeedback(HapticFeedbackType.VirtualKey) }
+    }
+    LaunchedEffect(uiState.isFinished, uiState.sessionId) {
+        val sessionId = uiState.sessionId
+        if (uiState.isFinished && sessionId != null) onSessionComplete(sessionId)
     }
 
     if (uiState.isLoading || uiState.item == null) {

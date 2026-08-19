@@ -1,7 +1,7 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
-// :feature:progress placeholder
-// See docs/08-UI-SPEC.md.
+// :feature:progress — mastery map, per-degree accuracy, confusion view, independence check.
+// See docs/08-UI-SPEC.md §6.
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
@@ -9,6 +9,35 @@ plugins {
     alias(libs.plugins.kotlin.kapt)
     alias(libs.plugins.hilt.android)
     alias(libs.plugins.ktlint)
+    alias(libs.plugins.kover)
+}
+
+// Same shape as :feature:diagnostic's Stage 8 setup: ProgressViewModel and MasteryCopy are plain,
+// Android-framework-free logic exercised by their own test suites. ProgressScreen's composables,
+// PreviewStates, and Hilt-generated boilerplate can't be meaningfully unit-tested on the JVM without a
+// real composition, so they're excluded the same way.
+kover {
+    reports {
+        filters {
+            excludes {
+                classes(
+                    "com.tonic.feature.progress.ModuleMarker",
+                    "com.tonic.feature.progress.ui.PreviewStates",
+                    "com.tonic.feature.progress.ui.ComposableSingletons\$ProgressScreenKt",
+                    "hilt_aggregated_deps.*",
+                    "*_HiltModules*",
+                    "*_Factory",
+                    "*_MembersInjector",
+                )
+                annotatedBy("androidx.compose.runtime.Composable")
+            }
+        }
+        verify {
+            rule {
+                minBound(85)
+            }
+        }
+    }
 }
 
 android {
@@ -73,6 +102,8 @@ dependencies {
     testImplementation(libs.turbine)
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)
+    testImplementation(libs.androidx.test.ext.junit)
+    testRuntimeOnly(libs.junit.vintage.engine)
 
     androidTestImplementation(platform(libs.compose.bom))
     androidTestImplementation(libs.compose.ui.test.junit4)

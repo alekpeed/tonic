@@ -97,6 +97,10 @@ dependencies {
     testImplementation(kotlin("test-junit5"))
     testRuntimeOnly(libs.junit.jupiter.engine)
     testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core)
+    testImplementation(libs.androidx.test.ext.junit)
+    testRuntimeOnly(libs.junit.vintage.engine)
+    testImplementation(libs.coroutines.test)
 
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(platform(libs.compose.bom))

@@ -1,23 +1,25 @@
 package com.tonic.app
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import com.tonic.app.home.HomeScreen
+import com.tonic.app.summary.SummaryScreen
+import com.tonic.app.summary.SummaryViewModel
 import com.tonic.feature.diagnostic.ui.DiagnosticScreen
 import com.tonic.feature.practice.ui.PracticeScreen
+import com.tonic.feature.progress.ui.ProgressScreen
+import com.tonic.feature.settings.ui.SettingsScreen
 
 /**
- * Routes for the four top-level destinations. Real screens are wired in as
- * each feature module is built (docs/09-BUILD-PLAN.md Stages 7–9);
- * cross-feature navigation goes through this graph in :app, never
- * feature-to-feature directly (docs/04-ARCHITECTURE.md §2).
+ * Routes for every top-level destination — docs/08-UI-SPEC.md §2's screen inventory. Cross-feature
+ * navigation goes through this graph in `:app`, never feature-to-feature directly
+ * (docs/04-ARCHITECTURE.md §2). No bottom navigation bar: Home is the hub, Progress and Settings are
+ * reachable from it (docs/08-UI-SPEC.md §2).
  */
 sealed interface TonicRoute {
     val route: String
@@ -41,35 +43,64 @@ sealed interface TonicRoute {
     data object Settings : TonicRoute {
         override val route = "settings"
     }
+
+    /** `summary/{sessionId}` — docs/08-UI-SPEC.md §2. */
+    data object Summary : TonicRoute {
+        override val route = "summary/{${SummaryViewModel.SESSION_ID_ARG}}"
+
+        fun routeFor(sessionId: Long) = "summary/$sessionId"
+    }
 }
 
 @Composable
 fun TonicNavGraph(navController: NavHostController = rememberNavController()) {
     NavHost(navController = navController, startDestination = TonicRoute.Home.route) {
-        composable(TonicRoute.Home.route) { PlaceholderScreen("Home") }
+        composable(TonicRoute.Home.route) {
+            HomeScreen(
+                onNeedsDiagnostic = {
+                    navController.navigate(TonicRoute.Diagnostic.route) {
+                        popUpTo(TonicRoute.Home.route) { inclusive = true }
+                    }
+                },
+                onStartPractice = { navController.navigate(TonicRoute.Practice.route) },
+                onOpenProgress = { navController.navigate(TonicRoute.Progress.route) },
+                onOpenSettings = { navController.navigate(TonicRoute.Settings.route) },
+            )
+        }
         composable(TonicRoute.Diagnostic.route) {
             DiagnosticScreen(
                 onContinue = {
-                    // Both placement outcomes land on Home for now: M1 remediation's actual training
-                    // content is out of Phase 1 scope (CLAUDE.md §2), and Home itself is Stage 9, not
-                    // yet built - there is nowhere else to route either outcome to yet. Revisit once
-                    // both exist; this screen's own placement decision doesn't need to change.
+                    // Both placement outcomes land on Home: M1 remediation's actual training content is
+                    // out of Phase 1 scope (CLAUDE.md §2). DiagnosticLoopEngine already unlocked
+                    // M2_DEG_SET_1 either way, so Home has something practiceable regardless of outcome.
                     navController.navigate(TonicRoute.Home.route) {
                         popUpTo(TonicRoute.Diagnostic.route) { inclusive = true }
                     }
                 },
             )
         }
-        composable(TonicRoute.Practice.route) { PracticeScreen() }
-        composable(TonicRoute.Progress.route) { PlaceholderScreen("Progress") }
-        composable(TonicRoute.Settings.route) { PlaceholderScreen("Settings") }
-    }
-}
-
-/** Stage 0 stand-in. Replaced route by route as each feature is built. */
-@Composable
-private fun PlaceholderScreen(name: String) {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(text = name)
+        composable(TonicRoute.Practice.route) {
+            PracticeScreen(
+                onSessionComplete = { sessionId ->
+                    navController.navigate(TonicRoute.Summary.routeFor(sessionId)) {
+                        popUpTo(TonicRoute.Practice.route) { inclusive = true }
+                    }
+                },
+            )
+        }
+        composable(
+            route = TonicRoute.Summary.route,
+            arguments = listOf(navArgument(SummaryViewModel.SESSION_ID_ARG) { type = NavType.LongType }),
+        ) {
+            SummaryScreen(
+                onDone = {
+                    navController.navigate(TonicRoute.Home.route) {
+                        popUpTo(TonicRoute.Home.route) { inclusive = true }
+                    }
+                },
+            )
+        }
+        composable(TonicRoute.Progress.route) { ProgressScreen() }
+        composable(TonicRoute.Settings.route) { SettingsScreen() }
     }
 }

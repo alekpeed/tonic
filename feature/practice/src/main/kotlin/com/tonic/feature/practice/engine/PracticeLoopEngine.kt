@@ -106,6 +106,7 @@ class PracticeLoopEngine
 
             val session = sessionRepository.create(rootSeed, itemsPlanned, now)
             sessionId = requireNotNull(session.id) { "SessionRepository.create must return a persisted id" }
+            _state.value = _state.value.copy(sessionId = sessionId)
 
             advance()
         }

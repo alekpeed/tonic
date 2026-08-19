@@ -1,7 +1,6 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
-// :feature:settings placeholder
-// See docs/08-UI-SPEC.md.
+// :feature:settings — every AppSettings field, wired live to SettingsRepository. See docs/08-UI-SPEC.md.
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
@@ -9,6 +8,34 @@ plugins {
     alias(libs.plugins.kotlin.kapt)
     alias(libs.plugins.hilt.android)
     alias(libs.plugins.ktlint)
+    alias(libs.plugins.kover)
+}
+
+// Same shape as :feature:progress/:feature:diagnostic's setup: SettingsViewModel is plain,
+// Android-framework-free logic exercised by its own test suite. SettingsScreen's composables and
+// Hilt-generated boilerplate can't be meaningfully unit-tested on the JVM without a real composition,
+// so they're excluded the same way.
+kover {
+    reports {
+        filters {
+            excludes {
+                classes(
+                    "com.tonic.feature.settings.ModuleMarker",
+                    "com.tonic.feature.settings.ui.ComposableSingletons\$SettingsScreenKt",
+                    "hilt_aggregated_deps.*",
+                    "*_HiltModules*",
+                    "*_Factory",
+                    "*_MembersInjector",
+                )
+                annotatedBy("androidx.compose.runtime.Composable")
+            }
+        }
+        verify {
+            rule {
+                minBound(85)
+            }
+        }
+    }
 }
 
 android {
@@ -73,6 +100,8 @@ dependencies {
     testImplementation(libs.turbine)
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)
+    testImplementation(libs.androidx.test.ext.junit)
+    testRuntimeOnly(libs.junit.vintage.engine)
 
     androidTestImplementation(platform(libs.compose.bom))
     androidTestImplementation(libs.compose.ui.test.junit4)

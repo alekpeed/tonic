@@ -22,6 +22,8 @@ data class PracticeUiState(
     val inputEnabled: Boolean = false,
     val isFinished: Boolean = false,
     val isLoading: Boolean = true,
+    /** The current session's persisted id, once known - `summary/{sessionId}`'s own nav argument. */
+    val sessionId: Long? = null,
 ) {
     val activeDegrees: List<ScaleDegree> get() = item?.activeDegrees ?: emptyList()
 }

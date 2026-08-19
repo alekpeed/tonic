@@ -1,8 +1,10 @@
 package com.tonic.feature.diagnostic.engine
 
+import com.tonic.core.model.ids.SkillIds
 import com.tonic.core.model.items.AnswerAlphabet
 import com.tonic.core.model.items.Item
 import com.tonic.core.model.state.EntryPoint
+import com.tonic.core.model.state.MasteryState
 import com.tonic.core.model.time.Clock
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
@@ -24,8 +26,11 @@ class DiagnosticLoopEngineTest {
     private class Fixture {
         val audioPlayer = FakeAudioPlayer()
         val diagnosticRepository = FakeDiagnosticRepository()
+        val skillStateRepository = FakeSkillStateRepository()
+        val settingsRepository = FakeSettingsRepository()
         val clock = Clock { Instant.EPOCH }
-        val engine = DiagnosticLoopEngine(audioPlayer, diagnosticRepository, clock)
+        val engine =
+            DiagnosticLoopEngine(audioPlayer, diagnosticRepository, skillStateRepository, settingsRepository, clock)
     }
 
     /** Answers correctly with probability [accuracy], seeded for determinism, until the run finishes. */
@@ -80,6 +85,11 @@ class DiagnosticLoopEngineTest {
             assertFalse(result.amusiaIndicatorFlag)
             assertEquals(1, fixture.diagnosticRepository.saved.size)
             assertEquals(result, fixture.diagnosticRepository.saved.single())
+
+            val placedState = assertNotNull(fixture.skillStateRepository.get(SkillIds.M2_DEG_SET_1))
+            assertEquals(MasteryState.AVAILABLE, placedState.masteryState)
+            assertEquals(result.initialAxisLevels, placedState.axisLevels)
+            assertTrue(fixture.settingsRepository.settings.value.diagnosticCompleted)
         }
 
     @Test
@@ -110,6 +120,13 @@ class DiagnosticLoopEngineTest {
 
             val result = assertNotNull(fixture.engine.state.value.result)
             assertEquals(EntryPoint.M1_REMEDIATION, result.recommendedEntry)
+
+            // M1 remediation content is out of Phase 1 scope (CLAUDE.md §2) - M2_DEG_SET_1 must still be
+            // unlocked at the all-zero default, or Home would have nothing practiceable at all.
+            val placedState = assertNotNull(fixture.skillStateRepository.get(SkillIds.M2_DEG_SET_1))
+            assertEquals(MasteryState.AVAILABLE, placedState.masteryState)
+            assertTrue(placedState.axisLevels.values.all { it == 0 })
+            assertTrue(fixture.settingsRepository.settings.value.diagnosticCompleted)
         }
 
     @Test

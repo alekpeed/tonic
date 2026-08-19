@@ -94,6 +94,7 @@ class PracticeViewModel
                             itemsCompleted = loopState.itemsCompleted,
                             itemsPlanned = loopState.itemsPlanned,
                             isFinished = loopState.isFinished,
+                            sessionId = loopState.sessionId,
                             isLoading = false,
                             selectedDegree = if (itemChanged) null else it.selectedDegree,
                             correctDegree = if (itemChanged) null else it.correctDegree,
