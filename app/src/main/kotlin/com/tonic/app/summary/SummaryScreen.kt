@@ -20,6 +20,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.tonic.app.R
+import com.tonic.core.ui.components.StageHeader
 import com.tonic.core.ui.theme.TonicSpacing
 import com.tonic.core.ui.theme.TonicTheme
 
@@ -44,6 +45,7 @@ private fun SummaryContent(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
+        StageHeader(stringResource(R.string.summary_stage_name))
         Text(
             text = stringResource(R.string.summary_title),
             style = MaterialTheme.typography.headlineMedium,

@@ -12,6 +12,10 @@
     <string name="onboarding_first_up">First up: a few short listening questions to find your starting point. No score, no timer, nothing to get \"wrong.\"</string>
     <string name="onboarding_continue">Let\'s begin</string>
 
+    <!-- Stage names - docs/11-ONBOARDING-CLARITY.md §9.1: every screen says which stage it belongs to. -->
+    <string name="home_stage_name">Home</string>
+    <string name="summary_stage_name">Practice</string>
+
     <!-- Home - docs/08-UI-SPEC.md §2: "start session, current progress at a glance." -->
     <string name="home_start_practice">Start</string>
     <string name="home_open_progress">Progress</string>

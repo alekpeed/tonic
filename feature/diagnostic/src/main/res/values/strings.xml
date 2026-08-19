@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Stage name, shown persistently on every diagnostic screen - docs/11-ONBOARDING-CLARITY.md §9.1. -->
+    <string name="diagnostic_stage_name">Calibration</string>
+
     <!-- Intro - docs/08-UI-SPEC.md §5: "Frame as calibration, not testing." -->
     <string name="diagnostic_intro_title">Let\'s find your starting point.</string>
     <string name="diagnostic_intro_body">Four short sections, one after another. Each one asks the same kind of question a few times - how many depends on your answers, so don\'t worry about the pace. No scores, no timers, and there\'s no way to get it \"wrong\": just answer with what you hear.</string>
@@ -40,9 +43,9 @@
     <!-- Result - docs/08-UI-SPEC.md §5: "states where the user is starting and why in plain terms -
          never a level, grade, percentile, or diagnosis." The remediation copy is neutral and
          forward-looking with no implication of deficit - docs/02-PEDAGOGY.md §8. -->
-    <string name="diagnostic_result_proceed_title">You\'re ready to start.</string>
-    <string name="diagnostic_result_proceed_body">You\'ll begin hearing notes in the context of a key, and naming where they sit.</string>
-    <string name="diagnostic_result_fundamentals_title">Starting with the fundamentals.</string>
-    <string name="diagnostic_result_fundamentals_body">You\'ll build up from simple listening exercises, one step at a time.</string>
+    <string name="diagnostic_result_proceed_title">Calibration finished.</string>
+    <string name="diagnostic_result_proceed_body">That\'s the setup done — no more calibration questions. Practice starts next: you\'ll hear notes in the context of a key and say where each one sits.</string>
+    <string name="diagnostic_result_fundamentals_title">Calibration finished.</string>
+    <string name="diagnostic_result_fundamentals_body">That\'s the setup done — no more calibration questions. Practice starts next, beginning with the fundamentals and building up one step at a time.</string>
     <string name="diagnostic_continue">Continue</string>
 </resources>

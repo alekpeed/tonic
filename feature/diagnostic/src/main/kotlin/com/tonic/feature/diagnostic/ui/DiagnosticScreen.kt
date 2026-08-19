@@ -24,6 +24,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.tonic.core.ui.components.BinaryChoiceButtons
 import com.tonic.core.ui.components.PlaybackPhase
 import com.tonic.core.ui.components.PlaybackPhaseIndicator
+import com.tonic.core.ui.components.StageHeader
 import com.tonic.core.ui.theme.TonicSpacing
 import com.tonic.core.ui.theme.TonicTheme
 import com.tonic.feature.diagnostic.R
@@ -56,6 +57,7 @@ private fun IntroState(onBegin: () -> Unit) {
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
+        StageHeader(stringResource(R.string.diagnostic_stage_name))
         Text(
             text = stringResource(R.string.diagnostic_intro_title),
             style = MaterialTheme.typography.headlineMedium,
@@ -85,6 +87,8 @@ private fun RunningState(
     Column(
         modifier = Modifier.fillMaxSize().padding(TonicSpacing.md),
     ) {
+        StageHeader(stringResource(R.string.diagnostic_stage_name))
+
         // No progress *bar* here, deliberately - docs/11-ONBOARDING-CLARITY.md §9.2: each sub-test's
         // length is adaptive and genuinely unknown in advance, so a continuous fill implies a precision
         // the app does not have, and "an indicator that moves when it wants to is worse than no
@@ -173,6 +177,7 @@ private fun ResultState(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
+        StageHeader(stringResource(R.string.diagnostic_stage_name))
         Text(
             text = stringResource(titleRes),
             style = MaterialTheme.typography.headlineMedium,

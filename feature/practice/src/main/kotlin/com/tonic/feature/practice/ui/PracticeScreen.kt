@@ -39,6 +39,7 @@ import com.tonic.core.model.music.ScaleDegree
 import com.tonic.core.ui.components.MinimalProgressIndicator
 import com.tonic.core.ui.components.PlaybackPhase
 import com.tonic.core.ui.components.PlaybackPhaseIndicator
+import com.tonic.core.ui.components.StageHeader
 import com.tonic.core.ui.ladder.DegreeLadder
 import com.tonic.core.ui.theme.TonicSpacing
 import com.tonic.core.ui.theme.TonicTheme
@@ -211,6 +212,8 @@ private fun PracticeContent(
                 .fillMaxSize()
                 .padding(TonicSpacing.md),
     ) {
+        StageHeader(stringResource(R.string.practice_stage_name))
+
         MinimalProgressIndicator(
             itemsCompleted = uiState.itemsCompleted,
             itemsPlanned = uiState.itemsPlanned,

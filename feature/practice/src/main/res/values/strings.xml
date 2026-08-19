@@ -2,6 +2,9 @@
 <resources>
     <!-- docs/08-UI-SPEC.md §7: "Session completion acknowledgment: brief, factual." No fanfare. -->
     <string name="practice_session_complete">Session complete.</string>
+    <!-- Stage name, shown persistently on the practice screen - docs/11-ONBOARDING-CLARITY.md §9.1. -->
+    <string name="practice_stage_name">Practice</string>
+
     <string name="practice_replay">Replay</string>
     <string name="practice_skip">Skip</string>
 

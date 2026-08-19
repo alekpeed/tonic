@@ -27,6 +27,7 @@ import com.tonic.app.R
 import com.tonic.core.model.music.ScaleDegree
 import com.tonic.core.model.state.LabelStyle
 import com.tonic.core.model.state.MasteryState
+import com.tonic.core.ui.components.StageHeader
 import com.tonic.core.ui.labels.displayLabel
 import com.tonic.core.ui.theme.TonicSpacing
 import com.tonic.core.ui.theme.TonicTheme
@@ -77,6 +78,7 @@ private fun HomeContent(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
+        StageHeader(stringResource(R.string.home_stage_name))
         // docs/08-UI-SPEC.md §7: "displayed passively" - a small, unemphasized line, not a badge or a
         // counter that competes visually with the Start action below it.
         if (uiState.streakDays > 0) {
