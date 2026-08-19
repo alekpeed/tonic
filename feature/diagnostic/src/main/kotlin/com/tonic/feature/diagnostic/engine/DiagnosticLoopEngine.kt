@@ -25,6 +25,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import javax.inject.Inject
 import kotlin.random.Random
 
@@ -51,6 +52,14 @@ class DiagnosticLoopEngine
         private val settingsRepository: SettingsRepository,
         private val clock: Clock,
     ) {
+        /**
+         * Mutated only through [kotlinx.coroutines.flow.update], never `_state.value = _state.value.copy(...)`.
+         * Two coroutines write here — the run loop presenting items and [submitAnswer] arriving from the
+         * UI — so a read-modify-write can lose an update: the loop advances to the next item while an
+         * answer, holding a value read a moment earlier, writes the *previous* item back. The run then
+         * waits for an answer to an item the screen no longer shows and no button can reach. That is a
+         * dead diagnostic, and it was reproducing as an intermittent hang in the Stage 8 tests.
+         */
         private val _state = MutableStateFlow(DiagnosticLoopState())
         val state: StateFlow<DiagnosticLoopState> = _state.asStateFlow()
 
@@ -84,8 +93,7 @@ class DiagnosticLoopEngine
             diagnosticRepository.save(result)
             applyPlacement(result)
 
-            _state.value =
-                _state.value.copy(currentItem = null, inputEnabled = false, isFinished = true, result = result)
+            _state.update { it.copy(currentItem = null, inputEnabled = false, isFinished = true, result = result) }
         }
 
         /**
@@ -116,8 +124,11 @@ class DiagnosticLoopEngine
         suspend fun submitAnswer(responseLabel: String) {
             if (!_state.value.inputEnabled) return
             val answer = pendingAnswer ?: return
-            _state.value = _state.value.copy(inputEnabled = false)
-            answer.complete(responseLabel)
+            // Disable input only once the answer is actually accepted. `complete` returns false for a
+            // receiver that has already been answered, and disabling input on that path would strand
+            // the screen with no way back - the user's real answer would have gone nowhere.
+            if (!answer.complete(responseLabel)) return
+            _state.update { it.copy(inputEnabled = false) }
         }
 
         /** Replays the current item's already-rendered audio - unlimited, same contract as `:feature:practice`'s replay button. */
@@ -249,20 +260,26 @@ class DiagnosticLoopEngine
         private var pendingBuffer: PcmBuffer? = null
 
         private fun enterSubTest(subTest: M0SubTest) {
-            _state.value =
-                _state.value.copy(currentSubTest = subTest, subTestIndex = M0SubTest.entries.indexOf(subTest))
+            _state.update { it.copy(currentSubTest = subTest, subTestIndex = M0SubTest.entries.indexOf(subTest)) }
         }
 
         /** Renders, plays, exposes the item, and suspends until [submitAnswer] delivers a response. */
         private suspend fun presentAndAwaitAnswer(item: Item): String {
             val buffer = M0AudioRenderer.render(item)
             pendingBuffer = buffer
-            _state.value = _state.value.copy(currentItem = item, inputEnabled = false)
+            _state.update { it.copy(currentItem = item, inputEnabled = false) }
             audioPlayer.play(buffer).awaitCompletion()
-            _state.value = _state.value.copy(inputEnabled = true)
 
+            // Install the receiver *before* enabling input, never after. `inputEnabled = true` is what
+            // unblocks the answer buttons, and [submitAnswer] runs on a different coroutine than this
+            // one - so publishing it first leaves a window where a tap reads the previous item's
+            // already-completed `pendingAnswer`, drops the answer, and disables input again while this
+            // function goes on to await a deferred nothing will ever complete. That is a permanent
+            // freeze on a live screen, not just a flaky test: the window opens exactly when the audio
+            // ends, which is precisely when a quick user taps.
             val deferred = CompletableDeferred<String>()
             pendingAnswer = deferred
+            _state.update { it.copy(inputEnabled = true) }
             return deferred.await()
         }
 
