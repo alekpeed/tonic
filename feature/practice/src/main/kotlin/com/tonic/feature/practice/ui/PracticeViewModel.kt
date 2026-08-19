@@ -3,6 +3,7 @@ package com.tonic.feature.practice.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tonic.core.curriculum.graph.SkillGraph
+import com.tonic.core.data.repository.SessionRepository
 import com.tonic.core.data.repository.SkillStateRepository
 import com.tonic.core.data.settings.SettingsRepository
 import com.tonic.core.engine.session.DueReview
@@ -43,6 +44,7 @@ class PracticeViewModel
     constructor(
         private val engine: PracticeLoopEngine,
         private val skillStateRepository: SkillStateRepository,
+        private val sessionRepository: SessionRepository,
         private val settingsRepository: SettingsRepository,
         private val clock: Clock,
     ) : ViewModel() {
@@ -60,17 +62,68 @@ class PracticeViewModel
             if (started) return
             started = true
             viewModelScope.launch {
-                val settings = settingsRepository.settings.first()
-                val (currentNode, dueReviews) = resolveSessionStart()
-                engine.start(
-                    currentNode = currentNode,
-                    dueReviews = dueReviews,
-                    sessionLengthMinutes = settings.sessionLengthMinutes,
-                    rootSeed = Random.nextLong(),
-                    now = clock.now(),
-                )
+                // docs/10-TESTING.md §11: "force stop mid-session -> resume offered, no data loss." An
+                // interrupted session is offered back rather than silently replaced with a fresh one -
+                // starting fresh would strand its resume row and re-plan work the user already did.
+                val resumable = sessionRepository.findResumable()
+                if (resumable?.resumeState != null) {
+                    _uiState.update { it.copy(isLoading = false, resumableSession = resumable) }
+                    return@launch
+                }
+                beginFreshSession()
+            }
+        }
+
+        /** The user accepted the resume offer — continue the interrupted session from its stored plan. */
+        fun onResumeSession() {
+            val session = _uiState.value.resumableSession ?: return
+            _uiState.update { it.copy(resumableSession = null, isLoading = true) }
+            viewModelScope.launch {
+                engine.resume(session)
                 observeEngineAndSettings()
             }
+        }
+
+        /**
+         * The user declined the resume offer. The interrupted session is closed out first — otherwise its
+         * `resumeStateJson` stays non-null and `findResumable()` would keep offering it at every launch.
+         * Its recorded attempts are untouched; only the offer goes away.
+         */
+        fun onStartFreshSession() {
+            val session = _uiState.value.resumableSession ?: return
+            _uiState.update { it.copy(resumableSession = null, isLoading = true) }
+            viewModelScope.launch {
+                session.id?.let { sessionRepository.complete(it, session.completedItemCount, clock.now()) }
+                beginFreshSession()
+            }
+        }
+
+        /** Continues after an interruption paused the loop (docs/06-AUDIO-ENGINE.md §8). */
+        fun onResumeFromPause() {
+            viewModelScope.launch { engine.resumeAfterPause() }
+        }
+
+        /**
+         * The app was genuinely backgrounded — not a configuration change; the screen filters those out
+         * before calling this. Delegates to the engine's own non-suspending entry point rather than
+         * launching here, because `viewModelScope` is itself about to be torn down.
+         */
+        fun onAppBackgrounded() {
+            if (!started) return
+            engine.onBackgrounded()
+        }
+
+        private suspend fun beginFreshSession() {
+            val settings = settingsRepository.settings.first()
+            val (currentNode, dueReviews) = resolveSessionStart()
+            engine.start(
+                currentNode = currentNode,
+                dueReviews = dueReviews,
+                sessionLengthMinutes = settings.sessionLengthMinutes,
+                rootSeed = Random.nextLong(),
+                now = clock.now(),
+            )
+            observeEngineAndSettings()
         }
 
         private fun observeEngineAndSettings() {
@@ -95,6 +148,7 @@ class PracticeViewModel
                             itemsPlanned = loopState.itemsPlanned,
                             isFinished = loopState.isFinished,
                             sessionId = loopState.sessionId,
+                            isPaused = loopState.isPaused,
                             isLoading = false,
                             selectedDegree = if (itemChanged) null else it.selectedDegree,
                             correctDegree = if (itemChanged) null else it.correctDegree,

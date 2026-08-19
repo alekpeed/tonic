@@ -27,7 +27,7 @@ class AudioFocusManager
     @Inject
     constructor(
         @ApplicationContext private val context: Context,
-    ) {
+    ) : AudioInterruptions {
         private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
 
         private val _events =
@@ -35,7 +35,7 @@ class AudioFocusManager
                 extraBufferCapacity = 8,
                 onBufferOverflow = BufferOverflow.DROP_OLDEST,
             )
-        val events: SharedFlow<AudioInterruptionEvent> = _events.asSharedFlow()
+        override val events: SharedFlow<AudioInterruptionEvent> = _events.asSharedFlow()
 
         private var focusRequest: AudioFocusRequest? = null
         private var noisyReceiverRegistered = false
@@ -71,7 +71,7 @@ class AudioFocusManager
                 }
             }
 
-        fun requestFocus(): Boolean {
+        override fun requestFocus(): Boolean {
             val request =
                 AudioFocusRequest
                     .Builder(AudioManager.AUDIOFOCUS_GAIN)
@@ -95,7 +95,7 @@ class AudioFocusManager
             return result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
         }
 
-        fun releaseFocus() {
+        override fun releaseFocus() {
             focusRequest?.let { audioManager.abandonAudioFocusRequest(it) }
             focusRequest = null
             if (noisyReceiverRegistered) {

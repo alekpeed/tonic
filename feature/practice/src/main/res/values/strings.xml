@@ -4,4 +4,16 @@
     <string name="practice_session_complete">Session complete.</string>
     <string name="practice_replay">Replay</string>
     <string name="practice_skip">Skip</string>
+
+    <!-- Resume offer - docs/10-TESTING.md §11. Plain and factual; picking up where you left off is
+         presented as an option, never as something you owe the app (docs/08-UI-SPEC.md §7). -->
+    <string name="practice_resume_title">You have a session in progress.</string>
+    <string name="practice_resume_body">You can pick up where you left off, or start a new one.</string>
+    <string name="practice_resume_continue">Continue</string>
+    <string name="practice_resume_start_fresh">Start a new session</string>
+
+    <!-- Paused after an interruption - docs/06-AUDIO-ENGINE.md §8. States what happened, no blame. -->
+    <string name="practice_paused_title">Paused.</string>
+    <string name="practice_paused_body">That note wasn\'t scored. Continue whenever you\'re ready.</string>
+    <string name="practice_paused_continue">Continue</string>
 </resources>

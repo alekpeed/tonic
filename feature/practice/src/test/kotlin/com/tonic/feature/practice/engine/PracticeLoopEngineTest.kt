@@ -32,6 +32,7 @@ class PracticeLoopEngineTest {
         val confusionRepository = FakeConfusionRepository()
         val sessionRepository = FakeSessionRepository()
         val audioPlayer = FakeAudioPlayer()
+        val audioInterruptions = FakeAudioInterruptions()
         val clock = Clock { Instant.EPOCH }
         val engine =
             PracticeLoopEngine(
@@ -40,6 +41,7 @@ class PracticeLoopEngineTest {
                 confusionRepository,
                 sessionRepository,
                 audioPlayer,
+                audioInterruptions,
                 clock,
             )
     }
@@ -111,6 +113,10 @@ class PracticeLoopEngineTest {
 
             fixture.engine.submitAnswer(firstItem.targetDegree.degree.toString())
 
+            // Persistence is asynchronous now (docs/04-ARCHITECTURE.md §5 - the loop must not block on
+            // it), so assertions about what reached the repository join the write chain explicitly
+            // instead of assuming submitAnswer already awaited it.
+            fixture.engine.awaitPersistence()
             assertEquals(1, fixture.attemptRepository.all.size)
             assertTrue(
                 fixture.attemptRepository.all
@@ -206,12 +212,84 @@ class PracticeLoopEngineTest {
             }
 
             val average = submitDurationsMs.average()
-            // Report the measured value regardless of pass/fail, same as docs/10-TESTING.md §5's convention.
+            val worst = submitDurationsMs.max()
+            // docs/09-BUILD-PLAN.md Stage 6 says "measure and report it". An assertion message is only
+            // emitted on failure, so a green run reported nothing - print it so the number is visible in
+            // the test output either way.
+            println(
+                "[Stage 6 inter-item latency] submitAnswer cost over ${submitDurationsMs.size} items: " +
+                    "avg=${"%.2f".format(average)}ms worst=${worst}ms " +
+                    "(think-time budget ${thinkTimeMs}ms) per-call=$submitDurationsMs",
+            )
             assertTrue(
                 average < thinkTimeMs,
                 "expected submitAnswer's own cost (average ${average}ms) to stay well under the " +
                     "${thinkTimeMs}ms think-time window that pre-rendering had to work with - " +
                     "measured per-call: $submitDurationsMs",
+            )
+        }
+
+    @Test
+    fun `submitAnswer does not block on persistence - the write lands after it returns, not before`() =
+        runBlocking {
+            // docs/04-ARCHITECTURE.md §5: "Persist attempts asynchronously and do not block the loop on
+            // them." Uses a repository that stalls on write: if submitAnswer still awaited persistence,
+            // its own cost would include that stall. The write must still land - just not on this path.
+            val fixture = Fixture()
+            val slowWriteMs = 300L
+            fixture.attemptRepository.writeDelayMs = slowWriteMs
+            fixture.engine.start(
+                freshNode(),
+                dueReviews = emptyList(),
+                sessionLengthMinutes = 5,
+                rootSeed = 11L,
+                now = Instant.EPOCH,
+            )
+            val item = fixture.engine.state.value.currentItem!!
+
+            val t0 = System.nanoTime()
+            fixture.engine.submitAnswer(item.targetDegree.degree.toString(), autoAdvance = false)
+            val submitMs = (System.nanoTime() - t0) / 1_000_000
+
+            println(
+                "[Fix 3] submitAnswer returned in ${submitMs}ms with a ${slowWriteMs}ms database write " +
+                    "outstanding (pre-change this call awaited the full write chain)",
+            )
+            assertTrue(
+                submitMs < slowWriteMs,
+                "submitAnswer took ${submitMs}ms with a ${slowWriteMs}ms write in flight - it is still blocking on persistence",
+            )
+
+            // Not dropped: the write completes, it just isn't on the user-facing path.
+            fixture.engine.awaitPersistence()
+            assertEquals(1, fixture.attemptRepository.all.size, "the attempt must still be persisted, just later")
+        }
+
+    @Test
+    fun `the next item's difficulty still reflects the attempt just recorded`() =
+        runBlocking {
+            // The risk in making persistence async: axis levels for the next item are read back from
+            // skill state, which is rebuilt from the attempt log. renderNext() joins the write chain
+            // before that read, so the ordering guarantee holds even though submitAnswer no longer waits.
+            val fixture = Fixture()
+            fixture.attemptRepository.writeDelayMs = 40
+            fixture.engine.start(
+                freshNode(),
+                dueReviews = emptyList(),
+                sessionLengthMinutes = 10,
+                rootSeed = 21L,
+                now = Instant.EPOCH,
+            )
+
+            drive(fixture, accuracy = 1.0, seed = 21L)
+            fixture.engine.awaitPersistence()
+
+            val recorded = fixture.attemptRepository.all.filterNot { it.isAbandoned }
+            val state = fixture.skillStateRepository.observe(SkillIds.M2_DEG_SET_1).first()
+            assertEquals(
+                recorded.size,
+                state.totalAttempts,
+                "every recorded attempt must be reflected in the rebuilt skill state - no write was lost or reordered",
             )
         }
 
@@ -261,6 +339,7 @@ class PracticeLoopEngineTest {
             assertEquals(3, fixture.audioPlayer.playedBuffers.size, "1 auto-play on arrival + 2 replays")
 
             fixture.engine.submitAnswer(item.targetDegree.degree.toString())
+            fixture.engine.awaitPersistence()
             assertEquals(
                 2,
                 fixture.attemptRepository.all
@@ -289,7 +368,8 @@ class PracticeLoopEngineTest {
 
             fixture.engine.submitAnswer(wrongLabel, autoAdvance = false)
 
-            assertEquals(1, fixture.attemptRepository.all.size, "the attempt is still recorded immediately")
+            fixture.engine.awaitPersistence()
+            assertEquals(1, fixture.attemptRepository.all.size, "the attempt is still recorded, just not synchronously")
             assertEquals(item, fixture.engine.state.value.currentItem, "must not have advanced past the answered item")
 
             fixture.engine.proceedToNextItem()
@@ -317,6 +397,7 @@ class PracticeLoopEngineTest {
             fixture.engine.submitAnswer(wrongLabel, autoAdvance = false)
             val buffersBefore = fixture.audioPlayer.playedBuffers.size
             fixture.engine.playIncorrectContrast(wrongLabel)
+            fixture.engine.awaitPersistence()
 
             assertEquals(
                 buffersBefore + 3,

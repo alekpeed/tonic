@@ -14,6 +14,13 @@ data class PracticeLoopState(
     val isFinished: Boolean = false,
     /** The persisted `SessionRepository` row id for the current run, set once [PracticeLoopEngine.start] creates it - `summary/{sessionId}`'s own nav argument. */
     val sessionId: Long? = null,
+    /**
+     * True after an interruption (docs/06-AUDIO-ENGINE.md §8) discarded the current item and stopped
+     * playback. The session is *not* over — resume state has been persisted and
+     * [PracticeLoopEngine.resumeAfterPause] continues from the next item. Distinct from [isFinished],
+     * which means the plan ran out.
+     */
+    val isPaused: Boolean = false,
 )
 
 /** Shown briefly after [PracticeLoopEngine.submitAnswer], before the next item starts. */
@@ -21,3 +28,22 @@ data class AnswerFeedback(
     val correct: Boolean,
     val correctLabel: String,
 )
+
+/**
+ * Why the loop was interrupted — docs/06-AUDIO-ENGINE.md §8. Every one of these discards the current
+ * item rather than scoring it ("do not score an item the user could not hear"); they differ only in
+ * whether playback is expected to come back on its own.
+ */
+enum class InterruptionReason {
+    /** `AUDIOFOCUS_LOSS_TRANSIENT` (call, notification) or a duck request, which the spec says to treat as a pause, never a duck. Restores on regain. */
+    TRANSIENT_FOCUS_LOSS,
+
+    /** `AUDIOFOCUS_LOSS`: "end the session cleanly, persist resume state." No automatic restore. */
+    PERMANENT_FOCUS_LOSS,
+
+    /** `ACTION_AUDIO_BECOMING_NOISY` — headphones unplugged. No automatic restore; the user chooses when to continue. */
+    BECOMING_NOISY,
+
+    /** The app was backgrounded (a real `ON_STOP`, not a configuration change). */
+    BACKGROUNDED,
+}

@@ -1,5 +1,7 @@
 package com.tonic.feature.practice.engine
 
+import com.tonic.core.audio.focus.AudioInterruptionEvent
+import com.tonic.core.audio.focus.AudioInterruptions
 import com.tonic.core.audio.player.AudioPlayer
 import com.tonic.core.audio.synth.PcmBuffer
 import com.tonic.core.audio.synth.SynthEngine
@@ -21,11 +23,16 @@ import com.tonic.core.model.items.DifficultyAxis
 import com.tonic.core.model.items.Item
 import com.tonic.core.model.state.MasteryState
 import com.tonic.core.model.state.PlannedSlot
+import com.tonic.core.model.state.ResumeState
+import com.tonic.core.model.state.Session
+import com.tonic.core.model.state.SessionPlan
 import com.tonic.core.model.state.SkillState
 import com.tonic.core.model.time.Clock
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
@@ -33,6 +40,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import java.time.Instant
 import javax.inject.Inject
 
@@ -45,13 +57,11 @@ import javax.inject.Inject
  * harness driving a simulated learner the same way `:core:engine`'s
  * `SimulationHarness` does) can collect and drive.
  *
- * Single-caller contract: like a real conversation, calls are sequential -
- * [submitAnswer]/[replay]/[abandonCurrentItem] must not be invoked
- * concurrently with each other or with [start]. Pre-rendering runs one
- * background render at a time and is always awaited before the engine's
- * mutable session state (the work queue, generation history) is touched
- * again, so this sequential contract is what keeps that state race-free
- * without needing a lock.
+ * Concurrency: user-driven calls ([submitAnswer]/[replay]/[abandonCurrentItem]/[proceedToNextItem])
+ * are naturally sequential, but interruption handling (docs/06-AUDIO-ENGINE.md §8) is not — an audio
+ * focus loss or a headphone unplug arrives from the platform at an arbitrary moment, including
+ * mid-answer. Every public entry point therefore takes [loopMutex], which serializes them against each
+ * other and against the interruption collector. Private helpers assume the lock is already held.
  */
 class PracticeLoopEngine
     @Inject
@@ -61,12 +71,16 @@ class PracticeLoopEngine
         private val confusionRepository: ConfusionRepository,
         private val sessionRepository: SessionRepository,
         private val audioPlayer: AudioPlayer,
+        private val audioInterruptions: AudioInterruptions,
         private val clock: Clock,
     ) {
         private val engineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
         private val _state = MutableStateFlow(PracticeLoopState())
         val state: StateFlow<PracticeLoopState> = _state.asStateFlow()
+
+        /** Serializes user-driven calls against platform-driven interruptions. See the class KDoc. */
+        private val loopMutex = Mutex()
 
         private val queue = ArrayDeque<UpcomingWork>()
         private var history = GenerationHistory()
@@ -80,7 +94,28 @@ class PracticeLoopEngine
         private var preRendered: Deferred<RenderedSlot?>? = null
         private var replayCountForCurrent = 0
 
+        /** The plan this session is walking, kept so an interruption can persist it as [ResumeState]. */
+        private var sessionPlan: SessionPlan? = null
+
+        /** Index into [SessionPlan.plannedSlots] of the last slot that produced a *scored* attempt. -1 before any. */
+        private var lastScoredPlannedIndex = -1
+
+        /** The in-flight persistence chain — see [enqueuePersist]. Joined wherever read-your-writes matters. */
+        private var persistJob: Job? = null
+
+        private var focusJob: Job? = null
+
+        /** Only a transient focus loss restores automatically on regain (docs/06-AUDIO-ENGINE.md §8). */
+        private var pausedByTransientLoss = false
+
         private val independenceCheckAttempts = mutableListOf<Attempt>()
+
+        /**
+         * Answered attempts whose *adaptive* consequences haven't been applied yet — see
+         * [applyPendingAdaptations]. Concurrent by necessity: [submitAnswer] appends from the caller's
+         * coroutine while the pre-render coroutine drains it, and those two genuinely overlap.
+         */
+        private val pendingAdaptations = java.util.concurrent.ConcurrentLinkedQueue<Attempt>()
 
         /** Starts a new session. [rootSeed] is the caller's responsibility (docs/04-ARCHITECTURE.md §4) - freshly randomized for a new session, fixed for a replay. */
         suspend fun start(
@@ -89,26 +124,161 @@ class PracticeLoopEngine
             sessionLengthMinutes: Int,
             rootSeed: Long,
             now: Instant,
-        ) {
+        ) = loopMutex.withLock {
+            resetSessionState()
             this.rootSeed = rootSeed
-            this.history = GenerationHistory()
-            this.nextItemIndex = 0
-            this.itemsCompleted = 0
-            this.pending = null
-            this.preRendered = null
-            this.replayCountForCurrent = 0
-            this.independenceCheckAttempts.clear()
-            this.queue.clear()
 
             val plan = SessionComposer.compose(currentNode, dueReviews, sessionLengthMinutes, rootSeed, now)
+            this.sessionPlan = plan
             this.itemsPlanned = plan.plannedSlots.size
-            plan.plannedSlots.forEach { queue.addLast(UpcomingWork.Regular(it)) }
+            plan.plannedSlots.forEachIndexed { index, slot -> queue.addLast(UpcomingWork.Regular(slot, index)) }
 
             val session = sessionRepository.create(rootSeed, itemsPlanned, now)
             sessionId = requireNotNull(session.id) { "SessionRepository.create must return a persisted id" }
-            _state.value = _state.value.copy(sessionId = sessionId)
+            _state.update { it.copy(sessionId = sessionId) }
 
+            beginAudioSession()
             advance()
+        }
+
+        /**
+         * Continues an interrupted session — docs/10-TESTING.md §11's "force stop mid-session -> resume
+         * offered, no data loss". [session] must be one [SessionRepository.findResumable] returned, i.e.
+         * it carries a [ResumeState]. Replays the *remaining* planned slots from the stored plan; the
+         * slot that was interrupted is re-presented rather than skipped, because its attempt was recorded
+         * `isAbandoned` and deliberately never scored (docs/06-AUDIO-ENGINE.md §8).
+         */
+        suspend fun resume(session: Session) =
+            loopMutex.withLock {
+                val resumeState =
+                    requireNotNull(session.resumeState) { "resume() needs a session carrying a ResumeState" }
+                resetSessionState()
+
+                val plan = resumeState.plan
+                this.rootSeed = plan.rootSeed
+                this.sessionPlan = plan
+                this.itemsPlanned = plan.plannedSlots.size
+                this.itemsCompleted = session.completedItemCount
+                this.lastScoredPlannedIndex = resumeState.completedSlotIndex
+
+                val firstRemaining = resumeState.completedSlotIndex + 1
+                plan.plannedSlots.drop(firstRemaining).forEachIndexed { offset, slot ->
+                    queue.addLast(UpcomingWork.Regular(slot, firstRemaining + offset))
+                }
+                // Item seeds are a pure function of (rootSeed, index), so continuing the index sequence
+                // reproduces exactly the items the interrupted run would have played next.
+                this.nextItemIndex = firstRemaining
+                this.sessionId = requireNotNull(session.id) { "a resumable session must be persisted" }
+                _state.update { it.copy(sessionId = sessionId, itemsCompleted = itemsCompleted) }
+
+                beginAudioSession()
+                advance()
+            }
+
+        /**
+         * Called by the UI when the app is genuinely backgrounded (a real `ON_STOP`, not a configuration
+         * change). Non-suspending and self-scheduling on [engineScope] deliberately: the caller is a
+         * lifecycle callback whose own scope is about to be torn down, and the discarded-attempt write
+         * must survive that.
+         */
+        fun onBackgrounded() {
+            engineScope.launch { loopMutex.withLock { interrupt(InterruptionReason.BACKGROUNDED) } }
+        }
+
+        /** Continues after any pause. A no-op unless the loop is actually paused. */
+        suspend fun resumeAfterPause() =
+            loopMutex.withLock {
+                if (!_state.value.isPaused) return@withLock
+                pausedByTransientLoss = false
+                audioInterruptions.requestFocus()
+                _state.update { it.copy(isPaused = false) }
+                advance()
+            }
+
+        private fun resetSessionState() {
+            history = GenerationHistory()
+            nextItemIndex = 0
+            itemsCompleted = 0
+            pending = null
+            preRendered = null
+            replayCountForCurrent = 0
+            lastScoredPlannedIndex = -1
+            pausedByTransientLoss = false
+            independenceCheckAttempts.clear()
+            pendingAdaptations.clear()
+            queue.clear()
+        }
+
+        /**
+         * docs/06-AUDIO-ENGINE.md §8: focus is requested for the duration of a session, and every
+         * interruption the platform reports discards the current item rather than scoring it.
+         */
+        private fun beginAudioSession() {
+            audioInterruptions.requestFocus()
+            focusJob?.cancel()
+            focusJob =
+                engineScope.launch {
+                    audioInterruptions.events.collect { event ->
+                        val reason =
+                            when (event) {
+                                // A duck request is deliberately handled as a pause, never a duck:
+                                // "ducking changes the loudness of a stimulus mid-item, which corrupts
+                                // the trial" - AudioFocusManager already folds it into TransientLoss.
+                                AudioInterruptionEvent.TransientLoss -> InterruptionReason.TRANSIENT_FOCUS_LOSS
+                                AudioInterruptionEvent.PermanentLoss -> InterruptionReason.PERMANENT_FOCUS_LOSS
+                                AudioInterruptionEvent.BecomingNoisy -> InterruptionReason.BECOMING_NOISY
+                                AudioInterruptionEvent.FocusRegained -> null
+                            }
+                        loopMutex.withLock {
+                            if (reason != null) {
+                                interrupt(reason)
+                            } else if (pausedByTransientLoss && _state.value.isPaused) {
+                                // "restore on regain" - only for a transient loss.
+                                pausedByTransientLoss = false
+                                _state.update { it.copy(isPaused = false) }
+                                advance()
+                            }
+                        }
+                    }
+                }
+        }
+
+        /**
+         * The one path every interruption funnels through — docs/06-AUDIO-ENGINE.md §8: "any interruption
+         * mid-item marks the attempt `abandoned` and it does not enter the confusion matrix or the mastery
+         * window." Deliberately does NOT advance (unlike [abandonCurrentItem], which is the user pressing
+         * Skip): the point of an interruption is that playback must stop, so starting the next item's audio
+         * immediately would be exactly wrong. Persists resume state so a process death here is recoverable.
+         */
+        private suspend fun interrupt(reason: InterruptionReason) {
+            if (_state.value.isPaused || _state.value.isFinished) return
+            pausedByTransientLoss = reason == InterruptionReason.TRANSIENT_FOCUS_LOSS
+            discardPending()
+            persistResumeState()
+            _state.update { it.copy(currentItem = null, isPaused = true) }
+        }
+
+        /** Stops audio and records the pending item as abandoned, if there is one. Leaves the queue untouched. */
+        private fun discardPending() {
+            val current = pending ?: return
+            audioPlayer.stop()
+            pending = null
+            val attempt =
+                buildAttempt(current, responseLabel = null, correct = false, isAbandoned = true, latencyMs = 0)
+            enqueuePersist { attemptRepository.record(attempt) }
+        }
+
+        /**
+         * Writes `resumeStateJson` (docs/05-DATA-MODEL.md §1) so an interrupted session can be offered back
+         * to the user. Uses [lastScoredPlannedIndex], not the pending item's index: the interrupted item
+         * was discarded, so resume must re-present it rather than skip past it.
+         */
+        private fun persistResumeState() {
+            val plan = sessionPlan ?: return
+            val id = sessionId
+            val completed = itemsCompleted
+            val resumeState = ResumeState(plan = plan, completedSlotIndex = lastScoredPlannedIndex)
+            enqueuePersist { sessionRepository.updateResumeState(id, completed, resumeState) }
         }
 
         /**
@@ -124,25 +294,68 @@ class PracticeLoopEngine
             responseLabel: String,
             latencyMs: Long = 0,
             autoAdvance: Boolean = true,
-        ) {
-            val current = pending ?: return
+        ) = loopMutex.withLock {
+            val current = pending ?: return@withLock
             val correctLabel =
                 current.item.targetDegree.degree
                     .toString()
             val correct = responseLabel == correctLabel
             val attempt = buildAttempt(current, responseLabel, correct, isAbandoned = false, latencyMs)
-            persistAndAdapt(attempt)
+
+            // docs/04-ARCHITECTURE.md §5: "Persist attempts asynchronously and do not block the loop on
+            // them." Only the durable write leaves the loop; the adaptive half runs at the head of the
+            // next renderNext(), which already has to wait for this write anyway. See
+            // [applyPendingAdaptations].
+            enqueuePersist { writeAttempt(attempt) }
+            pendingAdaptations += attempt
+
             itemsCompleted++
-            _state.update { it.copy(lastFeedback = AnswerFeedback(correct, correctLabel)) }
+            current.plannedIndex?.let { lastScoredPlannedIndex = it }
+            _state.update {
+                it.copy(
+                    lastFeedback = AnswerFeedback(correct, correctLabel),
+                    itemsCompleted = itemsCompleted,
+                )
+            }
             if (autoAdvance) advance()
         }
 
-        /** Replays the current item's already-rendered audio. Unlimited and unpenalized — docs/08-UI-SPEC.md §4. */
-        suspend fun replay() {
-            val current = pending ?: return
-            replayCountForCurrent++
-            audioPlayer.play(current.buffer)
+        /**
+         * Chains one persistence unit behind the previous one and runs it [NonCancellable].
+         *
+         * Chained, because ordering is load-bearing: `SkillStateReducer` replays the whole attempt log,
+         * so attempt N must be written before N's rebuild, and N's rebuild before N+1's.
+         * [NonCancellable], because "do not drop attempts" outranks prompt cancellation — a session torn
+         * down mid-write must still land the write it already started. Scoped to [engineScope] rather
+         * than a global scope (CLAUDE.md §7 forbids `GlobalScope`), so it dies with the session at the
+         * latest.
+         */
+        private fun enqueuePersist(block: suspend () -> Unit) {
+            val previous = persistJob
+            persistJob =
+                engineScope.launch {
+                    previous?.join()
+                    withContext(NonCancellable) { block() }
+                }
         }
+
+        /**
+         * Suspends until every queued write has landed. Called internally wherever a subsequent read
+         * depends on a prior write, and exposed so a caller (or a test) can establish the same
+         * happens-before relationship without sleeping.
+         */
+        suspend fun awaitPersistence() {
+            persistJob?.join()
+        }
+
+        /** Replays the current item's already-rendered audio. Unlimited and unpenalized — docs/08-UI-SPEC.md §4. */
+        suspend fun replay() =
+            loopMutex.withLock {
+                val current = pending ?: return@withLock
+                replayCountForCurrent++
+                audioPlayer.play(current.buffer)
+                Unit
+            }
 
         /**
          * docs/02-PEDAGOGY.md §6: "On an incorrect answer, the app replays the target note in its tonal
@@ -154,40 +367,48 @@ class PracticeLoopEngine
          * Must be called with [responseLabel] still [pending] (i.e. after `submitAnswer(autoAdvance =
          * false)`, before [proceedToNextItem]) — a no-op otherwise.
          */
-        suspend fun playIncorrectContrast(responseLabel: String) {
-            val current = pending ?: return
-            val item = current.item
-            audioPlayer.play(current.buffer).awaitCompletion()
+        suspend fun playIncorrectContrast(responseLabel: String) =
+            loopMutex.withLock {
+                val current = pending ?: return@withLock
+                val item = current.item
+                audioPlayer.play(current.buffer).awaitCompletion()
 
-            val chosenDegree =
-                requireNotNull(item.activeDegrees.firstOrNull { it.degree.toString() == responseLabel }) {
-                    "responseLabel '$responseLabel' is not one of this item's active degrees"
-                }
-            val chosenMidi =
-                item.targetMidi - item.targetDegree.semitoneOffset(item.mode) + chosenDegree.semitoneOffset(item.mode)
-            audioPlayer
-                .play(
-                    SynthEngine.renderNote(
-                        chosenMidi,
-                        item.timbre,
-                        item.timing.targetDurationMs,
-                        seed = item.seed + CONTRAST_CHOSEN_NOTE_SEED_OFFSET,
-                    ),
-                ).awaitCompletion()
+                val chosenDegree =
+                    requireNotNull(item.activeDegrees.firstOrNull { it.degree.toString() == responseLabel }) {
+                        "responseLabel '$responseLabel' is not one of this item's active degrees"
+                    }
+                val chosenMidi =
+                    item.targetMidi - item.targetDegree.semitoneOffset(item.mode) +
+                        chosenDegree.semitoneOffset(item.mode)
+                audioPlayer
+                    .play(
+                        SynthEngine.renderNote(
+                            chosenMidi,
+                            item.timbre,
+                            item.timing.targetDurationMs,
+                            seed = item.seed + CONTRAST_CHOSEN_NOTE_SEED_OFFSET,
+                        ),
+                    ).awaitCompletion()
 
-            audioPlayer
-                .play(
-                    SynthEngine.renderNote(
-                        item.targetMidi,
-                        item.timbre,
-                        item.timing.targetDurationMs,
-                        seed = item.seed + CONTRAST_TARGET_REPEAT_SEED_OFFSET,
-                    ),
-                ).awaitCompletion()
-        }
+                audioPlayer
+                    .play(
+                        SynthEngine.renderNote(
+                            item.targetMidi,
+                            item.timbre,
+                            item.timing.targetDurationMs,
+                            seed = item.seed + CONTRAST_TARGET_REPEAT_SEED_OFFSET,
+                        ),
+                    ).awaitCompletion()
+            }
 
         /** Exposes [advance] for a caller that answered with `submitAnswer(autoAdvance = false)`. */
-        suspend fun proceedToNextItem() = advance()
+        suspend fun proceedToNextItem() =
+            loopMutex.withLock {
+                // An interruption may have landed between the answer and this call - it already stopped
+                // playback and persisted resume state, so advancing now would restart audio the user
+                // can't hear.
+                if (!_state.value.isPaused) advance()
+            }
 
         /**
          * Discards the current item rather than scoring it - docs/09-BUILD-PLAN.md Stage 6: "incoming
@@ -195,44 +416,75 @@ class PracticeLoopEngine
          * discarded rather than scored." Still persisted (isAbandoned=true) so the attempt log stays
          * complete, but excluded from every adaptive computation (see [com.tonic.core.engine.replay.SkillStateReducer]).
          */
-        suspend fun abandonCurrentItem() {
-            val current = pending ?: return
-            audioPlayer.stop()
-            val attempt =
-                buildAttempt(current, responseLabel = null, correct = false, isAbandoned = true, latencyMs = 0)
-            attemptRepository.record(attempt)
-            advance()
-        }
+        suspend fun abandonCurrentItem() =
+            loopMutex.withLock {
+                if (pending == null) return@withLock
+                discardPending()
+                advance()
+            }
 
-        /** Releases this engine's background rendering scope. Call when the owning ViewModel/session is torn down. */
+        /** Releases audio focus and this engine's background scope. Call when the owning ViewModel/session is torn down. */
         fun close() {
+            audioInterruptions.releaseFocus()
+            focusJob?.cancel()
             preRendered?.cancel()
+            // Writes already in flight finish regardless - see enqueuePersist's NonCancellable body.
             engineScope.cancel()
         }
 
-        private suspend fun persistAndAdapt(attempt: Attempt) {
+        /**
+         * The durable half of recording an answer: appends to the attempt log and the confusion matrix.
+         * Deliberately touches no engine state, which is what makes it safe to run off the loop's own
+         * coroutine (docs/04-ARCHITECTURE.md §5).
+         */
+        private suspend fun writeAttempt(attempt: Attempt) {
             attemptRepository.record(attempt)
-
-            if (attempt.isIndependenceCheckProbe) {
-                independenceCheckAttempts += attempt
-                if (independenceCheckAttempts.size >= IndependenceCheck.REQUIRED_ITEMS) {
-                    finishIndependenceCheck()
-                }
-                return
-            }
-
+            if (attempt.isIndependenceCheckProbe) return
             confusionRepository.record(
                 attempt.skillId,
                 attempt.targetLabel,
                 attempt.responseLabel ?: attempt.targetLabel,
             )
+        }
 
-            val before = skillStateRepository.observe(attempt.skillId).first()
-            skillStateRepository.rebuildFromAttempts(attempt.skillId)
-            val after = skillStateRepository.observe(attempt.skillId).first()
+        /**
+         * The *adaptive* half — rebuilding skill state and reacting to a mastery transition. Kept off the
+         * async write path and run here, at the head of [renderNext], for two reasons that pull the same
+         * way:
+         *
+         * 1. It reads back the attempt it just wrote, so it must run after [awaitPersistence] anyway.
+         * 2. It mutates engine state — [onNewlyMastered] can call [queueIndependenceCheck], which rewrites
+         *    the work queue and discards the in-flight pre-render. Doing that from a free-running
+         *    background coroutine raced [advance]; doing it on the single pre-render coroutine, before any
+         *    slot is dequeued, keeps the queue single-threaded without a second lock (taking [loopMutex]
+         *    here would deadlock, since [advance] holds it while awaiting this very coroutine).
+         *
+         * Running before the queue-empty check matters: a mastery reached on the session's final item must
+         * still be able to extend the session with independence-check probes.
+         */
+        private suspend fun applyPendingAdaptations() {
+            // Drain first, then await: [submitAnswer] enqueues an attempt's write *before* adding it here,
+            // so anything drained is guaranteed to have its write already on the chain we then join.
+            val batch = mutableListOf<Attempt>()
+            while (true) batch += pendingAdaptations.poll() ?: break
+            awaitPersistence()
 
-            if (before.masteryState != MasteryState.MASTERED && after.masteryState == MasteryState.MASTERED) {
-                onNewlyMastered(attempt.skillId, after)
+            for (attempt in batch) {
+                if (attempt.isIndependenceCheckProbe) {
+                    independenceCheckAttempts += attempt
+                    if (independenceCheckAttempts.size >= IndependenceCheck.REQUIRED_ITEMS) {
+                        finishIndependenceCheck()
+                    }
+                    continue
+                }
+
+                val before = skillStateRepository.observe(attempt.skillId).first()
+                skillStateRepository.rebuildFromAttempts(attempt.skillId)
+                val after = skillStateRepository.observe(attempt.skillId).first()
+
+                if (before.masteryState != MasteryState.MASTERED && after.masteryState == MasteryState.MASTERED) {
+                    onNewlyMastered(attempt.skillId, after)
+                }
             }
         }
 
@@ -260,8 +512,12 @@ class PracticeLoopEngine
         /**
          * docs/03-CURRICULUM.md §5.6: "Runs automatically once M2.FULL_DIATONIC is mastered. 30 items at
          * CADENCE_FADE L6, all axes at the user's current level otherwise." Jumped to the front of the
-         * queue so it starts on the very next item; any in-flight pre-render for what would have been the
-         * next *ordinary* item is now for the wrong thing and gets discarded.
+         * queue so it starts on the very next item.
+         *
+         * No longer discards an in-flight pre-render, because there can't be one: this now runs from
+         * [applyPendingAdaptations] at the head of [renderNext], *before* any slot is dequeued, so the
+         * very same call goes on to pick up the first probe queued here. (Cancelling the pre-render from
+         * inside the pre-render coroutine cancelled that coroutine itself.)
          */
         private fun queueIndependenceCheck(currentAxisLevels: Map<DifficultyAxis, Int>) {
             val forcedAxes = currentAxisLevels + (DifficultyAxis.CADENCE_FADE to INDEPENDENCE_CHECK_CADENCE_LEVEL)
@@ -270,8 +526,6 @@ class PracticeLoopEngine
             // addFirst repeatedly would reverse the order - insert back-to-front so the first probe in
             // the list is the first one dequeued.
             for (probe in probes.asReversed()) queue.addFirst(probe)
-            preRendered?.cancel()
-            preRendered = null
         }
 
         /**
@@ -293,7 +547,12 @@ class PracticeLoopEngine
             preRendered = null
 
             if (rendered == null) {
+                // Every queued write must land before the session row is closed - `complete` clears
+                // resumeStateJson, and the attempt log is what all skill state replays from.
+                awaitPersistence()
                 sessionRepository.complete(sessionId, itemsCompleted, clock.now())
+                audioInterruptions.releaseFocus()
+                focusJob?.cancel()
                 _state.update { it.copy(currentItem = null, isFinished = true, itemsCompleted = itemsCompleted) }
                 return
             }
@@ -326,6 +585,10 @@ class PracticeLoopEngine
          * fixed reference point by definition, not something a review should let drift.
          */
         private suspend fun renderNext(): RenderedSlot? {
+            // Joins the write chain and applies every deferred adaptation before anything is dequeued or
+            // generated - this is what preserves read-your-writes for the live axis levels read below,
+            // and what lets a mastery reached on the last item still extend the session.
+            applyPendingAdaptations()
             val work = queue.removeFirstOrNull() ?: return null
             val index = nextItemIndex++
             val seed = SessionComposer.itemSeed(rootSeed, index)
@@ -342,14 +605,26 @@ class PracticeLoopEngine
                     val effectiveSlot = work.slot.copy(axisLevels = axisLevels)
                     val result = M2ItemGenerator.generate(effectiveSlot.skillId, axisLevels, seed, history)
                     history = result.updatedHistory
-                    RenderedSlot(effectiveSlot, result.item, renderItemAudio(result.item), isIndependenceProbe = false)
+                    RenderedSlot(
+                        effectiveSlot,
+                        result.item,
+                        renderItemAudio(result.item),
+                        isIndependenceProbe = false,
+                        plannedIndex = work.plannedIndex,
+                    )
                 }
                 is UpcomingWork.IndependenceProbe -> {
                     val result = M2ItemGenerator.generate(SkillIds.M2_FULL_DIATONIC, work.axisLevels, seed, history)
                     history = result.updatedHistory
                     val slot =
                         PlannedSlot(SkillIds.M2_FULL_DIATONIC, work.axisLevels, isWarmup = false, isReview = false)
-                    RenderedSlot(slot, result.item, renderItemAudio(result.item), isIndependenceProbe = true)
+                    RenderedSlot(
+                        slot,
+                        result.item,
+                        renderItemAudio(result.item),
+                        isIndependenceProbe = true,
+                        plannedIndex = null,
+                    )
                 }
             }
         }
@@ -398,15 +673,11 @@ class PracticeLoopEngine
             return axisLevels + (DifficultyAxis.CADENCE_FADE to (cadence - 1).coerceAtLeast(0))
         }
 
-        private inline fun MutableStateFlow<PracticeLoopState>.update(
-            transform: (PracticeLoopState) -> PracticeLoopState,
-        ) {
-            value = transform(value)
-        }
-
         private sealed interface UpcomingWork {
             data class Regular(
                 val slot: PlannedSlot,
+                /** This slot's index in [SessionPlan.plannedSlots] — what resume state is expressed in. */
+                val plannedIndex: Int,
             ) : UpcomingWork
 
             data class IndependenceProbe(
@@ -419,6 +690,8 @@ class PracticeLoopEngine
             val item: Item.FunctionalRecognitionItem,
             val buffer: PcmBuffer,
             val isIndependenceProbe: Boolean,
+            /** Null for an independence-check probe — probes aren't part of the session plan. */
+            val plannedIndex: Int?,
         )
 
         companion object {

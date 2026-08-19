@@ -25,14 +25,17 @@ import kotlin.test.assertTrue
  * brand-new [TonicDatabase] instance against the same on-disk file after fully closing the first one is
  * the actual mechanism a real app-kill-and-relaunch goes through.
  *
- * Deliberately does NOT assert the interrupted session's own queue position is resumable -
- * `SessionRepository.updateResumeState`/`findResumable` exist and are unit-tested on their own
- * (`SessionRepositoryTest`) but aren't wired to any app lifecycle event yet, so resuming the *exact*
- * interrupted session isn't offered. What this test proves is the thing the success criterion actually
- * names: recorded attempts and the mastery/skill state derived from them - the durable pedagogical
- * progress a user has already earned - are never lost, because both are written to Room synchronously
- * as they happen ([com.tonic.feature.practice.engine.PracticeLoopEngine] records an attempt and rebuilds
- * skill state on every single answer, not in a batch at session end).
+ * Scope: this covers the durable pedagogical progress the success criterion actually names - recorded
+ * attempts and the mastery/skill state derived from them. Those are written per answer rather than
+ * batched at session end, so an app kill loses at most the item in flight.
+ *
+ * Note that "per answer" no longer means "synchronously on the answering call":
+ * [com.tonic.feature.practice.engine.PracticeLoopEngine] hands each write to a chained, non-cancellable
+ * background job (docs/04-ARCHITECTURE.md §5 - "persist attempts asynchronously and do not block the
+ * loop on them"), and joins that chain wherever a later read depends on it. Resuming the *exact*
+ * interrupted session is now wired too, via `updateResumeState`/`findResumable` - see
+ * `:feature:practice`'s `SessionResumeTest` for that behavior end to end; this test stays focused on
+ * the repository layer surviving a process boundary.
  */
 @RunWith(AndroidJUnit4::class)
 class ProgressDurabilityTest {

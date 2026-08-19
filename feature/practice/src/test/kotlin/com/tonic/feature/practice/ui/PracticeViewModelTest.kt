@@ -9,6 +9,7 @@ import com.tonic.core.model.state.MasteryState
 import com.tonic.core.model.state.SkillState
 import com.tonic.core.model.time.Clock
 import com.tonic.feature.practice.engine.FakeAttemptRepository
+import com.tonic.feature.practice.engine.FakeAudioInterruptions
 import com.tonic.feature.practice.engine.FakeAudioPlayer
 import com.tonic.feature.practice.engine.FakeConfusionRepository
 import com.tonic.feature.practice.engine.FakeSessionRepository
@@ -28,6 +29,7 @@ import org.junit.runner.RunWith
 import java.time.Instant
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -63,6 +65,7 @@ class PracticeViewModelTest {
         val confusionRepository = FakeConfusionRepository()
         val sessionRepository = FakeSessionRepository()
         val audioPlayer = FakeAudioPlayer()
+        val audioInterruptions = FakeAudioInterruptions()
         val settingsRepository = FakeSettingsRepository(settings)
         val clock = Clock { Instant.EPOCH }
         val engine =
@@ -72,9 +75,11 @@ class PracticeViewModelTest {
                 confusionRepository,
                 sessionRepository,
                 audioPlayer,
+                audioInterruptions,
                 clock,
             )
-        val viewModel = PracticeViewModel(engine, skillStateRepository, settingsRepository, clock)
+        val viewModel =
+            PracticeViewModel(engine, skillStateRepository, sessionRepository, settingsRepository, clock)
 
         /** Waits for input to actually be accepted, not just for an item to exist - matching how the real ladder gates input on [PracticeUiState.inputEnabled]. */
         suspend fun startAndAwaitFirstItem(): Item.FunctionalRecognitionItem {
@@ -101,6 +106,81 @@ class PracticeViewModelTest {
 
             assertFalse(fixture.viewModel.uiState.value.isLoading)
             assertEquals(SkillIds.M2_DEG_SET_1, item.skill)
+        }
+
+    @Test
+    fun `an interrupted session is offered back instead of silently starting a fresh one`() =
+        runBlocking {
+            // docs/10-TESTING.md §11: "force stop mid-session -> resume offered, no data loss."
+            val first = Fixture()
+            first.startAndAwaitFirstItem()
+            first.viewModel.onAppBackgrounded()
+            withTimeout(Fixture.TIMEOUT_MS) { first.viewModel.uiState.first { it.isPaused } }
+            first.engine.awaitPersistence()
+            val interrupted = first.sessionRepository.findResumable()!!
+
+            // Cold relaunch: a brand-new ViewModel over a repository that still holds the session row.
+            val second = Fixture()
+            second.sessionRepository.adopt(interrupted)
+            second.viewModel.startIfNeeded()
+
+            val offered = withTimeout(Fixture.TIMEOUT_MS) { second.viewModel.uiState.first { !it.isLoading } }
+            assertEquals(
+                interrupted.id,
+                offered.resumableSession?.id,
+                "the interrupted session must be offered, not replaced",
+            )
+            assertNull(offered.item, "nothing should be playing while the offer is on screen")
+        }
+
+    @Test
+    fun `accepting the resume offer continues the interrupted session`() =
+        runBlocking {
+            val first = Fixture()
+            first.startAndAwaitFirstItem()
+            first.viewModel.onAppBackgrounded()
+            withTimeout(Fixture.TIMEOUT_MS) { first.viewModel.uiState.first { it.isPaused } }
+            first.engine.awaitPersistence()
+            val interrupted = first.sessionRepository.findResumable()!!
+
+            val second = Fixture()
+            second.sessionRepository.adopt(interrupted)
+            second.viewModel.startIfNeeded()
+            withTimeout(Fixture.TIMEOUT_MS) { second.viewModel.uiState.first { it.resumableSession != null } }
+
+            second.viewModel.onResumeSession()
+
+            val running = withTimeout(Fixture.TIMEOUT_MS) { second.viewModel.uiState.first { it.item != null } }
+            assertNull(running.resumableSession, "the offer clears once accepted")
+            assertEquals(interrupted.id, running.sessionId, "it continues the same session row, not a new one")
+        }
+
+    @Test
+    fun `declining the resume offer closes it out so it is not offered again`() =
+        runBlocking {
+            val first = Fixture()
+            first.startAndAwaitFirstItem()
+            first.viewModel.onAppBackgrounded()
+            withTimeout(Fixture.TIMEOUT_MS) { first.viewModel.uiState.first { it.isPaused } }
+            first.engine.awaitPersistence()
+            val interrupted = first.sessionRepository.findResumable()!!
+
+            val second = Fixture()
+            second.sessionRepository.adopt(interrupted)
+            second.viewModel.startIfNeeded()
+            withTimeout(Fixture.TIMEOUT_MS) { second.viewModel.uiState.first { it.resumableSession != null } }
+
+            second.viewModel.onStartFreshSession()
+
+            val running = withTimeout(Fixture.TIMEOUT_MS) { second.viewModel.uiState.first { it.item != null } }
+            assertTrue(
+                running.sessionId != interrupted.id,
+                "starting fresh must create a new session, not reuse the declined one",
+            )
+            assertNull(
+                second.sessionRepository.findResumable(),
+                "the declined session must stop offering itself at every launch",
+            )
         }
 
     @Test
@@ -186,6 +266,9 @@ class PracticeViewModelTest {
             fixture.viewModel.onSkip()
             fixture.awaitItemChangeFrom(item)
 
+            // The abandoned attempt is written on the async chain now (docs/04-ARCHITECTURE.md §5), so
+            // join it rather than assuming the item change implies the write already landed.
+            fixture.engine.awaitPersistence()
             val recorded = fixture.attemptRepository.all.single()
             assertTrue(recorded.isAbandoned)
             assertEquals(null, recorded.responseLabel)

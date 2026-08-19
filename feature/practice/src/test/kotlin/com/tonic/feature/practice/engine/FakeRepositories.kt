@@ -18,20 +18,31 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import java.time.Instant
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CopyOnWriteArrayList
 
 /**
  * In-memory stand-ins for the real Room-backed repositories (proven correct against a real database in
  * Stage 5's tests) that still use the REAL adaptive-engine algorithms - [SkillStateReducer] and
  * [ConfusionTracker] - so these tests exercise genuine "adapt" behavior, not a stub of it.
+ *
+ * Backed by concurrent collections. Attempt writes now run on their own coroutine
+ * (docs/04-ARCHITECTURE.md §5 - the loop must not block on persistence) while the pre-render coroutine
+ * reads the same data back, so these genuinely see concurrent access. Room gives the production
+ * repositories that safety for free; the fakes have to state it.
  */
 class FakeAttemptRepository : AttemptRepository {
-    private val attempts = mutableListOf<Attempt>()
+    private val attempts = CopyOnWriteArrayList<Attempt>()
     private var nextId = 1L
     private val flow = MutableStateFlow<List<Attempt>>(emptyList())
 
     val all: List<Attempt> get() = attempts.toList()
 
+    /** Simulates a slow database write, so a test can tell whether a caller is actually awaiting it. */
+    var writeDelayMs: Long = 0
+
     override suspend fun record(attempt: Attempt) {
+        if (writeDelayMs > 0) kotlinx.coroutines.delay(writeDelayMs)
         attempts += attempt.copy(id = nextId++)
         flow.value = attempts.toList()
     }
@@ -52,7 +63,7 @@ class FakeAttemptRepository : AttemptRepository {
 class FakeSkillStateRepository(
     private val attemptRepository: FakeAttemptRepository,
 ) : SkillStateRepository {
-    private val states = mutableMapOf<SkillId, SkillState>()
+    private val states = ConcurrentHashMap<SkillId, SkillState>()
     private val flow = MutableStateFlow<Map<SkillId, SkillState>>(emptyMap())
 
     override fun observe(skillId: SkillId): Flow<SkillState> =
@@ -85,7 +96,7 @@ class FakeSkillStateRepository(
 }
 
 class FakeConfusionRepository : ConfusionRepository {
-    private val states = mutableMapOf<SkillId, ConfusionState>()
+    private val states = ConcurrentHashMap<SkillId, ConfusionState>()
 
     override suspend fun record(
         skillId: SkillId,
@@ -103,7 +114,7 @@ class FakeConfusionRepository : ConfusionRepository {
 }
 
 class FakeSessionRepository : SessionRepository {
-    private val sessions = mutableMapOf<Long, Session>()
+    private val sessions = ConcurrentHashMap<Long, Session>()
     private var nextId = 1L
 
     override suspend fun create(
@@ -151,6 +162,17 @@ class FakeSessionRepository : SessionRepository {
         }
 
     override suspend fun findById(sessionId: Long): Session? = sessions[sessionId]
+
+    /**
+     * Seeds an already-persisted session into a fresh fake — stands in for the Room row surviving a
+     * process death, so a resume test can use a genuinely new engine + repository pair rather than
+     * reusing the instance that created the session.
+     */
+    fun adopt(session: Session) {
+        val id = requireNotNull(session.id) { "only a persisted session can be adopted" }
+        sessions[id] = session
+        nextId = maxOf(nextId, id + 1)
+    }
 
     override suspend fun recentCompletedSessions(limit: Int): List<Session> =
         sessions.values
