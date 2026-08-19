@@ -8,9 +8,9 @@
     <!-- Caption under the phase indicator, changes with playback phase - unlike the phase indicator
          itself (deliberately non-verbal per docs/08-UI-SPEC.md §4), this says in words what's
          happening and what to do, on every item, every time. -->
-    <string name="practice_phase_reference">Listen — this establishes \"home.\"</string>
-    <string name="practice_phase_target">Now the note to place.</string>
-    <string name="practice_phase_awaiting_answer">Tap where it sits, relative to home.</string>
+    <string name="practice_phase_reference">Setting up \"home\" — more notes than your buttons. That\'s normal.</string>
+    <string name="practice_phase_target">One note, alone — this is the question.</string>
+    <string name="practice_phase_awaiting_answer">Tap where it sits, relative to home. Not sure? Guess.</string>
 
     <!-- Resume offer - docs/10-TESTING.md §11. Plain and factual; picking up where you left off is
          presented as an option, never as something you owe the app (docs/08-UI-SPEC.md §7). -->

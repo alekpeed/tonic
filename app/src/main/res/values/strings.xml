@@ -6,7 +6,8 @@
          background, no notation, no instrument (CLAUDE.md working description of the target user). -->
     <string name="onboarding_title">How Tonic works</string>
     <string name="onboarding_what_it_is">This app trains your ear to recognize a note\'s place in a key — not its name, not perfect pitch. Nothing to read, nothing to play.</string>
-    <string name="onboarding_how_it_works">Almost everything you do here follows the same pattern: you\'ll hear a few notes that establish \"home,\" then one more note. Your only job is to tap where that note sits relative to home.</string>
+    <string name="onboarding_how_it_works">Almost everything you do here follows the same pattern: first, some notes play to establish \"home.\" That opening always uses more notes than you have answer buttons for — that\'s normal, not a hint to track.</string>
+    <string name="onboarding_the_question">Then, after a short pause, one note plays by itself. That single note is the only thing you\'re answering about, and it always matches one of your buttons. Tap where it sits, relative to home. If you\'re not sure — guess. That\'s how this gets easier.</string>
     <string name="onboarding_replay">You can replay any sound as many times as you want, any time. It\'s never held against you.</string>
     <string name="onboarding_first_up">First up: a few short listening questions to find your starting point. No score, no timer, nothing to get \"wrong.\"</string>
     <string name="onboarding_continue">Let\'s begin</string>

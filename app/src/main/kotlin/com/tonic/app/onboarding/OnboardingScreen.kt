@@ -60,6 +60,7 @@ private fun OnboardingContent(onContinue: () -> Unit) {
 
         OnboardingPoint(stringResource(R.string.onboarding_what_it_is))
         OnboardingPoint(stringResource(R.string.onboarding_how_it_works))
+        OnboardingPoint(stringResource(R.string.onboarding_the_question))
         OnboardingPoint(stringResource(R.string.onboarding_replay))
         OnboardingPoint(stringResource(R.string.onboarding_first_up))
 
