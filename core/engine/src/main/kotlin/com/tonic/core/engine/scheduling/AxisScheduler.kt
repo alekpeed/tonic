@@ -70,8 +70,21 @@ object AxisScheduler {
         // long, realistic session end to end (the headless practice loop, docs/09-BUILD-PLAN.md Stage 6),
         // which reproduced exactly this failure before this fix. A genuinely well-supported ascent (six
         // real reversals) still freezes immediately via [StaircaseState.hasConverged], unaffected.
+        // The confirming trial must be a *genuine* confirmation - two consecutive correct completing an
+        // upward move the ceiling then clamps - not one lucky answer. [Staircase] returns early on a
+        // first correct without moving the level, so `level >= max` was already true after a single
+        // correct response, and freezing on that is a coin flip rather than evidence. For a learner at
+        // chance on a 7-degree set that is a 1-in-7 shot per trial at being pinned to CADENCE_FADE 7 -
+        // no reference at all, the most information-free level on the axis - and since [pickNextAxis]
+        // excludes maxed axes from both the fresh pick and the maintenance pass, the pin is permanent
+        // and mastery becomes unreachable. A latent bug independent of step size, but §2a's corrected
+        // CADENCE_FADE step of 1 makes the learner visit level 6 far more often and so exposed it:
+        // measured at 1621 of 1800 simulated items stranded at 7, never mastering. Requiring the pair
+        // makes that (1/7)^2 for such a learner while staying trivial for one who genuinely belongs at
+        // max. docs/07-ADAPTIVE-ENGINE.md §3, "Arriving at max vs. reconfirming it."
         val wasAlreadyAtMax = currentStaircase.level >= axis.maxLevel
-        val reconfirmedAtMax = wasAlreadyAtMax && finalStaircase.level >= axis.maxLevel
+        val completedUpwardMove = correct && finalStaircase.consecutiveCorrect == 0
+        val reconfirmedAtMax = wasAlreadyAtMax && completedUpwardMove && finalStaircase.level >= axis.maxLevel
         if (finalStaircase.hasConverged || reconfirmedAtMax) {
             result = freezeAndAdvance(result, axis, finalStaircase)
         }

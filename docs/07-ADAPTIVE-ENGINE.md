@@ -94,7 +94,7 @@ Algorithm:
 if activeAxis == null:
     activeAxis = highest-priority axis not yet at max
 run staircase on activeAxis only
-if activeAxis staircase has converged (6 reversals) OR is at max:
+if activeAxis staircase has converged (6 reversals) OR reconfirms max with two consecutive correct after already having arrived there:
     freeze activeAxis at its converged level
     activeAxis = next axis by priority not yet frozen/maxed
     reset staircase state for the new activeAxis
@@ -103,6 +103,14 @@ if the user's accuracy drops below 60% over 15 items:
 ```
 
 The last rule is a safety valve. A user who is drowning must be rescued regardless of what the staircase thinks.
+
+**Arriving at max vs. reconfirming it.** The first trial that lands an axis on its max level does *not* freeze it, and neither does a single correct answer afterwards. Freezing an axis at max means freezing it forever: `pickNextAxis` excludes maxed axes from both the fresh pick and the maintenance pass, so a maxed axis is never revisited and the safety valve — which only ever touches the *active* axis — can never rescue the learner from it. The evidence bar therefore has to be higher than one answer.
+
+Two things are required before an axis freezes at max: the level must have already been sitting at max *before* the triggering trial, and that trial must complete a genuine upward move — two consecutive correct answers, clamped by the ceiling. A single correct answer is not enough. The staircase does not move the level on a first correct response, so "level is at max" is trivially still true after one lucky answer; treating that as confirmation is a coin flip, not evidence. For a learner performing at chance on a 7-degree set it is a 1-in-7 shot per trial at being permanently pinned to `CADENCE_FADE` 7 — no reference at all, the most information-free level on the axis, and precisely the stranding §2a exists to prevent. Requiring the pair makes it (1/7)² for that learner while remaining trivial for one who genuinely belongs at max.
+
+A miss at any point in that sequence steps back down immediately, same as any other staircase step, revealing the cliff instead of locking it in. Six real reversals still freeze immediately regardless, unaffected by this rule.
+
+This was a latent bug independent of step size, found in live use and confirmed by simulation: with §2a's corrected `CADENCE_FADE` step size of 1 the learner visits level 6 far more often than at step 2, which exposed it — 1621 of 1800 simulated items stranded at level 7, mastery never reached. With the rule corrected, the same learner settles at a level they can actually sustain.
 
 **Revisiting frozen axes:** after all axes are frozen, run a maintenance pass — the scheduler unfreezes the highest-priority non-max axis and resumes. Progression is a loop, not a single sweep.
 

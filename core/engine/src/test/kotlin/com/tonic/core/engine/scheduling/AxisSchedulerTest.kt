@@ -95,11 +95,21 @@ class AxisSchedulerTest {
             "a miss right after arriving at max must step back down, not get locked in",
         )
 
-        // But reconfirming (correct again, on a fresh copy of the post-arrival state) does freeze it.
-        val reconfirmed = AxisScheduler.update(state, correct = true)
+        // Reconfirmation takes a genuine *pair*, not one answer. A single correct while sitting at max
+        // doesn't even move the staircase (Staircase returns early on a first correct), so treating it
+        // as confirmation would freeze on a coin flip - at chance on a 7-degree set, a 1-in-7 shot per
+        // trial at being pinned at max forever, since a maxed axis is never revisited. See
+        // docs/07-ADAPTIVE-ENGINE.md §3, "Arriving at max vs. reconfirming it."
+        val oneCorrectAtMax = AxisScheduler.update(state, correct = true)
+        assertTrue(
+            DifficultyAxis.OCTAVE_DISPLACE !in oneCorrectAtMax.frozen,
+            "one lucky answer at max is not confirmation - it doesn't even move the staircase",
+        )
+
+        val reconfirmed = AxisScheduler.update(oneCorrectAtMax, correct = true)
         assertTrue(
             DifficultyAxis.OCTAVE_DISPLACE in reconfirmed.frozen,
-            "reconfirming max on a later trial should freeze it",
+            "two consecutive correct at max is a real upward move the ceiling clamps - that freezes it",
         )
     }
 
