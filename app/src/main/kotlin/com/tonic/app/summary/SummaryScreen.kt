@@ -68,7 +68,7 @@ private fun SummaryContent(
 @Preview(showBackground = true)
 @Composable
 private fun SummaryContentPreview() {
-    TonicTheme(darkTheme = false, dynamicColor = false) {
+    TonicTheme(darkTheme = false) {
         SummaryContent(uiState = SummaryUiState(isLoading = false, itemsCompleted = 42, itemsPlanned = 50), onDone = {})
     }
 }

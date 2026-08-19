@@ -9,8 +9,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.sp
 import com.tonic.core.ui.theme.TonicSpacing
 import com.tonic.core.ui.theme.TonicTheme
 
@@ -19,10 +21,17 @@ import com.tonic.core.ui.theme.TonicTheme
  * belongs to a named stage the user can see... a small persistent header or equivalent, not something
  * the user has to infer from context."
  *
- * Deliberately quiet: low emphasis, small type, no chrome. It is there to be *checkable* at a glance,
- * not to compete with the exercise. The gap it closes was reported from real use — a user moved from
- * the diagnostic through four sub-tests into live practice without any screen ever saying which of
- * those two things was happening.
+ * Quiet but *legible*. The first version of this used `labelMedium` (12sp, the smallest style in the
+ * system) in `onSurfaceVariant` (the lowest-emphasis on-colour), aiming not to compete with the
+ * exercise — and overshot into invisible: a user looking at a full practice screen still could not tell
+ * which mode they were in, which is the exact failure §9.1 exists to prevent. That section's bar is
+ * legibility, not mere presence; a label nobody notices fails it as surely as no label at all.
+ *
+ * So: 16sp semi-bold, tracked out slightly, in `onSurface` — the role every Material scheme, dynamic
+ * ones included, guarantees is legible against the surface behind it. The size is placed deliberately
+ * in the hierarchy: above every incidental 14sp label on the screen (skip, help, the phase caption) so
+ * it is no longer joint-last, and below the 20sp ladder labels and 22sp prompt so it still doesn't
+ * compete with the exercise. Still no chrome and no colour of its own — a label, not a banner.
  *
  * Marked as a heading for TalkBack so screen-reader users can jump to it rather than hearing it read
  * in sequence on every screen.
@@ -34,8 +43,12 @@ fun StageHeader(
 ) {
     Text(
         text = stageName,
-        style = MaterialTheme.typography.labelMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        style =
+            MaterialTheme.typography.bodyLarge.copy(
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = 0.8.sp,
+            ),
+        color = MaterialTheme.colorScheme.onSurface,
         textAlign = TextAlign.Center,
         modifier =
             modifier
@@ -49,7 +62,7 @@ fun StageHeader(
 @Preview(showBackground = true)
 @Composable
 private fun StageHeaderPreview() {
-    TonicTheme(darkTheme = false, dynamicColor = false) {
+    TonicTheme(darkTheme = false) {
         StageHeader(stageName = "Calibration")
     }
 }

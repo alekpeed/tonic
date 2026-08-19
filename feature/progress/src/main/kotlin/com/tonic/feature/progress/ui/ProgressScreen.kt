@@ -213,7 +213,7 @@ private fun ConfusionRow(
 @Preview(showBackground = true)
 @Composable
 private fun ProgressContentPreview() {
-    TonicTheme(darkTheme = false, dynamicColor = false) {
+    TonicTheme(darkTheme = false) {
         ProgressContent(uiState = PreviewStates.sample, onNodeToggled = {})
     }
 }

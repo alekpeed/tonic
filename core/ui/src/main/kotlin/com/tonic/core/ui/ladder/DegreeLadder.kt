@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -159,7 +158,19 @@ private fun DegreeButton(
 }
 
 /**
- * A non-interactive placeholder holding the ladder's shape for a degree not in the current active set.
+ * A non-interactive placeholder holding the ladder's shape for a degree not in the current active set —
+ * docs/08-UI-SPEC.md §3's "dimmed, non-interactive gaps."
+ *
+ * Distinguished from a real button by **shape, not fill**. It occupies the same vertical slot so the
+ * ladder never reshuffles as degrees are introduced, but draws only a short, thin, centered rule — no
+ * full-width footprint, no rounded-button silhouette, nothing that reads as a control with a missing
+ * label. That distinction was previously carried entirely by a fill-colour difference, which measured
+ * 1.54:1 in the fallback dark scheme and 1.18:1 in light, and which docs/08-UI-SPEC.md §8's
+ * dynamic-colour requirement puts outside our control anyway: `primaryContainer` and `surfaceVariant`
+ * come from the user's wallpaper on Android 12+, and Material guarantees contrast *within* a role pair,
+ * never *between* two roles we happened to compare. A user reported exactly the predicted failure —
+ * blank boxes indistinguishable from buttons. Geometry survives any palette; a colour delta does not.
+ *
  * [Modifier.clearAndSetSemantics] with an empty block removes it from the accessibility tree entirely -
  * docs/08-UI-SPEC.md §9's TalkBack requirement is about the real buttons; a screen-reader user gains
  * nothing from tabbing onto silent placeholders and loses time doing it.
@@ -171,14 +182,30 @@ private fun InactiveDegreeGap() {
             Modifier
                 .fillMaxWidth()
                 .height(TonicSpacing.minTouchTarget)
-                .padding(horizontal = TonicSpacing.xs)
-                .clearAndSetSemantics {}
-                .background(
-                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f),
-                    RoundedCornerShape(TonicSpacing.sm),
-                ),
+                .clearAndSetSemantics {},
         contentAlignment = Alignment.Center,
     ) {
-        // Intentionally empty: the gap's job is only to preserve the ladder's vertical shape.
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxWidth(GAP_RULE_WIDTH_FRACTION)
+                    .height(GAP_RULE_THICKNESS)
+                    .background(
+                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = GAP_RULE_ALPHA),
+                        RoundedCornerShape(GAP_RULE_THICKNESS / 2),
+                    ),
+        )
     }
 }
+
+/** Narrow enough that it cannot be mistaken for the full-width buttons above and below it. */
+private const val GAP_RULE_WIDTH_FRACTION = 0.18f
+
+/** A hairline: present enough to hold the ladder's rhythm, far too thin to read as a tappable surface. */
+private val GAP_RULE_THICKNESS = 2.dp
+
+/**
+ * Drawn from `onSurfaceVariant` rather than a container colour: it is *ink*, and every Material scheme -
+ * dynamic ones included - guarantees `onSurfaceVariant` is legible against the surface behind it.
+ */
+private const val GAP_RULE_ALPHA = 0.5f

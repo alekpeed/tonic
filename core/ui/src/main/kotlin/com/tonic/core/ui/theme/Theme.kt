@@ -31,7 +31,7 @@ private val LocalTonicExtendedColors =
         TonicExtendedColors(correct = TonicColors.CorrectLight, incorrect = TonicColors.IncorrectLight)
     }
 
-private val LightColors =
+internal val LightColors =
     lightColorScheme(
         primary = TonicColors.Indigo40,
         onPrimary = TonicColors.Slate99,
@@ -45,7 +45,7 @@ private val LightColors =
         surfaceVariant = TonicColors.Slate95,
     )
 
-private val DarkColors =
+internal val DarkColors =
     darkColorScheme(
         primary = TonicColors.Indigo80,
         onPrimary = TonicColors.Indigo10,

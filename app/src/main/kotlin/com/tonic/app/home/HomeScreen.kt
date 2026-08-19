@@ -128,7 +128,7 @@ private fun currentProgressText(uiState: HomeUiState): String {
 @Preview(showBackground = true)
 @Composable
 private fun HomeContentPreview() {
-    TonicTheme(darkTheme = false, dynamicColor = false) {
+    TonicTheme(darkTheme = false) {
         HomeContent(
             uiState =
                 HomeUiState(
@@ -148,7 +148,7 @@ private fun HomeContentPreview() {
 @Preview(name = "No streak yet", showBackground = true)
 @Composable
 private fun HomeContentNoStreakPreview() {
-    TonicTheme(darkTheme = false, dynamicColor = false) {
+    TonicTheme(darkTheme = false) {
         HomeContent(
             uiState =
                 HomeUiState(

@@ -275,7 +275,7 @@ private val SESSION_LENGTH_RANGE = 3..15
 @Preview(showBackground = true)
 @Composable
 private fun SettingsContentPreview() {
-    TonicTheme(darkTheme = false, dynamicColor = false) {
+    TonicTheme(darkTheme = false) {
         SettingsContent(
             settings = AppSettings(),
             onLabelStyleChanged = {},

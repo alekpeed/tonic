@@ -341,7 +341,7 @@ private fun PracticeContent(
 @Preview(name = "Awaiting answer - light", showBackground = true)
 @Composable
 private fun PracticeContentIdlePreview() {
-    TonicTheme(darkTheme = false, dynamicColor = false) {
+    TonicTheme(darkTheme = false) {
         PracticeContent(uiState = PreviewStates.awaitingAnswer, onDegreeSelected = {}, onReplay = {}, onSkip = {})
     }
 }
@@ -349,7 +349,7 @@ private fun PracticeContentIdlePreview() {
 @Preview(name = "Awaiting answer - dark", showBackground = true, uiMode = 0x20)
 @Composable
 private fun PracticeContentIdleDarkPreview() {
-    TonicTheme(darkTheme = true, dynamicColor = false) {
+    TonicTheme(darkTheme = true) {
         PracticeContent(uiState = PreviewStates.awaitingAnswer, onDegreeSelected = {}, onReplay = {}, onSkip = {})
     }
 }
@@ -357,7 +357,7 @@ private fun PracticeContentIdleDarkPreview() {
 @Preview(name = "Correct feedback", showBackground = true)
 @Composable
 private fun PracticeContentCorrectPreview() {
-    TonicTheme(darkTheme = false, dynamicColor = false) {
+    TonicTheme(darkTheme = false) {
         PracticeContent(uiState = PreviewStates.correctFeedback, onDegreeSelected = {}, onReplay = {}, onSkip = {})
     }
 }
@@ -365,7 +365,7 @@ private fun PracticeContentCorrectPreview() {
 @Preview(name = "Incorrect feedback", showBackground = true)
 @Composable
 private fun PracticeContentIncorrectPreview() {
-    TonicTheme(darkTheme = false, dynamicColor = false) {
+    TonicTheme(darkTheme = false) {
         PracticeContent(uiState = PreviewStates.incorrectFeedback, onDegreeSelected = {}, onReplay = {}, onSkip = {})
     }
 }
@@ -373,7 +373,7 @@ private fun PracticeContentIncorrectPreview() {
 @Preview(name = "Full diatonic set", showBackground = true)
 @Composable
 private fun PracticeContentFullSetPreview() {
-    TonicTheme(darkTheme = false, dynamicColor = false) {
+    TonicTheme(darkTheme = false) {
         PracticeContent(uiState = PreviewStates.fullDiatonicSet, onDegreeSelected = {}, onReplay = {}, onSkip = {})
     }
 }
@@ -381,7 +381,7 @@ private fun PracticeContentFullSetPreview() {
 @Preview(name = "Loading", showBackground = true)
 @Composable
 private fun PracticeLoadingPreview() {
-    TonicTheme(darkTheme = false, dynamicColor = false) {
+    TonicTheme(darkTheme = false) {
         LoadingState(isFinished = false)
     }
 }
@@ -389,7 +389,7 @@ private fun PracticeLoadingPreview() {
 @Preview(name = "Session complete", showBackground = true)
 @Composable
 private fun PracticeCompletePreview() {
-    TonicTheme(darkTheme = false, dynamicColor = false) {
+    TonicTheme(darkTheme = false) {
         LoadingState(isFinished = true)
     }
 }
@@ -397,7 +397,7 @@ private fun PracticeCompletePreview() {
 @Preview(name = "Resume offer", showBackground = true)
 @Composable
 private fun PracticeResumeOfferPreview() {
-    TonicTheme(darkTheme = false, dynamicColor = false) {
+    TonicTheme(darkTheme = false) {
         ResumeOfferState(onContinue = {}, onStartFresh = {})
     }
 }
@@ -405,7 +405,7 @@ private fun PracticeResumeOfferPreview() {
 @Preview(name = "Paused after interruption", showBackground = true)
 @Composable
 private fun PracticePausedPreview() {
-    TonicTheme(darkTheme = false, dynamicColor = false) {
+    TonicTheme(darkTheme = false) {
         PausedState(onContinue = {})
     }
 }

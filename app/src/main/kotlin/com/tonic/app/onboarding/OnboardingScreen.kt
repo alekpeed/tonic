@@ -84,7 +84,7 @@ private fun OnboardingPoint(text: String) {
 @Preview(showBackground = true)
 @Composable
 private fun OnboardingPreview() {
-    TonicTheme(darkTheme = false, dynamicColor = false) {
+    TonicTheme(darkTheme = false) {
         OnboardingContent(onContinue = {})
     }
 }

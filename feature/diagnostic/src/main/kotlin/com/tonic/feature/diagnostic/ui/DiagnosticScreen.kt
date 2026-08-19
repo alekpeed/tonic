@@ -196,7 +196,7 @@ private fun ResultState(
 @Preview(name = "Intro", showBackground = true)
 @Composable
 private fun IntroPreview() {
-    TonicTheme(darkTheme = false, dynamicColor = false) {
+    TonicTheme(darkTheme = false) {
         IntroState(onBegin = {})
     }
 }
@@ -204,7 +204,7 @@ private fun IntroPreview() {
 @Preview(name = "Running - pitch direction", showBackground = true)
 @Composable
 private fun RunningPreview() {
-    TonicTheme(darkTheme = false, dynamicColor = false) {
+    TonicTheme(darkTheme = false) {
         RunningState(
             uiState =
                 DiagnosticUiState(
@@ -222,7 +222,7 @@ private fun RunningPreview() {
 @Preview(name = "Result - proceed to practice", showBackground = true)
 @Composable
 private fun ResultProceedPreview() {
-    TonicTheme(darkTheme = false, dynamicColor = false) {
+    TonicTheme(darkTheme = false) {
         ResultState(outcome = DiagnosticOutcome.PROCEED_TO_PRACTICE, onContinue = {})
     }
 }
@@ -230,7 +230,7 @@ private fun ResultProceedPreview() {
 @Preview(name = "Result - fundamentals", showBackground = true)
 @Composable
 private fun ResultFundamentalsPreview() {
-    TonicTheme(darkTheme = false, dynamicColor = false) {
+    TonicTheme(darkTheme = false) {
         ResultState(outcome = DiagnosticOutcome.START_WITH_FUNDAMENTALS, onContinue = {})
     }
 }

@@ -129,7 +129,7 @@ private const val HOME_DEGREE_LABEL = "1"
 @Preview(name = "M2 intro - before reveal", showBackground = true, heightDp = 900)
 @Composable
 private fun M2IntroPreview() {
-    TonicTheme(darkTheme = false, dynamicColor = false) {
+    TonicTheme(darkTheme = false) {
         M2IntroContent("3", answerRevealed = false, {}, {}, {})
     }
 }
@@ -137,7 +137,7 @@ private fun M2IntroPreview() {
 @Preview(name = "M2 intro - answer revealed", showBackground = true, heightDp = 900)
 @Composable
 private fun M2IntroRevealedPreview() {
-    TonicTheme(darkTheme = false, dynamicColor = false) {
+    TonicTheme(darkTheme = false) {
         M2IntroContent("3", answerRevealed = true, {}, {}, {})
     }
 }

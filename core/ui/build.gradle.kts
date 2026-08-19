@@ -74,6 +74,11 @@ dependencies {
     testRuntimeOnly(libs.junit.jupiter.engine)
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)
+    // Already provisioned for :core:data and every :feature:* module - wired in here so the theme's
+    // *dynamic* color path can be exercised against a real Context, which is the only way to test what
+    // the app actually renders on Android 12+ (docs/08-UI-SPEC.md §8).
+    testImplementation(libs.androidx.test.ext.junit)
+    testRuntimeOnly(libs.junit.vintage.engine)
 
     androidTestImplementation(platform(libs.compose.bom))
     androidTestImplementation(libs.compose.ui.test.junit4)
