@@ -25,8 +25,7 @@ object AxisScheduler {
         val axis = activated.activeAxis ?: return activated
 
         val bounds = axis.levelRange
-        val currentStaircase =
-            activated.staircases[axis] ?: StaircaseState(level = activated.levels.getOrDefault(axis, 0))
+        val currentStaircase = activated.staircases[axis] ?: freshStaircase(axis, activated.levels)
         val updatedStaircase = Staircase.update(currentStaircase, correct, bounds)
 
         var levels = activated.levels + (axis to updatedStaircase.level)
@@ -117,6 +116,21 @@ object AxisScheduler {
         return activate(state.copy(frozen = frozen, levels = levels, staircases = staircases), next)
     }
 
+    /**
+     * A cold-start staircase for [axis], seeded from its current level and that axis's **own** initial
+     * step size — docs/07-ADAPTIVE-ENGINE.md §2a. Reading the step size off the axis rather than one
+     * global constant is what keeps [DifficultyAxis.CADENCE_FADE] stepping a single level at a time
+     * (every rung genuinely passed through) while the other five keep §2's faster size-2 convergence.
+     */
+    private fun freshStaircase(
+        axis: DifficultyAxis,
+        levels: Map<DifficultyAxis, Int>,
+    ): StaircaseState =
+        StaircaseState(
+            level = levels.getOrDefault(axis, 0),
+            stepSize = axis.initialStepSize,
+        )
+
     private fun ensureActiveAxis(state: AxisSchedulerState): AxisSchedulerState {
         if (state.activeAxis != null) return state
         return activate(state, pickNextAxis(state.frozen, state.levels))
@@ -146,7 +160,7 @@ object AxisScheduler {
             if (existing != null && existing.hasConverged) {
                 StaircaseState(level = existing.level, stepSize = StaircaseState.MIN_STEP_SIZE)
             } else {
-                existing ?: StaircaseState(level = state.levels.getOrDefault(axis, 0))
+                existing ?: freshStaircase(axis, state.levels)
             }
         return state.copy(
             activeAxis = axis,

@@ -26,7 +26,11 @@ import kotlin.test.assertTrue
  */
 class AnswerHandoffTest {
     private companion object {
-        const val TIMEOUT_MS = 30_000L
+        // Generous on purpose. This drives two genuinely concurrent dispatchers to reach a
+        // microseconds-wide handoff window, so it is sensitive to CPU contention rather than to the
+        // behavior under test - it timed out during a full parallel `gradle build` while passing every
+        // run in isolation. A too-tight bound here reports scheduler starvation as a product bug.
+        const val TIMEOUT_MS = 120_000L
     }
 
     private fun anyLabel(item: Item): String = item.answerAlphabet.labels.first()

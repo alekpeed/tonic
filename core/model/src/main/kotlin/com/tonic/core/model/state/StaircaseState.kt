@@ -32,6 +32,14 @@ data class StaircaseState(
 
     companion object {
         const val CURRENT_SCHEMA_VERSION = 1
+
+        /**
+         * Default only — the M0 diagnostic's own ladders use it directly. **M2 axis staircases must not
+         * rely on this default**: docs/07-ADAPTIVE-ENGINE.md §2a makes the initial step size a per-axis
+         * property, so `AxisScheduler` seeds every axis staircase from
+         * [com.tonic.core.model.items.DifficultyAxis.initialStepSize] instead. A single global value
+         * here is what let CADENCE_FADE skip L1 — see that property's KDoc.
+         */
         const val INITIAL_STEP_SIZE = 2
         const val MIN_STEP_SIZE = 1
         const val REVERSALS_TO_CONVERGE = 6
