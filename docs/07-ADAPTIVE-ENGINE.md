@@ -38,6 +38,24 @@ data class StaircaseState(
 fun update(state: StaircaseState, correct: Boolean, bounds: IntRange): StaircaseState
 ```
 
+### 2a. Step size is per-axis, not global (correction — supersedes any single global constant)
+
+**Bug on record, found through live use:** an implementation used one global `INITIAL_STEP_SIZE = 2` for every axis, including `CADENCE_FADE`. Two consecutive correct answers — reachable within the first handful of items — jumped a first-time user from L0 (full four-chord cadence) straight to L2 (V–I only, two chords), skipping L1 entirely. This is not merely a pacing complaint: it was independently confirmed on real rendered audio that at L2 the two chords are functionally indistinguishable to someone who hasn't yet built the perceptual skill the exercise is meant to teach — same RMS loudness (measured ratio 0.992), same timbre, same duration, no gap between them. The only thing separating them is harmonic resolution, which is the very thing L2 assumes the user can already do. Vaulting a beginner there after two correct guesses strands them with no way to answer correctly except chance.
+
+**Requirement: `stepSize` is configured per axis, not globally.**
+
+| Axis | Initial step size | Rationale |
+|---|---|---|
+| `CADENCE_FADE` | **1** | Every level must be genuinely passed through, not skipped. This axis directly controls whether the user has any means at all of identifying the answer — see the L2 finding above. A skipped level here is not a minor pacing issue, it's a removed rung. |
+| All other axes (`TIMBRE_VARIETY`, `REGISTER_SPREAD`, `OCTAVE_DISPLACE`, `TEMPO_DENSITY`, `KEY_SPREAD`) | 2, as originally specified | These axes change difficulty without removing the user's means of answering at all. Skipping a level here degrades performance; it doesn't strand the user. Faster initial convergence remains appropriate. |
+
+Step-size halving after the second reversal (§2 as written) still applies per axis on top of this — the correction is only to the *initial* value for `CADENCE_FADE`.
+
+**Also on record from the same investigation, must be fixed alongside this:**
+
+- **L1 currently does not exist in practice.** `ReferencePlanBuilder` sets `reusableForItems` on the L1 plan (intended per §3's table below: "full cadence, then 2–3 items answered before it repeats"), but nothing in the production path reads that field — every item rebuilds its reference plan fresh from the current axis level, so L1 renders identically to L0. With `CADENCE_FADE` step size corrected to 1, the user will now dwell at L1 rather than skip it, so this can no longer be left unimplemented — either `reusableForItems` must actually be honored (the plan persists across the specified number of items before regenerating), or L1 must be redefined as a level that doesn't depend on cross-item reuse to be distinct from L0. Resolve this before shipping the step-size fix; a corrected step size that dwells at a non-functional level is not an improvement.
+- **Warmup items must not silently change the cadence level mid-session.** The current warmup behavior (`07 §8`: first 5 items of a session run one level easier) reduces `CADENCE_FADE` for those items specifically and unconditionally, independent of the staircase. A user can hear a sudden chord-count change at item 6 with no relationship to anything they just did. This must be announced the same way any other axis-level change is announced (see `11-ONBOARDING-CLARITY.md` §9.3) — the warmup-to-normal transition at item 6 is itself a level change and is not exempt from the announcement requirement just because it's schedule-driven rather than performance-driven.
+
 Rules:
 
 - Step size starts at 2 for fast initial convergence, halves to 1 after the second reversal. Never below 1.
@@ -76,7 +94,7 @@ Algorithm:
 if activeAxis == null:
     activeAxis = highest-priority axis not yet at max
 run staircase on activeAxis only
-if activeAxis staircase has converged (6 reversals) OR reconfirms max on a trial after already having arrived there:
+if activeAxis staircase has converged (6 reversals) OR is at max:
     freeze activeAxis at its converged level
     activeAxis = next axis by priority not yet frozen/maxed
     reset staircase state for the new activeAxis
@@ -85,8 +103,6 @@ if the user's accuracy drops below 60% over 15 items:
 ```
 
 The last rule is a safety valve. A user who is drowning must be rescued regardless of what the staircase thinks.
-
-**Arriving at max vs. reconfirming it:** the first trial that lands an axis on its max level does *not* freeze it — that would let two lucky correct answers on a sharp difficulty cliff (e.g. `CADENCE_FADE` 6→7, where a learner dependent on the cadence crutch craters from ~92% to chance-level) permanently lock the axis at a level with zero corroborating evidence, and a maxed axis is never revisited by the maintenance pass. The level needs to have already been sitting at max *before* the triggering trial — one more genuine trial to confirm it's sustainable — before freezing. A miss on that confirming trial steps back down immediately, same as any other staircase step. Six real reversals still freeze immediately regardless, unaffected by this rule.
 
 **Revisiting frozen axes:** after all axes are frozen, run a maintenance pass — the scheduler unfreezes the highest-priority non-max axis and resumes. Progression is a loop, not a single sweep.
 
