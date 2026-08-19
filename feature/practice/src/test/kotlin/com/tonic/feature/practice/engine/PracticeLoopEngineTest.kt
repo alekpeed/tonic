@@ -1,5 +1,6 @@
 package com.tonic.feature.practice.engine
 
+import com.tonic.core.engine.mastery.IndependenceCheck
 import com.tonic.core.engine.session.SkillWorkContext
 import com.tonic.core.model.ids.SkillIds
 import com.tonic.core.model.items.DifficultyAxis
@@ -443,11 +444,24 @@ class PracticeLoopEngineTest {
             assertEquals(expectedCadence, degSet2.axisLevels[DifficultyAxis.CADENCE_FADE])
         }
 
+    /**
+     * The success path end to end through the *real* loop: mastery of `M2_FULL_DIATONIC` automatically
+     * queues `M2.INDEPENDENCE_CHECK` (docs/03-CURRICULUM.md §5.6) and a learner who is genuinely
+     * accurate with no harmonic reference passes it.
+     *
+     * The mirror case — a cadence-dependent learner who must *not* be certified — is
+     * docs/10-TESTING.md §5's simulation 6 and is covered by
+     * `com.tonic.core.engine.simulation.CadenceDependentLearnerSimulationTest`, confirmed still passing
+     * under the corrected pacing of docs/07-ADAPTIVE-ENGINE.md §2a. It is deliberately not duplicated
+     * here: with CADENCE_FADE stepping one level at a time, such a learner never reaches mastery through
+     * this loop at all, because the staircase keeps probing above their threshold and the trailing
+     * 30-attempt window never clears the 90% bar while the level is >= 4. That is mastery criterion 5
+     * working as intended, not a gap in coverage.
+     */
     @Test
-    fun `a cadence-dependent learner masters M2_FULL_DIATONIC, triggers the independence check, and fails it`() =
+    fun `a competent learner masters M2_FULL_DIATONIC, triggers the independence check, and passes it`() =
         runBlocking {
             val fixture = Fixture()
-            val activeDegreeCount = 7
             fixture.engine.start(
                 freshNode(SkillIds.M2_FULL_DIATONIC),
                 dueReviews = emptyList(),
@@ -473,9 +487,9 @@ class PracticeLoopEngineTest {
                     }
                     independenceCheckSeen = true
                 }
-                val cadence = item.referencePlan.cadenceFadeLevel.level
-                val p = if (cadence < 6) 0.92 else 1.0 / activeDegreeCount
-                val correct = random.nextDouble() < p
+                // Accurate at every cadence level, reference or none - the profile the check exists to
+                // certify. Contrast the cadence-dependent responder in simulation 6.
+                val correct = random.nextDouble() < COMPETENT_ACCURACY
                 val label =
                     if (correct) {
                         item.targetDegree.degree.toString()
@@ -489,6 +503,7 @@ class PracticeLoopEngineTest {
                 fixture.engine.submitAnswer(label)
                 guard++
             }
+            fixture.engine.awaitPersistence()
 
             assertTrue(
                 independenceCheckSeen,
@@ -496,16 +511,40 @@ class PracticeLoopEngineTest {
             )
 
             val finalState = fixture.skillStateRepository.observe(SkillIds.M2_FULL_DIATONIC).first()
+            assertEquals(MasteryState.MASTERED, finalState.masteryState)
             assertEquals(
-                MasteryState.MASTERED,
-                finalState.masteryState,
-                "mastery itself is not revoked by failing the independence check",
+                DifficultyAxis.CADENCE_FADE.maxLevel,
+                cadenceBeforeCheck,
+                "a learner accurate at every level rides CADENCE_FADE to its ceiling before the check runs",
             )
-            assertEquals(6, cadenceBeforeCheck, "the check should have run at the node's mastered CADENCE_FADE level")
+
+            val probes = fixture.attemptRepository.all.filter { it.isIndependenceCheckProbe }
             assertEquals(
-                5,
+                IndependenceCheck.REQUIRED_ITEMS,
+                probes.size,
+                "the check is a fixed-size block - docs/03-CURRICULUM.md §5.6",
+            )
+            assertTrue(
+                probes.all { it.cadenceFadeLevel == INDEPENDENCE_CHECK_CADENCE_LEVEL },
+                "every probe must run with no harmonic reference at all, whatever the node settled at",
+            )
+            val accuracy = probes.count { it.correct }.toDouble() / probes.size
+            assertTrue(
+                accuracy >= IndependenceCheck.PASS_THRESHOLD,
+                "expected a passing block, measured $accuracy",
+            )
+            assertEquals(
+                DifficultyAxis.CADENCE_FADE.maxLevel,
                 finalState.axisLevels[DifficultyAxis.CADENCE_FADE],
-                "a cadence-dependent learner (chance-level at L6) must fail the check, lowering the fade axis one step",
+                "passing must leave the fade axis alone - only a failure steps it down",
             )
         }
+
+    private companion object {
+        /** Accurate regardless of how much reference is playing - see the test's own KDoc. */
+        const val COMPETENT_ACCURACY = 0.95
+
+        /** docs/03-CURRICULUM.md §5.6: the check always runs at CADENCE_FADE L6, no reference at all. */
+        const val INDEPENDENCE_CHECK_CADENCE_LEVEL = 6
+    }
 }

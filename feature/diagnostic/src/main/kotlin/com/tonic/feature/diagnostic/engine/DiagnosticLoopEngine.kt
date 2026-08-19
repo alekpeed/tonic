@@ -124,11 +124,18 @@ class DiagnosticLoopEngine
         suspend fun submitAnswer(responseLabel: String) {
             if (!_state.value.inputEnabled) return
             val answer = pendingAnswer ?: return
-            // Disable input only once the answer is actually accepted. `complete` returns false for a
-            // receiver that has already been answered, and disabling input on that path would strand
-            // the screen with no way back - the user's real answer would have gone nowhere.
-            if (!answer.complete(responseLabel)) return
+            // Nothing to accept if this receiver was already answered - bail before touching state, so a
+            // duplicate tap can't strand the screen with input disabled and no pending question.
+            if (answer.isCompleted) return
+
+            // Close input *before* handing the answer over, never after. `complete` resumes the run loop,
+            // which may be on another thread and can run all the way to presenting the next item -
+            // setting `inputEnabled = true` for it - before this function continues. Disabling afterwards
+            // then clobbers that back to false, and the loop sits awaiting an answer for an item whose
+            // buttons are dead: a permanent freeze. Widening the window (a loaded machine) reproduces it
+            // reliably, which is exactly how it surfaced.
             _state.update { it.copy(inputEnabled = false) }
+            answer.complete(responseLabel)
         }
 
         /** Replays the current item's already-rendered audio - unlimited, same contract as `:feature:practice`'s replay button. */

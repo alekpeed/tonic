@@ -3,7 +3,7 @@ package com.tonic.feature.diagnostic.engine
 import com.tonic.core.model.items.AnswerAlphabet
 import com.tonic.core.model.items.Item
 import com.tonic.core.model.time.Clock
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -26,12 +26,21 @@ import kotlin.test.assertTrue
  */
 class AnswerHandoffTest {
     private companion object {
-        // Generous on purpose. This drives two genuinely concurrent dispatchers to reach a
-        // microseconds-wide handoff window, so it is sensitive to CPU contention rather than to the
-        // behavior under test - it timed out during a full parallel `gradle build` while passing every
-        // run in isolation. A too-tight bound here reports scheduler starvation as a product bug.
-        const val TIMEOUT_MS = 120_000L
+        const val TIMEOUT_MS = 60_000L
     }
+
+    /**
+     * A dedicated thread for the run loop, deliberately **not** [kotlinx.coroutines.Dispatchers.Default].
+     * The point of these tests is that the run loop and the answerer are on different threads, so the
+     * handoff window is genuinely reachable - not that they contend for the shared Default pool. Under a
+     * full parallel `gradle build` that pool is saturated by other modules' workers, and the run loop
+     * would starve until the test timed out: a green product reported as a red one. One private thread
+     * keeps the concurrency that is under test and drops the contention that isn't.
+     */
+    private fun runLoopDispatcher() =
+        java.util.concurrent.Executors
+            .newSingleThreadExecutor { r -> Thread(r, "m0-run-loop").apply { isDaemon = true } }
+            .asCoroutineDispatcher()
 
     private fun anyLabel(item: Item): String = item.answerAlphabet.labels.first()
 
@@ -50,7 +59,7 @@ class AnswerHandoffTest {
             withTimeout(TIMEOUT_MS) {
                 // The run loop and the answerer are genuinely concurrent here, unlike the single-threaded
                 // Stage 8 engine tests - that separation is what makes the handoff window reachable.
-                val run = async(Dispatchers.Default) { engine.start(rootSeed = 7L) }
+                val run = async(runLoopDispatcher()) { engine.start(rootSeed = 7L) }
 
                 var answered = 0
                 var previous: Item? = null
@@ -90,7 +99,7 @@ class AnswerHandoffTest {
                 )
 
             withTimeout(TIMEOUT_MS) {
-                val run = async(Dispatchers.Default) { engine.start(rootSeed = 11L) }
+                val run = async(runLoopDispatcher()) { engine.start(rootSeed = 11L) }
                 var previous: Item? = null
                 while (true) {
                     val state =
