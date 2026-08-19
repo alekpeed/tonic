@@ -87,7 +87,33 @@ private fun RunningState(
         modifier = Modifier.fillMaxSize().padding(TonicSpacing.md),
     ) {
         MinimalProgressIndicator(itemsCompleted = uiState.subTestIndex, itemsPlanned = uiState.totalSubTests)
-        Spacer(modifier = Modifier.height(TonicSpacing.lg))
+        Spacer(modifier = Modifier.height(TonicSpacing.sm))
+
+        // Which of the 4 sections this is, and what it's called - shown for the whole section, not
+        // just once at the diagnostic's own intro screen.
+        if (subTest != null) {
+            Text(
+                text =
+                    stringResource(
+                        R.string.diagnostic_section_label,
+                        uiState.subTestIndex + 1,
+                        uiState.totalSubTests,
+                        stringResource(answerCopyFor(subTest).sectionNameRes),
+                    ),
+                style = MaterialTheme.typography.labelLarge,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(modifier = Modifier.height(TonicSpacing.xs))
+            Text(
+                text = stringResource(answerCopyFor(subTest).setupRes),
+                style = MaterialTheme.typography.bodyMedium,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+
+        Spacer(modifier = Modifier.height(TonicSpacing.md))
 
         PlaybackPhaseIndicator(
             phase = if (uiState.inputEnabled) PlaybackPhase.AWAITING_ANSWER else PlaybackPhase.TARGET,

@@ -2,6 +2,15 @@
 <resources>
     <string name="app_name">Tonic</string>
 
+    <!-- Onboarding - shown once, before the diagnostic. Plain language for a reader with no musical
+         background, no notation, no instrument (CLAUDE.md working description of the target user). -->
+    <string name="onboarding_title">How Tonic works</string>
+    <string name="onboarding_what_it_is">This app trains your ear to recognize a note\'s place in a key — not its name, not perfect pitch. Nothing to read, nothing to play.</string>
+    <string name="onboarding_how_it_works">Almost everything you do here follows the same pattern: you\'ll hear a few notes that establish \"home,\" then one more note. Your only job is to tap where that note sits relative to home.</string>
+    <string name="onboarding_replay">You can replay any sound as many times as you want, any time. It\'s never held against you.</string>
+    <string name="onboarding_first_up">First up: a few short listening questions to find your starting point. No score, no timer, nothing to get \"wrong.\"</string>
+    <string name="onboarding_continue">Let\'s begin</string>
+
     <!-- Home - docs/08-UI-SPEC.md §2: "start session, current progress at a glance." -->
     <string name="home_start_practice">Start</string>
     <string name="home_open_progress">Progress</string>

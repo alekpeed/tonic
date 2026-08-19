@@ -33,6 +33,7 @@ import com.tonic.core.ui.theme.TonicTheme
 
 @Composable
 fun HomeScreen(
+    onNeedsOnboarding: () -> Unit,
     onNeedsDiagnostic: () -> Unit,
     onStartPractice: () -> Unit,
     onOpenProgress: () -> Unit,
@@ -43,6 +44,13 @@ fun HomeScreen(
     LaunchedEffect(Unit) { viewModel.loadIfNeeded() }
 
     if (uiState.isLoading) return
+
+    // Checked before the diagnostic redirect: a first-time user needs the walkthrough before either
+    // the diagnostic or practice make sense, and both are where the confusion otherwise lands.
+    if (uiState.needsOnboarding) {
+        LaunchedEffect(Unit) { onNeedsOnboarding() }
+        return
+    }
 
     if (uiState.needsDiagnostic) {
         LaunchedEffect(Unit) { onNeedsDiagnostic() }

@@ -2,8 +2,24 @@
 <resources>
     <!-- Intro - docs/08-UI-SPEC.md §5: "Frame as calibration, not testing." -->
     <string name="diagnostic_intro_title">Let\'s find your starting point.</string>
-    <string name="diagnostic_intro_body">A few short listening questions. No scores, no timers - just answer with what you hear.</string>
+    <string name="diagnostic_intro_body">Four short sections, one after another. Each one asks the same kind of question a few times - how many depends on your answers, so don\'t worry about the pace. No scores, no timers, and there\'s no way to get it \"wrong\": just answer with what you hear.</string>
     <string name="diagnostic_begin">Begin</string>
+
+    <!-- Section heading, shown throughout that section (not just at the diagnostic's own intro) -
+         "which of the 4 sections is this, and what is it called." No item count within the section:
+         each section's own length is adaptive and genuinely unknown in advance. -->
+    <string name="diagnostic_section_label">Section %1$d of %2$d — %3$s</string>
+    <string name="diagnostic_section_name_pitch_direction">Pitch direction</string>
+    <string name="diagnostic_section_name_same_different">Same or different</string>
+    <string name="diagnostic_section_name_tonal_memory">Short phrase</string>
+    <string name="diagnostic_section_name_amusia_screen">One more phrase</string>
+
+    <!-- What you'll hear before you're asked to answer - distinct from the prompt below it, which is
+         the question itself. -->
+    <string name="diagnostic_setup_pitch_direction">You\'ll hear two notes, one right after the other.</string>
+    <string name="diagnostic_setup_same_different">You\'ll hear two notes, one right after the other.</string>
+    <string name="diagnostic_setup_tonal_memory">You\'ll hear a short phrase, then hear it again.</string>
+    <string name="diagnostic_setup_amusia_screen">You\'ll hear a short phrase, once.</string>
 
     <!-- Per sub-test prompts. Plain language throughout - no music-theory terms. -->
     <string name="diagnostic_prompt_pitch_direction">Was the second note higher or lower?</string>

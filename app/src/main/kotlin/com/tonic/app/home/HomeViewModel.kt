@@ -47,7 +47,11 @@ class HomeViewModel
             viewModelScope.launch {
                 settingsRepository.settings.collect { settings ->
                     _uiState.update {
-                        it.copy(labelStyle = settings.labelStyle, needsDiagnostic = !settings.diagnosticCompleted)
+                        it.copy(
+                            labelStyle = settings.labelStyle,
+                            needsOnboarding = !settings.onboardingCompleted,
+                            needsDiagnostic = !settings.diagnosticCompleted,
+                        )
                     }
                 }
             }

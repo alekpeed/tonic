@@ -7,6 +7,8 @@ import com.tonic.core.model.state.MasteryState
 /** What docs/08-UI-SPEC.md §2's Home screen needs: "start session, current progress at a glance." */
 data class HomeUiState(
     val isLoading: Boolean = true,
+    /** True until the one-time app walkthrough has been dismissed - Home routes to it before anything else. */
+    val needsOnboarding: Boolean = false,
     /** True until the M0 diagnostic has ever completed - Home routes to it first, per its own placement contract. */
     val needsDiagnostic: Boolean = false,
     val labelStyle: LabelStyle = LabelStyle.NUMBERS,

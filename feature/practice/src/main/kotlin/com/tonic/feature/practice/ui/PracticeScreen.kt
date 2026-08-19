@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
@@ -36,6 +37,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.tonic.core.model.music.ScaleDegree
 import com.tonic.core.ui.components.MinimalProgressIndicator
+import com.tonic.core.ui.components.PlaybackPhase
 import com.tonic.core.ui.components.PlaybackPhaseIndicator
 import com.tonic.core.ui.ladder.DegreeLadder
 import com.tonic.core.ui.theme.TonicSpacing
@@ -188,6 +190,14 @@ private fun LoadingState(isFinished: Boolean) {
     }
 }
 
+/** In words, every time - the phase indicator itself is deliberately non-verbal (docs/08-UI-SPEC.md §4). */
+private fun phaseCaptionRes(phase: PlaybackPhase): Int =
+    when (phase) {
+        PlaybackPhase.REFERENCE -> R.string.practice_phase_reference
+        PlaybackPhase.TARGET -> R.string.practice_phase_target
+        PlaybackPhase.AWAITING_ANSWER -> R.string.practice_phase_awaiting_answer
+    }
+
 @Composable
 private fun PracticeContent(
     uiState: PracticeUiState,
@@ -211,7 +221,13 @@ private fun PracticeContent(
         PlaybackPhaseIndicator(
             phase = uiState.phase,
             reduceMotion = uiState.reduceMotion,
-            modifier = Modifier.padding(vertical = TonicSpacing.lg),
+            modifier = Modifier.padding(top = TonicSpacing.lg),
+        )
+        Text(
+            text = stringResource(phaseCaptionRes(uiState.phase)),
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().padding(bottom = TonicSpacing.lg),
         )
 
         TextButton(

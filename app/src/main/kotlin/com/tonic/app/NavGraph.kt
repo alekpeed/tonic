@@ -8,6 +8,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.tonic.app.home.HomeScreen
+import com.tonic.app.onboarding.OnboardingScreen
 import com.tonic.app.summary.SummaryScreen
 import com.tonic.app.summary.SummaryViewModel
 import com.tonic.feature.diagnostic.ui.DiagnosticScreen
@@ -26,6 +27,11 @@ sealed interface TonicRoute {
 
     data object Home : TonicRoute {
         override val route = "home"
+    }
+
+    /** Shown once, before Diagnostic - see [com.tonic.app.onboarding.OnboardingScreen]. */
+    data object Onboarding : TonicRoute {
+        override val route = "onboarding"
     }
 
     data object Diagnostic : TonicRoute {
@@ -57,6 +63,11 @@ fun TonicNavGraph(navController: NavHostController = rememberNavController()) {
     NavHost(navController = navController, startDestination = TonicRoute.Home.route) {
         composable(TonicRoute.Home.route) {
             HomeScreen(
+                onNeedsOnboarding = {
+                    navController.navigate(TonicRoute.Onboarding.route) {
+                        popUpTo(TonicRoute.Home.route) { inclusive = true }
+                    }
+                },
                 onNeedsDiagnostic = {
                     navController.navigate(TonicRoute.Diagnostic.route) {
                         popUpTo(TonicRoute.Home.route) { inclusive = true }
@@ -65,6 +76,17 @@ fun TonicNavGraph(navController: NavHostController = rememberNavController()) {
                 onStartPractice = { navController.navigate(TonicRoute.Practice.route) },
                 onOpenProgress = { navController.navigate(TonicRoute.Progress.route) },
                 onOpenSettings = { navController.navigate(TonicRoute.Settings.route) },
+            )
+        }
+        composable(TonicRoute.Onboarding.route) {
+            OnboardingScreen(
+                onDone = {
+                    // Back to Home rather than straight to Diagnostic: Home re-evaluates needsDiagnostic
+                    // itself, so this route doesn't need to know or duplicate that decision.
+                    navController.navigate(TonicRoute.Home.route) {
+                        popUpTo(TonicRoute.Onboarding.route) { inclusive = true }
+                    }
+                },
             )
         }
         composable(TonicRoute.Diagnostic.route) {

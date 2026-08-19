@@ -42,7 +42,7 @@ class HomeViewModelTest {
     private val now = Instant.parse("2026-08-19T12:00:00Z")
 
     private class Fixture(
-        settingsInitial: AppSettings = AppSettings(diagnosticCompleted = true),
+        settingsInitial: AppSettings = AppSettings(onboardingCompleted = true, diagnosticCompleted = true),
         now: Instant,
     ) {
         val sessionRepository = FakeSessionRepository()
@@ -55,10 +55,32 @@ class HomeViewModelTest {
     @Test
     fun `before the diagnostic has ever completed, home reports needsDiagnostic`() =
         runBlocking {
-            val fixture = Fixture(settingsInitial = AppSettings(diagnosticCompleted = false), now = now)
+            val fixture =
+                Fixture(
+                    settingsInitial = AppSettings(onboardingCompleted = true, diagnosticCompleted = false),
+                    now = now,
+                )
             fixture.viewModel.loadIfNeeded()
             val state = fixture.viewModel.uiState.first { !it.isLoading }
             assertTrue(state.needsDiagnostic)
+        }
+
+    @Test
+    fun `before onboarding has ever completed, home reports needsOnboarding on a fresh install`() =
+        runBlocking {
+            val fixture = Fixture(settingsInitial = AppSettings(), now = now)
+            fixture.viewModel.loadIfNeeded()
+            val state = fixture.viewModel.uiState.first { !it.isLoading }
+            assertTrue(state.needsOnboarding)
+        }
+
+    @Test
+    fun `once onboarding is complete, home stops reporting needsOnboarding`() =
+        runBlocking {
+            val fixture = Fixture(now = now)
+            fixture.viewModel.loadIfNeeded()
+            val state = fixture.viewModel.uiState.first { !it.isLoading }
+            assertFalse(state.needsOnboarding)
         }
 
     @Test
