@@ -156,6 +156,20 @@ class PracticeViewModel
             _uiState.update { it.copy(showIntro = true, introAnswerRevealed = false) }
         }
 
+        /**
+         * The user is leaving Practice for Home - docs/08-UI-SPEC.md §2a. The engine persists the
+         * session for resume *before* [onExited] runs, because navigating away tears this ViewModel (and
+         * its scope) down: firing the navigation first would race the write that makes the session
+         * resumable. Next launch, [startIfNeeded]'s findResumable() offers this session back.
+         */
+        fun onExitSession(onExited: () -> Unit) {
+            phaseJob?.cancel()
+            viewModelScope.launch {
+                engine.leaveSession()
+                onExited()
+            }
+        }
+
         /** Continues after an interruption paused the loop (docs/06-AUDIO-ENGINE.md §8). */
         fun onResumeFromPause() {
             viewModelScope.launch { engine.resumeAfterPause() }

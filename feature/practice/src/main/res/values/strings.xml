@@ -5,6 +5,10 @@
     <!-- Stage name, shown persistently on the practice screen - docs/11-ONBOARDING-CLARITY.md §9.1. -->
     <string name="practice_stage_name">Practice</string>
 
+    <!-- Exit - docs/08-UI-SPEC.md §2a: every screen has a way out, always visible, progress kept. -->
+    <string name="practice_exit">End session</string>
+    <string name="practice_paused_exit">Back to Home</string>
+
     <string name="practice_replay">Replay</string>
     <string name="practice_skip">Skip</string>
 

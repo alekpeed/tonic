@@ -108,6 +108,13 @@ fun TonicNavGraph(navController: NavHostController = rememberNavController()) {
                         popUpTo(TonicRoute.Practice.route) { inclusive = true }
                     }
                 },
+                // docs/08-UI-SPEC.md §2a. The session was already persisted for resume by the time this
+                // fires - PracticeViewModel.onExitSession sequences the write before navigation.
+                onExitToHome = {
+                    navController.navigate(TonicRoute.Home.route) {
+                        popUpTo(TonicRoute.Home.route) { inclusive = true }
+                    }
+                },
             )
         }
         composable(

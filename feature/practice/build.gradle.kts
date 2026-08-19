@@ -83,6 +83,8 @@ dependencies {
     implementation(libs.lifecycle.runtime.ktx)
     implementation(libs.lifecycle.viewmodel.ktx)
     implementation(libs.lifecycle.viewmodel.compose)
+    // BackHandler - docs/08-UI-SPEC.md §2a's exit path must intercept the system back gesture.
+    implementation(libs.activity.compose)
     implementation(libs.lifecycle.runtime.compose)
     implementation(libs.coroutines.core)
     implementation(libs.coroutines.android)

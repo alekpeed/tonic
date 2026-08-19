@@ -440,6 +440,24 @@ class PracticeLoopEngine
                 advance()
             }
 
+        /**
+         * The user is leaving the practice screen mid-session - docs/08-UI-SPEC.md §2a's "way out".
+         * Rides the same path as a platform interruption: the in-flight item is discarded as abandoned
+         * (never scored), and the session plan plus position land in `resumeStateJson` so the next
+         * launch offers this exact session back (docs/05-DATA-MODEL.md §1). Suspends until the writes
+         * are durably queued past cancellation, because the caller navigates away - and the ViewModel
+         * teardown that follows - immediately after this returns. Safe to call in any state; a finished
+         * or never-started session is a no-op beyond releasing focus.
+         */
+        suspend fun leaveSession() {
+            loopMutex.withLock {
+                interrupt(InterruptionReason.USER_EXIT)
+                audioInterruptions.releaseFocus()
+                focusJob?.cancel()
+            }
+            awaitPersistence()
+        }
+
         /** Releases audio focus and this engine's background scope. Call when the owning ViewModel/session is torn down. */
         fun close() {
             audioInterruptions.releaseFocus()

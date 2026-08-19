@@ -3,6 +3,7 @@ package com.tonic.feature.practice.ui
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -52,10 +53,16 @@ import com.tonic.feature.practice.R
 @Composable
 fun PracticeScreen(
     onSessionComplete: (Long) -> Unit,
+    onExitToHome: () -> Unit,
     viewModel: PracticeViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val haptic = LocalHapticFeedback.current
+
+    // docs/08-UI-SPEC.md §2a. The system back gesture is a "way out" too, and it must go through the
+    // same save-then-leave path as the visible control: letting it pop the screen directly would tear
+    // the ViewModel down before the resume state is written, silently losing the session.
+    BackHandler { viewModel.onExitSession(onExitToHome) }
 
     LaunchedEffect(Unit) { viewModel.startIfNeeded() }
     LaunchedEffect(Unit) {
@@ -88,7 +95,10 @@ fun PracticeScreen(
     }
 
     if (uiState.isPaused) {
-        PausedState(onContinue = viewModel::onResumeFromPause)
+        PausedState(
+            onContinue = viewModel::onResumeFromPause,
+            onExit = { viewModel.onExitSession(onExitToHome) },
+        )
         return
     }
 
@@ -103,6 +113,7 @@ fun PracticeScreen(
         onReplay = viewModel::onReplay,
         onSkip = viewModel::onSkip,
         onOpenIntro = viewModel::onOpenIntro,
+        onExit = { viewModel.onExitSession(onExitToHome) },
     )
 }
 
@@ -169,7 +180,10 @@ private fun ResumeOfferState(
 }
 
 @Composable
-private fun PausedState(onContinue: () -> Unit) {
+private fun PausedState(
+    onContinue: () -> Unit,
+    onExit: () -> Unit = {},
+) {
     Column(
         modifier = Modifier.fillMaxSize().padding(TonicSpacing.lg),
         verticalArrangement = Arrangement.Center,
@@ -189,6 +203,10 @@ private fun PausedState(onContinue: () -> Unit) {
         Spacer(modifier = Modifier.height(TonicSpacing.xl))
         Button(onClick = onContinue, modifier = Modifier.testTag("practice_paused_continue")) {
             Text(stringResource(R.string.practice_paused_continue))
+        }
+        Spacer(modifier = Modifier.height(TonicSpacing.sm))
+        TextButton(onClick = onExit, modifier = Modifier.testTag("practice_paused_exit")) {
+            Text(stringResource(R.string.practice_paused_exit))
         }
     }
 }
@@ -246,6 +264,7 @@ private fun PracticeContent(
     onReplay: () -> Unit,
     onSkip: () -> Unit,
     onOpenIntro: () -> Unit = {},
+    onExit: () -> Unit = {},
 ) {
     Column(
         modifier =
@@ -253,7 +272,20 @@ private fun PracticeContent(
                 .fillMaxSize()
                 .padding(TonicSpacing.md),
     ) {
-        StageHeader(stringResource(R.string.practice_stage_name))
+        // docs/08-UI-SPEC.md §2a: a clear, always-visible way out, reachable mid-item. Sharing the row
+        // with the stage header keeps it present on every frame of the session without costing a line.
+        Box(modifier = Modifier.fillMaxWidth()) {
+            StageHeader(
+                stringResource(R.string.practice_stage_name),
+                modifier = Modifier.align(Alignment.Center),
+            )
+            TextButton(
+                onClick = onExit,
+                modifier = Modifier.align(Alignment.CenterStart).testTag("practice_exit"),
+            ) {
+                Text(text = stringResource(R.string.practice_exit), style = MaterialTheme.typography.labelLarge)
+            }
+        }
 
         // Non-blocking and self-clearing: it occupies its own line only on the item where the change
         // landed, and the next item's null axisChange removes it. Nothing to dismiss, nothing gated

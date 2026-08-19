@@ -42,6 +42,9 @@ data class AnswerFeedback(
  * whether playback is expected to come back on its own.
  */
 enum class InterruptionReason {
+    /** The user chose to leave the practice screen - docs/08-UI-SPEC.md §2a. Same discard-and-persist path as a platform interruption; nothing about leaving may lose progress. */
+    USER_EXIT,
+
     /** `AUDIOFOCUS_LOSS_TRANSIENT` (call, notification) or a duck request, which the spec says to treat as a pause, never a duck. Restores on regain. */
     TRANSIENT_FOCUS_LOSS,
 

@@ -32,6 +32,16 @@ No bottom navigation bar with four tabs. Home is the hub; Progress and Settings 
 
 ---
 
+## 2a. Every screen must have a way out
+
+*(Authored from the maintainer's written brief of 2026-08-19, which referenced this section before it existed in the repo; replace with the canonical text if one exists elsewhere.)*
+
+- Every screen has a clear, always-visible way to leave it. A user with no way out of a confusing screen is the worst state the app can be in.
+- Leaving Practice mid-session — by the visible control or the system back gesture — must never lose progress: the session is saved through the resume mechanism (`05-DATA-MODEL.md` `resumeStateJson`) and offered back on the next visit.
+- Any control that claims to advance or change state must give immediate visible confirmation. A control with zero transition feedback is indistinguishable from nothing happening.
+
+---
+
 ## 3. The degree ladder (the key widget)
 
 This is the answer input for all of Module 2. It replaces the piano keyboard that every competing app defaults to.

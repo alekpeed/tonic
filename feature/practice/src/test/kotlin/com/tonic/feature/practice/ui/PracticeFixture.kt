@@ -18,11 +18,14 @@ import java.time.Instant
  */
 internal class PracticeFixture(
     settings: AppSettings = AppSettings(),
+    /** Reuse another fixture's persistence, to model "the same device, a later launch" - the engine and ViewModel are always fresh. */
+    shared: PracticeFixture? = null,
 ) {
-    val attemptRepository = FakeAttemptRepository()
-    val skillStateRepository = FakeSkillStateRepository(attemptRepository)
-    val confusionRepository = FakeConfusionRepository()
-    val sessionRepository = FakeSessionRepository()
+    val attemptRepository: FakeAttemptRepository = shared?.attemptRepository ?: FakeAttemptRepository()
+    val skillStateRepository: FakeSkillStateRepository =
+        shared?.skillStateRepository ?: FakeSkillStateRepository(attemptRepository)
+    val confusionRepository: FakeConfusionRepository = shared?.confusionRepository ?: FakeConfusionRepository()
+    val sessionRepository: FakeSessionRepository = shared?.sessionRepository ?: FakeSessionRepository()
     val audioPlayer = FakeAudioPlayer()
     val audioInterruptions = FakeAudioInterruptions()
     val settingsRepository = FakeSettingsRepository(settings)
