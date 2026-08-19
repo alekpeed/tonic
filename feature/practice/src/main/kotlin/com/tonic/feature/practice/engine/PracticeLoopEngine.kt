@@ -112,8 +112,12 @@ class PracticeLoopEngine
 
         /**
          * Answered attempts whose *adaptive* consequences haven't been applied yet — see
-         * [applyPendingAdaptations]. Concurrent by necessity: [submitAnswer] appends from the caller's
-         * coroutine while the pre-render coroutine drains it, and those two genuinely overlap.
+         * [applyPendingAdaptations], which is the only drainer and runs under [loopMutex].
+         *
+         * Still a concurrent collection: [submitAnswer] appends under the mutex, but the queue is also
+         * cleared by [resetSessionState] and read on teardown paths. It is deliberately **not** drained
+         * from the pre-render coroutine any more — an earlier revision did, and that overlap is exactly
+         * what made generation non-deterministic.
          */
         private val pendingAdaptations = java.util.concurrent.ConcurrentLinkedQueue<Attempt>()
 
@@ -303,9 +307,9 @@ class PracticeLoopEngine
             val attempt = buildAttempt(current, responseLabel, correct, isAbandoned = false, latencyMs)
 
             // docs/04-ARCHITECTURE.md §5: "Persist attempts asynchronously and do not block the loop on
-            // them." Only the durable write leaves the loop; the adaptive half runs at the head of the
-            // next renderNext(), which already has to wait for this write anyway. See
-            // [applyPendingAdaptations].
+            // them." Only the durable write leaves the loop. The adaptive half is deferred to the next
+            // [advance], which is a fixed point in program order under the mutex - not to the pre-render
+            // coroutine, whose scheduling is not. See [applyPendingAdaptations].
             enqueuePersist { writeAttempt(attempt) }
             pendingAdaptations += attempt
 
@@ -449,18 +453,20 @@ class PracticeLoopEngine
 
         /**
          * The *adaptive* half — rebuilding skill state and reacting to a mastery transition. Kept off the
-         * async write path and run here, at the head of [renderNext], for two reasons that pull the same
-         * way:
+         * async write path, because it reads back the attempt it just wrote and so must run after
+         * [awaitPersistence] regardless.
          *
-         * 1. It reads back the attempt it just wrote, so it must run after [awaitPersistence] anyway.
-         * 2. It mutates engine state — [onNewlyMastered] can call [queueIndependenceCheck], which rewrites
-         *    the work queue and discards the in-flight pre-render. Doing that from a free-running
-         *    background coroutine raced [advance]; doing it on the single pre-render coroutine, before any
-         *    slot is dequeued, keeps the queue single-threaded without a second lock (taking [loopMutex]
-         *    here would deadlock, since [advance] holds it while awaiting this very coroutine).
+         * Called **only** from [advance]: under [loopMutex], at a fixed point in program order, and only
+         * once the in-flight pre-render has been awaited. All three matter. An earlier revision ran this
+         * at the head of `renderNext`, i.e. on the pre-render coroutine, which put it in a race with
+         * [submitAnswer]'s append and made item generation non-deterministic — the same seed produced
+         * CADENCE_FADE 3, 4 and 7 across three runs, violating CLAUDE.md §5 (see [axisLevelSnapshot]).
+         * It also mutates engine state: [onNewlyMastered] can call [queueIndependenceCheck], which pushes
+         * onto the plain `ArrayDeque` work queue that `renderNext` pops from, so it must not overlap a
+         * live pre-render either.
          *
-         * Running before the queue-empty check matters: a mastery reached on the session's final item must
-         * still be able to extend the session with independence-check probes.
+         * A mastery reached on the session's final item still extends the session, because the probes it
+         * queues are picked up by the next [renderNext] rather than by the one already completed.
          */
         private suspend fun applyPendingAdaptations() {
             // Drain first, then await: [submitAnswer] enqueues an attempt's write *before* adding it here,
@@ -543,8 +549,19 @@ class PracticeLoopEngine
 
         private suspend fun advance() {
             pending = null
-            val rendered = preRendered?.await() ?: renderNext()
+            // Await the in-flight pre-render *first*. That coroutine mutates `queue`, `nextItemIndex`
+            // and `history`, none of which are thread-safe, and [applyPendingAdaptations] can mutate
+            // `queue` too (a newly reached mastery queues independence probes via `addFirst`). Applying
+            // adaptations before this await would put those two on the same ArrayDeque concurrently -
+            // the same class of bug as the generation race below, found by the targeted sweep for it.
+            val preRenderedSlot = preRendered?.await()
             preRendered = null
+
+            // The one deterministic point at which deferred adaptations are applied: here, under
+            // [loopMutex], in program order, with no pre-render in flight - never inside the pre-render
+            // coroutine itself. See [applyPendingAdaptations] for what that race cost.
+            applyPendingAdaptations()
+            val rendered = preRenderedSlot ?: renderNext(axisLevelSnapshot())
 
             if (rendered == null) {
                 // Every queued write must land before the session row is closed - `complete` clears
@@ -560,7 +577,11 @@ class PracticeLoopEngine
             pending = rendered
             replayCountForCurrent = 0
             audioPlayer.play(rendered.buffer)
-            preRendered = engineScope.async { renderNext() }
+            // Snapshot taken *here*, at a fixed point in program order under the mutex, and handed to
+            // the coroutine - so what the next item generates from no longer depends on when that
+            // coroutine happens to get scheduled.
+            val snapshot = axisLevelSnapshot()
+            preRendered = engineScope.async { renderNext(snapshot) }
 
             _state.update {
                 it.copy(
@@ -573,37 +594,53 @@ class PracticeLoopEngine
         }
 
         /**
-         * Non-review work slots re-fetch the node's *live* axis levels here rather than trusting the
-         * static snapshot [SessionComposer] baked into the plan at compose time - the staircase should
-         * keep moving within a session, not just between them, which is exactly what
-         * `:core:engine`'s own primary evidence (`SimulationHarness`) exercises: one continuous
-         * per-attempt fold, no session boundaries in it at all. This stays fully replayable regardless -
-         * axis levels are a deterministic function of the response history up to this point
-         * ([com.tonic.core.engine.scheduling.AxisScheduler] is a pure fold), so the same rootSeed plus
-         * the same sequence of recorded answers reproduces the same levels, and therefore the same items,
-         * every time. Review slots keep the plan's static levels: a mastered node's axis levels are a
-         * fixed reference point by definition, not something a review should let drift.
+         * Every skill's current axis levels, read at one fixed point in program order under [loopMutex].
+         *
+         * Taken by [advance] and handed to [renderNext] rather than read inside it. Reading live state
+         * from inside the pre-render coroutine made generation depend on scheduling: the pre-render for
+         * item N+1 is launched while item N is still on screen, so whether it saw N's answer came down
+         * to which coroutine ran first. Same seed, same code, three runs produced CADENCE_FADE 3, 4 and
+         * 7 - a direct violation of CLAUDE.md §5's "the same seed and state must produce a byte-identical
+         * item on every run and every device," and it silently corrupted every measurement taken against
+         * the practice loop until it was found.
          */
-        private suspend fun renderNext(): RenderedSlot? {
-            // Joins the write chain and applies every deferred adaptation before anything is dequeued or
-            // generated - this is what preserves read-your-writes for the live axis levels read below,
-            // and what lets a mastery reached on the last item still extend the session.
-            applyPendingAdaptations()
+        private suspend fun axisLevelSnapshot(): Map<SkillId, Map<DifficultyAxis, Int>> =
+            skillStateRepository.observeAll().first().mapValues { it.value.axisLevels }
+
+        /**
+         * Non-review work slots use the node's axis levels as of [axisLevels] rather than the static
+         * snapshot [SessionComposer] baked into the plan at compose time - the staircase should keep
+         * moving within a session, not just between them, which is exactly what `:core:engine`'s own
+         * primary evidence (`SimulationHarness`) exercises: one continuous per-attempt fold, no session
+         * boundaries in it at all. Fully replayable - axis levels are a deterministic function of the
+         * response history up to the snapshot point ([com.tonic.core.engine.scheduling.AxisScheduler] is
+         * a pure fold), and the snapshot point itself is fixed in program order, so the same rootSeed
+         * plus the same sequence of recorded answers reproduces the same levels, and therefore the same
+         * items, every time.
+         *
+         * Because the snapshot is taken when the *previous* item is presented, adaptivity is one item
+         * behind - the intended, previously documented behavior, and the price of pre-rendering ahead so
+         * the answer-to-next-item gap stays instant (docs/06-AUDIO-ENGINE.md §7).
+         *
+         * Review slots keep the plan's static levels: a mastered node's axis levels are a fixed
+         * reference point by definition, not something a review should let drift.
+         */
+        private suspend fun renderNext(axisLevels: Map<SkillId, Map<DifficultyAxis, Int>>): RenderedSlot? {
             val work = queue.removeFirstOrNull() ?: return null
             val index = nextItemIndex++
             val seed = SessionComposer.itemSeed(rootSeed, index)
 
             return when (work) {
                 is UpcomingWork.Regular -> {
-                    val axisLevels =
+                    val effectiveLevels =
                         if (work.slot.isReview) {
                             work.slot.axisLevels
                         } else {
-                            val live = skillStateRepository.observe(work.slot.skillId).first().axisLevels
-                            if (work.slot.isWarmup) reducedCadenceFade(live) else live
+                            val snapshotted = axisLevels[work.slot.skillId] ?: work.slot.axisLevels
+                            if (work.slot.isWarmup) reducedCadenceFade(snapshotted) else snapshotted
                         }
-                    val effectiveSlot = work.slot.copy(axisLevels = axisLevels)
-                    val result = M2ItemGenerator.generate(effectiveSlot.skillId, axisLevels, seed, history)
+                    val effectiveSlot = work.slot.copy(axisLevels = effectiveLevels)
+                    val result = M2ItemGenerator.generate(effectiveSlot.skillId, effectiveLevels, seed, history)
                     history = result.updatedHistory
                     RenderedSlot(
                         effectiveSlot,
