@@ -1,5 +1,6 @@
 package com.tonic.feature.practice.ui
 
+import com.tonic.core.model.items.AxisChange
 import com.tonic.core.model.items.Item
 import com.tonic.core.model.music.ScaleDegree
 import com.tonic.core.model.state.LabelStyle
@@ -33,6 +34,8 @@ data class PracticeUiState(
     val resumableSession: Session? = null,
     /** True while an interruption (docs/06-AUDIO-ENGINE.md §8) has paused the loop. The session is not over. */
     val isPaused: Boolean = false,
+    /** Non-null only on the item where an axis moved - docs/11-ONBOARDING-CLARITY.md §9.3. */
+    val axisChange: AxisChange? = null,
 ) {
     val activeDegrees: List<ScaleDegree> get() = item?.activeDegrees ?: emptyList()
 }

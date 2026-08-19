@@ -35,6 +35,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.tonic.core.model.items.AxisChange
+import com.tonic.core.model.items.DifficultyAxis
 import com.tonic.core.model.music.ScaleDegree
 import com.tonic.core.ui.components.MinimalProgressIndicator
 import com.tonic.core.ui.components.PlaybackPhase
@@ -191,6 +193,29 @@ private fun LoadingState(isFinished: Boolean) {
     }
 }
 
+/**
+ * The one-line announcement for an axis that just moved — docs/11-ONBOARDING-CLARITY.md §9.3. Every
+ * axis in docs/03-CURRICULUM.md §5.3 is covered in both directions, because "a level change is a level
+ * change regardless of what triggered it": this same mapping serves a staircase step and the scheduled
+ * warmup-to-normal transition at item 6 without distinguishing them, since the user cannot tell them
+ * apart and does not need to.
+ */
+private fun axisChangeRes(change: AxisChange): Int =
+    when (change.axis) {
+        DifficultyAxis.CADENCE_FADE ->
+            if (change.isIncrease) R.string.practice_axis_cadence_harder else R.string.practice_axis_cadence_easier
+        DifficultyAxis.TIMBRE_VARIETY ->
+            if (change.isIncrease) R.string.practice_axis_timbre_harder else R.string.practice_axis_timbre_easier
+        DifficultyAxis.REGISTER_SPREAD ->
+            if (change.isIncrease) R.string.practice_axis_register_harder else R.string.practice_axis_register_easier
+        DifficultyAxis.OCTAVE_DISPLACE ->
+            if (change.isIncrease) R.string.practice_axis_octave_harder else R.string.practice_axis_octave_easier
+        DifficultyAxis.TEMPO_DENSITY ->
+            if (change.isIncrease) R.string.practice_axis_tempo_harder else R.string.practice_axis_tempo_easier
+        DifficultyAxis.KEY_SPREAD ->
+            if (change.isIncrease) R.string.practice_axis_key_harder else R.string.practice_axis_key_easier
+    }
+
 /** In words, every time - the phase indicator itself is deliberately non-verbal (docs/08-UI-SPEC.md §4). */
 private fun phaseCaptionRes(phase: PlaybackPhase): Int =
     when (phase) {
@@ -213,6 +238,19 @@ private fun PracticeContent(
                 .padding(TonicSpacing.md),
     ) {
         StageHeader(stringResource(R.string.practice_stage_name))
+
+        // Non-blocking and self-clearing: it occupies its own line only on the item where the change
+        // landed, and the next item's null axisChange removes it. Nothing to dismiss, nothing gated
+        // behind it - docs/11-ONBOARDING-CLARITY.md §9.3 asks for a brief statement, not an interstitial.
+        uiState.axisChange?.let { change ->
+            Text(
+                text = stringResource(axisChangeRes(change)),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(bottom = TonicSpacing.sm).testTag("axis_change"),
+            )
+        }
 
         MinimalProgressIndicator(
             itemsCompleted = uiState.itemsCompleted,

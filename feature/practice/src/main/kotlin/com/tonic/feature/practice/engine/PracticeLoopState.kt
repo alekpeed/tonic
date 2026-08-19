@@ -1,5 +1,6 @@
 package com.tonic.feature.practice.engine
 
+import com.tonic.core.model.items.AxisChange
 import com.tonic.core.model.items.Item
 
 /** What a caller (Stage 7's ViewModel, or a headless test harness) needs to render one moment of a session. */
@@ -21,6 +22,12 @@ data class PracticeLoopState(
      * which means the plan ran out.
      */
     val isPaused: Boolean = false,
+    /**
+     * Set for exactly the item on which a difficulty axis changed, null otherwise — the signal the
+     * practice screen turns into docs/11-ONBOARDING-CLARITY.md §9.3's one-line announcement. Clears on
+     * the next item by construction, since that item's levels match the one before it.
+     */
+    val axisChange: AxisChange? = null,
 )
 
 /** Shown briefly after [PracticeLoopEngine.submitAnswer], before the next item starts. */

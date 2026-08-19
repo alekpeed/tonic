@@ -19,6 +19,7 @@ import com.tonic.core.engine.session.SkillWorkContext
 import com.tonic.core.model.attempts.Attempt
 import com.tonic.core.model.ids.SkillId
 import com.tonic.core.model.ids.SkillIds
+import com.tonic.core.model.items.AxisChange
 import com.tonic.core.model.items.DifficultyAxis
 import com.tonic.core.model.items.Item
 import com.tonic.core.model.state.MasteryState
@@ -104,6 +105,16 @@ class PracticeLoopEngine
         private var persistJob: Job? = null
 
         private var focusJob: Job? = null
+
+        /**
+         * Effective axis levels of the last item actually *presented*, and which skill they belonged to.
+         * Diffed against the next presented item to detect any axis movement worth announcing
+         * (docs/11-ONBOARDING-CLARITY.md §9.3). Effective, not raw: these are the levels the item was
+         * generated at, so the scheduled warmup reduction is already folded in and the warmup-to-normal
+         * transition at item 6 falls out of the same comparison as a staircase step, with no special case.
+         */
+        private var lastPresentedLevels: Map<DifficultyAxis, Int>? = null
+        private var lastPresentedSkill: SkillId? = null
 
         /** Only a transient focus loss restores automatically on regain (docs/06-AUDIO-ENGINE.md §8). */
         private var pausedByTransientLoss = false
@@ -210,6 +221,8 @@ class PracticeLoopEngine
             pausedByTransientLoss = false
             independenceCheckAttempts.clear()
             pendingAdaptations.clear()
+            lastPresentedLevels = null
+            lastPresentedSkill = null
             queue.clear()
         }
 
@@ -574,6 +587,12 @@ class PracticeLoopEngine
                 return
             }
 
+            // Detected before the presented-levels bookkeeping is updated, so the diff still has the
+            // previous item to compare against - docs/11-ONBOARDING-CLARITY.md §9.3.
+            val axisChange = detectAxisChange(rendered)
+            lastPresentedLevels = rendered.slot.axisLevels
+            lastPresentedSkill = rendered.slot.skillId
+
             pending = rendered
             replayCountForCurrent = 0
             audioPlayer.play(rendered.buffer)
@@ -589,6 +608,8 @@ class PracticeLoopEngine
                     isIndependenceCheckProbe = rendered.isIndependenceProbe,
                     itemsCompleted = itemsCompleted,
                     itemsPlanned = itemsPlanned,
+                    // Null on every item that didn't move an axis, so the announcement clears itself.
+                    axisChange = axisChange,
                 )
             }
         }
@@ -704,6 +725,27 @@ class PracticeLoopEngine
                 isAbandoned = isAbandoned,
                 isIndependenceCheckProbe = rendered.isIndependenceProbe,
             )
+
+        /**
+         * The one axis worth announcing on this item, or null. Compares only within the same skill: a
+         * review item of a different node sits at that node's own frozen levels, and diffing across
+         * nodes would report a change the user's own performance did not cause.
+         *
+         * At most one is reported even if several moved. The scheduler moves one axis at a time
+         * (docs/07-ADAPTIVE-ENGINE.md §3) so more than one is already unexpected, and a burst of
+         * simultaneous messages is noise rather than clarity - [DifficultyAxis.SCHEDULING_PRIORITY]
+         * breaks the tie toward the axis the engine itself considers most consequential.
+         */
+        private fun detectAxisChange(rendered: RenderedSlot): AxisChange? {
+            val previous = lastPresentedLevels ?: return null
+            if (lastPresentedSkill != rendered.slot.skillId) return null
+            return DifficultyAxis.SCHEDULING_PRIORITY
+                .firstNotNullOfOrNull { axis ->
+                    val from = previous[axis] ?: return@firstNotNullOfOrNull null
+                    val to = rendered.slot.axisLevels[axis] ?: return@firstNotNullOfOrNull null
+                    if (from == to) null else AxisChange(axis, from, to)
+                }
+        }
 
         private fun reducedCadenceFade(axisLevels: Map<DifficultyAxis, Int>): Map<DifficultyAxis, Int> {
             val cadence = axisLevels[DifficultyAxis.CADENCE_FADE] ?: 0

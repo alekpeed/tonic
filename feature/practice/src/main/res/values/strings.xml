@@ -15,6 +15,24 @@
     <string name="practice_phase_target">One note, alone — this is the question.</string>
     <string name="practice_phase_awaiting_answer">Tap where it sits, relative to home. Not sure? Guess.</string>
 
+    <!-- Axis-change announcements - docs/11-ONBOARDING-CLARITY.md §9.3: "a plain, short statement:
+         what changed, framed as forward progress, not as an unexplained shift." One line, non-blocking,
+         shown on the item where the change lands. Every axis in 03-CURRICULUM.md §5.3 is covered, in
+         both directions: a decrease is support being added back and is never framed as a demotion
+         (08-UI-SPEC.md §7 prohibits loss framing). No level numbers - they'd mean nothing to the user. -->
+    <string name="practice_axis_cadence_harder">Fewer chords now — you\'re ready for less support.</string>
+    <string name="practice_axis_cadence_easier">More of the chord setup back for a bit.</string>
+    <string name="practice_axis_timbre_harder">New instrument sounds from here.</string>
+    <string name="practice_axis_timbre_easier">Back to steadier instrument sounds for a bit.</string>
+    <string name="practice_axis_register_harder">Notes will range wider now.</string>
+    <string name="practice_axis_register_easier">Narrowing the range back for a bit.</string>
+    <string name="practice_axis_octave_harder">The note may now land in a different octave.</string>
+    <string name="practice_axis_octave_easier">Keeping the note nearer home for a bit.</string>
+    <string name="practice_axis_tempo_harder">Slightly quicker from here.</string>
+    <string name="practice_axis_tempo_easier">Easing the pace back for a bit.</string>
+    <string name="practice_axis_key_harder">More keys in the mix now.</string>
+    <string name="practice_axis_key_easier">Fewer keys for a bit.</string>
+
     <!-- Resume offer - docs/10-TESTING.md §11. Plain and factual; picking up where you left off is
          presented as an option, never as something you owe the app (docs/08-UI-SPEC.md §7). -->
     <string name="practice_resume_title">You have a session in progress.</string>
