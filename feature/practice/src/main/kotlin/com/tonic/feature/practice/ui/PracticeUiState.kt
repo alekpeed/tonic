@@ -44,6 +44,12 @@ data class PracticeUiState(
     val showIntro: Boolean = false,
     /** The worked example's answer, revealed only once the user asks — never before they've heard it. */
     val introAnswerRevealed: Boolean = false,
+    /**
+     * Transient acknowledgment that Skip was pressed — docs/08-UI-SPEC.md §2a: a control that claims to
+     * advance must give immediate visible confirmation. Without it, skipping to a similar-sounding item
+     * is indistinguishable from the button doing nothing.
+     */
+    val skipAcknowledged: Boolean = false,
 ) {
     val activeDegrees: List<ScaleDegree> get() = item?.activeDegrees ?: emptyList()
 }

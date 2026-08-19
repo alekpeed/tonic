@@ -208,6 +208,8 @@ On mastery: unlock the successor node, seed its axis levels from the current nod
 
 Default session: 5 minutes, roughly 40–50 items. User-configurable 3/5/10 minutes.
 
+The minutes setting is honored twice, and both halves are required: it sizes the plan up front (an item-count estimate at ~9 items/minute), **and** it is a wall-clock bound the practice loop enforces at item boundaries — when elapsed time reaches the budget, the session completes at the end of the current item and the plan's remainder is cancelled (the estimate assumes a pace a deliberate beginner does not hit, so without the bound a "3 minute" session can run far past 3 minutes). An item in flight always finishes — cutting mid-stimulus is time pressure, which `02-PEDAGOGY.md` §6 prohibits — and a running `M2.INDEPENDENCE_CHECK` block is never severed, since its 30 probes only evaluate as a complete block.
+
 Composition, in priority order:
 
 1. **Due reviews** (mastered nodes past their FSRS due date) — up to 40% of the session, oldest-due first.

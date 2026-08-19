@@ -98,6 +98,17 @@ class PracticeLoopEngine
         /** The plan this session is walking, kept so an interruption can persist it as [ResumeState]. */
         private var sessionPlan: SessionPlan? = null
 
+        /**
+         * Wall-clock end of this session, or null when no budget applies (a resumed session runs its
+         * remaining plan). The user's `session_length_minutes` is honored as a real bound, not only as
+         * SessionComposer's item-count estimate: the estimate assumes docs/07-ADAPTIVE-ENGINE.md §8's
+         * ~9 items/minute, which a deliberate beginner does not hit, and a "3 minute" session was
+         * observed from live use running long past 3 minutes at under half its planned items. Checked
+         * only at item boundaries - an item in flight always finishes, because ending mid-stimulus is
+         * time pressure, which docs/02-PEDAGOGY.md §6 prohibits.
+         */
+        private var sessionDeadline: Instant? = null
+
         /** Index into [SessionPlan.plannedSlots] of the last slot that produced a *scored* attempt. -1 before any. */
         private var lastScoredPlannedIndex = -1
 
@@ -145,6 +156,7 @@ class PracticeLoopEngine
 
             val plan = SessionComposer.compose(currentNode, dueReviews, sessionLengthMinutes, rootSeed, now)
             this.sessionPlan = plan
+            this.sessionDeadline = now.plusSeconds(sessionLengthMinutes * 60L)
             this.itemsPlanned = plan.plannedSlots.size
             plan.plannedSlots.forEachIndexed { index, slot -> queue.addLast(UpcomingWork.Regular(slot, index)) }
 
@@ -223,6 +235,7 @@ class PracticeLoopEngine
             pendingAdaptations.clear()
             lastPresentedLevels = null
             lastPresentedSkill = null
+            sessionDeadline = null
             queue.clear()
         }
 
@@ -578,6 +591,24 @@ class PracticeLoopEngine
             skillStateRepository.rebuildFromAttempts(SkillIds.M2_FULL_DIATONIC)
         }
 
+        /** The one way a session completes, whether the plan ran out or the wall-clock budget did. */
+        private suspend fun finishSession() {
+            // Every queued write must land before the session row is closed - `complete` clears
+            // resumeStateJson, and the attempt log is what all skill state replays from.
+            awaitPersistence()
+            sessionRepository.complete(sessionId, itemsCompleted, clock.now())
+            audioInterruptions.releaseFocus()
+            focusJob?.cancel()
+            _state.update {
+                it.copy(
+                    currentItem = null,
+                    isFinished = true,
+                    itemsCompleted = itemsCompleted,
+                    itemsPlanned = itemsPlanned,
+                )
+            }
+        }
+
         private suspend fun advance() {
             pending = null
             // Await the in-flight pre-render *first*. That coroutine mutates `queue`, `nextItemIndex`
@@ -592,16 +623,27 @@ class PracticeLoopEngine
             // [loopMutex], in program order, with no pre-render in flight - never inside the pre-render
             // coroutine itself. See [applyPendingAdaptations] for what that race cost.
             applyPendingAdaptations()
+
+            // The session budget is a real bound, not advisory (see [sessionDeadline]) - but it only
+            // ever cuts at an item boundary, and the remaining *plan* is what gets cancelled: the bar
+            // reads honestly full rather than reporting a finished session as an abandoned one.
+            // Never severs an independence-check block: its 30 probes only evaluate as a complete block
+            // (docs/03-CURRICULUM.md §5.6), and the queue-the-probes moment fires exactly once, at the
+            // mastery transition - a block cut in half would be lost for good, not resumed.
+            val deadline = sessionDeadline
+            if (deadline != null &&
+                !clock.now().isBefore(deadline) &&
+                queue.firstOrNull() !is UpcomingWork.IndependenceProbe
+            ) {
+                itemsPlanned = itemsCompleted
+                finishSession()
+                return
+            }
+
             val rendered = preRenderedSlot ?: renderNext(axisLevelSnapshot())
 
             if (rendered == null) {
-                // Every queued write must land before the session row is closed - `complete` clears
-                // resumeStateJson, and the attempt log is what all skill state replays from.
-                awaitPersistence()
-                sessionRepository.complete(sessionId, itemsCompleted, clock.now())
-                audioInterruptions.releaseFocus()
-                focusJob?.cancel()
-                _state.update { it.copy(currentItem = null, isFinished = true, itemsCompleted = itemsCompleted) }
+                finishSession()
                 return
             }
 

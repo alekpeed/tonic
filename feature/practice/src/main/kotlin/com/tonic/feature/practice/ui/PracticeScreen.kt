@@ -38,7 +38,9 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.tonic.core.model.items.AxisChange
+import com.tonic.core.model.items.CadenceFadeLevel
 import com.tonic.core.model.items.DifficultyAxis
+import com.tonic.core.model.items.Item
 import com.tonic.core.model.music.ScaleDegree
 import com.tonic.core.ui.components.MinimalProgressIndicator
 import com.tonic.core.ui.components.PlaybackPhase
@@ -227,6 +229,28 @@ private fun LoadingState(isFinished: Boolean) {
 }
 
 /**
+ * What THIS item's setup sounds like, when it is anything other than the full chord sequence the
+ * intro taught — or null for the default shape, which needs no line. Derived from the item itself, so
+ * it is inherently per-item: a bare item inside an L1 group or an L6/L7 audiation block gets its
+ * "no setup this time" line on every such item, not only on the once-per-transition announcement
+ * (docs/11-ONBOARDING-CLARITY.md §9.3 - a user mid-block must never face a bare note with no on-screen
+ * account of why nothing played).
+ */
+internal fun referenceNoteRes(item: Item.FunctionalRecognitionItem): Int? {
+    val plan = item.referencePlan
+    if (plan.elements.isEmpty()) return R.string.practice_ref_none
+    return when (plan.cadenceFadeLevel) {
+        CadenceFadeLevel.L0, CadenceFadeLevel.L1 -> null
+        CadenceFadeLevel.L2 -> R.string.practice_ref_two_chords
+        CadenceFadeLevel.L3 -> R.string.practice_ref_one_chord
+        CadenceFadeLevel.L4 -> R.string.practice_ref_drone
+        CadenceFadeLevel.L5 -> R.string.practice_ref_flash
+        // Non-empty elements at L6/L7 = the block-start key establishment.
+        CadenceFadeLevel.L6, CadenceFadeLevel.L7 -> R.string.practice_ref_block_start
+    }
+}
+
+/**
  * The one-line announcement for an axis that just moved — docs/11-ONBOARDING-CLARITY.md §9.3. Every
  * axis in docs/03-CURRICULUM.md §5.3 is covered in both directions, because "a level change is a level
  * change regardless of what triggered it": this same mapping serves a staircase step and the scheduled
@@ -290,6 +314,16 @@ private fun PracticeContent(
         // Non-blocking and self-clearing: it occupies its own line only on the item where the change
         // landed, and the next item's null axisChange removes it. Nothing to dismiss, nothing gated
         // behind it - docs/11-ONBOARDING-CLARITY.md §9.3 asks for a brief statement, not an interstitial.
+        if (uiState.skipAcknowledged) {
+            Text(
+                text = stringResource(R.string.practice_skipped),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(bottom = TonicSpacing.sm).testTag("skip_acknowledged"),
+            )
+        }
+
         uiState.axisChange?.let { change ->
             Text(
                 text = stringResource(axisChangeRes(change)),
@@ -304,6 +338,17 @@ private fun PracticeContent(
             itemsCompleted = uiState.itemsCompleted,
             itemsPlanned = uiState.itemsPlanned,
         )
+
+        uiState.item?.let { item ->
+            referenceNoteRes(item)?.let { res ->
+                Text(
+                    text = stringResource(res),
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth().padding(top = TonicSpacing.sm).testTag("reference_note"),
+                )
+            }
+        }
 
         Spacer(modifier = Modifier.height(TonicSpacing.lg))
 

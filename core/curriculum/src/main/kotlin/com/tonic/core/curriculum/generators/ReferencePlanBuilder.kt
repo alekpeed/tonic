@@ -103,6 +103,23 @@ object ReferencePlanBuilder {
             CadenceFadeLevel.L6, CadenceFadeLevel.L7 -> ReferencePlan(cadenceFadeLevel, emptyList())
         }
 
+    /**
+     * The audio that *establishes the key* at the start of an L6/L7 block — docs/02-PEDAGOGY.md §3:
+     * "No reference per item; key established once at block start." The full I–IV–V–I cadence, i.e.
+     * the strongest key statement the app has: at these levels the learner must then hold the tonic
+     * unaided across every item in the block, so the one establishment they get should leave no doubt.
+     * Exposed for [M2ItemGenerator], which owns block boundaries the same way it owns L1's groups;
+     * per-item plans for L6/L7 stay empty, exactly as [build] returns them.
+     */
+    public fun keyEstablishment(
+        keyPitchClass: PitchClass,
+        mode: Mode,
+        tonicMidi: Int,
+        timbre: TimbreId,
+        chordDurationMs: Long,
+        seed: Long,
+    ): List<ReferenceElement> = cadenceProgression(keyPitchClass, mode, tonicMidi, timbre, chordDurationMs, seed)
+
     private fun cadenceProgression(
         key: PitchClass,
         mode: Mode,

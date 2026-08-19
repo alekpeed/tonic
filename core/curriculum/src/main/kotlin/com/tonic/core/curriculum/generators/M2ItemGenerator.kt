@@ -42,11 +42,14 @@ object M2ItemGenerator {
         val activeDegrees = SkillGraph.activeDegreesFor(skill).sortedBy { it.degree }
         val targetDegree = BalancedSampler.pick(activeDegrees, history.recentDegrees, random, degreeWeights)
 
-        // An open L1 group holds its key and tonic across the whole group; only the first item of a
-        // group samples a fresh one. See [ReferenceGroup].
+        // An open reference group holds its key and tonic across the whole group; only the first item
+        // of a group samples fresh ones. L1 groups reuse a cadence for a few items; L6/L7 groups are
+        // the audiation blocks of docs/02-PEDAGOGY.md §3 - "key established once at block start". A
+        // level change always closes the group: the announcement mechanics and the block semantics both
+        // start over. See [ReferenceGroup].
         val openGroup =
             history.referenceGroup?.takeIf {
-                cadenceFadeLevel == com.tonic.core.model.items.CadenceFadeLevel.L1 && it.itemsRemaining > 0
+                it.cadenceFadeLevel == cadenceFadeLevel && it.itemsRemaining > 0
             }
 
         val keyPool = AxisParameters.keyPool(keySpreadLevel)
@@ -90,23 +93,59 @@ object M2ItemGenerator {
                 targetDurationMs = timing.targetDurationMs,
                 seed = seed xor 0x5EEDL,
             )
-        // Inside an open L1 group the cadence is *not* re-played - the key it established still stands.
-        // This is what finally makes L1 behave as specified; before this, `reusableForItems` was written
-        // by the builder and read by nobody, so L1 rendered identically to L0
-        // (docs/07-ADAPTIVE-ENGINE.md §2a).
+        val isAudiationLevel =
+            cadenceFadeLevel == com.tonic.core.model.items.CadenceFadeLevel.L6 ||
+                cadenceFadeLevel == com.tonic.core.model.items.CadenceFadeLevel.L7
+        // Inside an open group the reference is *not* re-played - the key it established still stands.
+        // For L1 that makes reusableForItems real (docs/07-ADAPTIVE-ENGINE.md §2a); for L6/L7 the first
+        // item of each block plays a full key establishment and the rest play nothing, which is what
+        // docs/02-PEDAGOGY.md §3 means by "no reference per item; key established once at block start."
+        // Before this, L6/L7 items sampled a FRESH key per item with no reference audio at all - a bare
+        // note in a key the user had never heard, unanswerable except by chance, and reported from live
+        // use as exactly that.
         val referencePlan =
-            if (openGroup != null) builtPlan.copy(elements = emptyList()) else builtPlan
+            when {
+                openGroup != null -> builtPlan.copy(elements = emptyList())
+                isAudiationLevel ->
+                    builtPlan.copy(
+                        elements =
+                            ReferencePlanBuilder.keyEstablishment(
+                                keyPitchClass = key,
+                                mode = Mode.MAJOR,
+                                tonicMidi = tonicMidi,
+                                timbre = referenceTimbre,
+                                chordDurationMs = timing.referenceDurationMs,
+                                seed = seed xor 0x5EEDL,
+                            ),
+                    )
+                else -> builtPlan
+            }
+        val groupLength =
+            when {
+                cadenceFadeLevel == com.tonic.core.model.items.CadenceFadeLevel.L1 -> builtPlan.reusableForItems
+                isAudiationLevel -> AUDIATION_BLOCK_ITEMS
+                else -> 0
+            }
         val updatedGroup =
             when {
-                cadenceFadeLevel != com.tonic.core.model.items.CadenceFadeLevel.L1 -> null
+                groupLength == 0 -> null
                 openGroup != null ->
                     openGroup
                         .copy(itemsRemaining = openGroup.itemsRemaining - 1)
                         .takeIf { it.itemsRemaining > 0 }
-                // A fresh group: this item carried the cadence, the next `reusableForItems - 1` won't.
+                // A fresh group: this item carried the establishment, the next groupLength - 1 won't.
                 else ->
-                    ReferenceGroup(keyValue, tonicMidi, builtPlan.reusableForItems - 1)
+                    ReferenceGroup(keyValue, tonicMidi, cadenceFadeLevel, groupLength, groupLength - 1)
                         .takeIf { it.itemsRemaining > 0 }
+            }
+        // L7 is L6 "with the silent gap lengthening across the block" - docs/02-PEDAGOGY.md §3. The
+        // learner holds the tonic across a growing silence; position 0 is the establishment item.
+        val positionInBlock = openGroup?.let { it.blockLength - it.itemsRemaining } ?: 0
+        val gapAfterReferenceMs =
+            if (cadenceFadeLevel == com.tonic.core.model.items.CadenceFadeLevel.L7) {
+                timing.gapAfterReferenceMs + positionInBlock * L7_GAP_GROWTH_PER_ITEM_MS
+            } else {
+                timing.gapAfterReferenceMs
             }
 
         val item =
@@ -119,7 +158,7 @@ object M2ItemGenerator {
                 referencePlan = referencePlan,
                 timbre = targetTimbre,
                 referenceTimbre = referenceTimbre,
-                timing = ItemTiming(timing.referenceDurationMs, timing.gapAfterReferenceMs, timing.targetDurationMs),
+                timing = ItemTiming(timing.referenceDurationMs, gapAfterReferenceMs, timing.targetDurationMs),
                 activeDegrees = activeDegrees,
                 seed = seed,
             )
@@ -168,6 +207,18 @@ object M2ItemGenerator {
     }
 
     private val SAFE_MIDI_RANGE = 24..108
+
+    /**
+     * Items per L6/L7 audiation block - how long one key establishment has to last before the key is
+     * refreshed (and possibly changed). docs/02-PEDAGOGY.md §3 defines the block behavior but not its
+     * length, so this is this build's own tuning, same category as the M0 sub-test counts: long enough
+     * that the learner is genuinely retaining the tonic rather than echoing it, short enough that one
+     * lapse doesn't poison minutes of practice.
+     */
+    private const val AUDIATION_BLOCK_ITEMS = 8
+
+    /** L7's gap growth per position in the block - a deliberate, audible stretch, not a subtle one. */
+    private const val L7_GAP_GROWTH_PER_ITEM_MS = 250L
 }
 
 /**
@@ -198,7 +249,7 @@ data class GenerationHistory(
 }
 
 /**
- * An open CADENCE_FADE **L1** group: "full cadence, then 2–3 items answered before it repeats"
+ * An open CADENCE_FADE reference group. At **L1**: "full cadence, then 2–3 items answered before it repeats"
  * (docs/02-PEDAGOGY.md §3; docs/06-AUDIO-ENGINE.md §7 states the same as
  * `reusableForItems = 2..3` — "the ViewModel does not re-request it").
  *
@@ -214,6 +265,10 @@ data class GenerationHistory(
 data class ReferenceGroup(
     val keyValue: Int,
     val tonicMidi: Int,
+    /** The level this group was opened at. A staircase move to any other level closes the group. */
+    val cadenceFadeLevel: com.tonic.core.model.items.CadenceFadeLevel,
+    /** Total items in the group, establishment item included — [itemsRemaining]'s starting point + 1. */
+    val blockLength: Int,
     val itemsRemaining: Int,
 )
 

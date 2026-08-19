@@ -58,6 +58,7 @@ class PracticeViewModel
         val hapticEvents: SharedFlow<Unit> = _hapticEvents.asSharedFlow()
 
         private var phaseJob: Job? = null
+        private var skipNoticeJob: Job? = null
         private var started = false
 
         /** The one worked example, generated once and reused for replays so the audio never changes under the narration. */
@@ -240,10 +241,21 @@ class PracticeViewModel
             phaseJob?.cancel()
             phaseJob =
                 viewModelScope.launch {
-                    _uiState.update { it.copy(phase = PlaybackPhase.REFERENCE, inputEnabled = false) }
-                    delay(item.timing.referenceDurationMs + item.timing.gapAfterReferenceMs)
-                    _uiState.update { it.copy(phase = PlaybackPhase.TARGET) }
-                    delay(item.timing.targetDurationMs)
+                    // Timed from the plan's *actual* sequential audio, not from one referenceDurationMs:
+                    // that constant is per-chord, so a four-chord cadence used to flip to "here comes the
+                    // question" while three chords were still playing - and a plan with no elements at
+                    // all (an L1 group item, an L6/L7 block item) showed "setting up home" over silence.
+                    val referenceMs = item.referencePlan.sequentialDurationMs
+                    if (referenceMs > 0) {
+                        _uiState.update { it.copy(phase = PlaybackPhase.REFERENCE, inputEnabled = false) }
+                        delay(referenceMs + item.timing.gapAfterReferenceMs)
+                        _uiState.update { it.copy(phase = PlaybackPhase.TARGET) }
+                        delay(item.timing.targetDurationMs)
+                    } else {
+                        // No reference plays: the item is gap + target, so it opens on the question.
+                        _uiState.update { it.copy(phase = PlaybackPhase.TARGET, inputEnabled = false) }
+                        delay(item.timing.gapAfterReferenceMs + item.timing.targetDurationMs)
+                    }
                     _uiState.update { it.copy(phase = PlaybackPhase.AWAITING_ANSWER, inputEnabled = true) }
                 }
         }
@@ -279,6 +291,16 @@ class PracticeViewModel
 
         fun onSkip() {
             phaseJob?.cancel()
+            skipNoticeJob?.cancel()
+            skipNoticeJob =
+                viewModelScope.launch {
+                    // Shown immediately - before the engine even responds - and held long enough to read
+                    // across the item change, so the press visibly did something even when the next item
+                    // looks identical (docs/08-UI-SPEC.md §2a).
+                    _uiState.update { it.copy(skipAcknowledged = true) }
+                    delay(SKIP_NOTICE_MS)
+                    _uiState.update { it.copy(skipAcknowledged = false) }
+                }
             viewModelScope.launch { engine.abandonCurrentItem() }
         }
 
@@ -330,5 +352,8 @@ class PracticeViewModel
 
             // "Between items: a short, consistent pause (~400 ms). Do not vary it randomly" - docs/08-UI-SPEC.md §4.
             const val INTER_ITEM_PAUSE_MS = 400L
+
+            /** Long enough to read across the item change; short enough to be gone before the next answer. */
+            const val SKIP_NOTICE_MS = 1_600L
         }
     }

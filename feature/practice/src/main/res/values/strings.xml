@@ -11,6 +11,8 @@
 
     <string name="practice_replay">Replay</string>
     <string name="practice_skip">Skip</string>
+    <!-- Transient acknowledgment after Skip - docs/08-UI-SPEC.md §2a: visible confirmation, always. -->
+    <string name="practice_skipped">Skipped — here\'s a different one.</string>
 
     <!-- Caption under the phase indicator, changes with playback phase - unlike the phase indicator
          itself (deliberately non-verbal per docs/08-UI-SPEC.md §4), this says in words what's
@@ -38,6 +40,17 @@
     <string name="m2_intro_no_wrong">You won\'t always be sure, and that\'s expected. Guessing is how this gets easier — nothing is scored and nothing is held against you.</string>
     <string name="m2_intro_start">Start practicing</string>
     <string name="m2_intro_help">How this works</string>
+
+    <!-- Per-item reference-shape line - docs/11-ONBOARDING-CLARITY.md §9.3's per-item corollary,
+         added after live use: an announcement at the moment a level changes is not enough when the
+         *items themselves* keep a reduced shape. Every item whose setup is anything other than the
+         full chord sequence states what its setup is - including "none at all". -->
+    <string name="practice_ref_none">No setup this time — same home as before. Hold it in your head.</string>
+    <string name="practice_ref_two_chords">Two chords this time — the second one is home.</string>
+    <string name="practice_ref_one_chord">One chord — that chord is home.</string>
+    <string name="practice_ref_drone">A soft note held underneath — that note is home.</string>
+    <string name="practice_ref_flash">A quick home note, then silence.</string>
+    <string name="practice_ref_block_start">A reminder of home first — after this, it\'s from memory.</string>
 
     <!-- Axis-change announcements - docs/11-ONBOARDING-CLARITY.md §9.3: "a plain, short statement:
          what changed, framed as forward progress, not as an unexplained shift." One line, non-blocking,
