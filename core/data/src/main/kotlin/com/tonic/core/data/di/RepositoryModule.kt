@@ -1,5 +1,7 @@
 package com.tonic.core.data.di
 
+import com.tonic.core.data.export.DataExportRepository
+import com.tonic.core.data.export.DataExportRepositoryImpl
 import com.tonic.core.data.repository.AttemptRepository
 import com.tonic.core.data.repository.AttemptRepositoryImpl
 import com.tonic.core.data.repository.ConfusionRepository
@@ -44,4 +46,7 @@ internal abstract class RepositoryModule {
 
     @Binds
     abstract fun bindSettingsRepository(impl: SettingsRepositoryImpl): SettingsRepository
+
+    @Binds
+    abstract fun bindDataExportRepository(impl: DataExportRepositoryImpl): DataExportRepository
 }

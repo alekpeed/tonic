@@ -24,6 +24,13 @@ class NoEntityLeakTest {
                 File("src/main/kotlin/com/tonic/core/data/settings")
                     .walkTopDown()
                     .filter { it.isFile && it.extension == "kt" && !it.name.endsWith("Impl.kt") }
+                    .toList() +
+                // Added with Phase 2 Stage 2.1. The export package is public API too, and it is the one
+                // place that legitimately reads every entity in the database - so it is exactly where
+                // an entity would most plausibly leak into a public signature.
+                File("src/main/kotlin/com/tonic/core/data/export")
+                    .walkTopDown()
+                    .filter { it.isFile && it.extension == "kt" && !it.name.endsWith("Impl.kt") }
                     .toList()
 
         assertTrue(publicApiFiles.isNotEmpty(), "sanity check: found no repository/settings interface files to scan")

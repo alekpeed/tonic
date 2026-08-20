@@ -26,4 +26,8 @@ internal interface SessionDao {
     /** Most-recently-started completed sessions, newest first — the raw material for streak computation. */
     @Query("SELECT * FROM sessions WHERE endedAt IS NOT NULL ORDER BY startedAt DESC LIMIT :limit")
     suspend fun recentCompleted(limit: Int): List<SessionEntity>
+
+    /** Every session, oldest first. Export only — see [AttemptDao.allAttempts]. */
+    @Query("SELECT * FROM sessions ORDER BY id ASC")
+    suspend fun allSessions(): List<SessionEntity>
 }

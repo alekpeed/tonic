@@ -2,6 +2,7 @@ package com.tonic.feature.settings.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.tonic.core.data.export.DataExportRepository
 import com.tonic.core.data.repository.SessionRepository
 import com.tonic.core.data.settings.SettingsRepository
 import com.tonic.core.model.state.LabelStyle
@@ -32,6 +33,7 @@ class SettingsViewModel
     constructor(
         private val settingsRepository: SettingsRepository,
         private val sessionRepository: SessionRepository,
+        private val dataExportRepository: DataExportRepository,
         private val clock: Clock,
     ) : ViewModel() {
         private val _uiState = MutableStateFlow(SettingsUiState())
@@ -58,6 +60,27 @@ class SettingsViewModel
                     it.copy(discardResult = if (discarded) DiscardResult.DISCARDED else DiscardResult.NOTHING_SAVED)
                 }
             }
+        }
+
+        /**
+         * Builds the export document and hands it to the screen to be saved — docs/20-PHASE-2-SPEC.md
+         * §6. Nothing leaves the device here and nothing can: the app has no network permission at all
+         * (docs/01-PRODUCT-SPEC.md §4). Where the file goes is entirely the user's choice, made in the
+         * system picker, and the app never learns the destination beyond whether the write succeeded.
+         */
+        fun onExportDataRequested() {
+            viewModelScope.launch {
+                val json = dataExportRepository.exportToJson()
+                val name = dataExportRepository.suggestedFileName()
+                _uiState.update {
+                    it.copy(pendingExport = PendingExport(name, json), exportResult = null)
+                }
+            }
+        }
+
+        /** The screen has finished with (or abandoned) the picker. Clears the payload either way. */
+        fun onExportFinished(result: ExportResult) {
+            _uiState.update { it.copy(pendingExport = null, exportResult = result) }
         }
 
         fun onLabelStyleChanged(style: LabelStyle) {

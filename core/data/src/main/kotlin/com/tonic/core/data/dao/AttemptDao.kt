@@ -47,4 +47,11 @@ internal interface AttemptDao {
     /** Every skill that has at least one recorded attempt — the set `rebuildFromAttempts()` rebuilds. */
     @Query("SELECT DISTINCT skillId FROM attempts")
     suspend fun allSkillIds(): List<String>
+
+    /**
+     * Every attempt, oldest first — the whole source of truth (docs/05-DATA-MODEL.md §1). Used only by
+     * data export (docs/20-PHASE-2-SPEC.md §6); the adaptive engine reads bounded windows, never this.
+     */
+    @Query("SELECT * FROM attempts ORDER BY id ASC")
+    suspend fun allAttempts(): List<AttemptEntity>
 }

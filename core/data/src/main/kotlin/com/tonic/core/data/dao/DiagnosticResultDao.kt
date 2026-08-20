@@ -12,4 +12,8 @@ internal interface DiagnosticResultDao {
 
     @Query("SELECT * FROM diagnostic_results ORDER BY completedAt DESC LIMIT 1")
     suspend fun latest(): DiagnosticResultEntity?
+
+    /** Every diagnostic run, oldest first. Export only — see [AttemptDao.allAttempts]. */
+    @Query("SELECT * FROM diagnostic_results ORDER BY completedAt ASC, id ASC")
+    suspend fun allResults(): List<DiagnosticResultEntity>
 }

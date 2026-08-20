@@ -40,7 +40,8 @@ class SettingsViewModelTest {
     private fun viewModel(
         repository: FakeSettingsRepository = FakeSettingsRepository(),
         sessionRepository: FakeSessionRepository = FakeSessionRepository(),
-    ) = SettingsViewModel(repository, sessionRepository, Clock { Instant.EPOCH }) to repository
+        exportRepository: FakeDataExportRepository = FakeDataExportRepository(),
+    ) = SettingsViewModel(repository, sessionRepository, exportRepository, Clock { Instant.EPOCH }) to repository
 
     @Test
     fun `the initial DataStore read is reflected once loading completes`() =
@@ -156,7 +157,12 @@ class SettingsViewModelTest {
                 )
             val settingsRepo = FakeSettingsRepository()
             val viewModel =
-                SettingsViewModel(settingsRepo, sessions, Clock { Instant.EPOCH }).also { vm ->
+                SettingsViewModel(
+                    settingsRepo,
+                    sessions,
+                    FakeDataExportRepository(),
+                    Clock { Instant.EPOCH },
+                ).also { vm ->
                     vm.uiState.first { !it.isLoading }
                 }
             val settingsBefore = settingsRepo.settings.value
@@ -180,5 +186,42 @@ class SettingsViewModelTest {
             viewModel.onDiscardSavedSession()
             val state = viewModel.uiState.first { it.discardResult != null }
             assertEquals(DiscardResult.NOTHING_SAVED, state.discardResult)
+        }
+
+    @Test
+    fun `requesting an export prepares a payload for the picker, and never writes anything itself`() =
+        runBlocking {
+            // docs/20-PHASE-2-SPEC.md §6. The ViewModel's whole job here is the handoff: build the
+            // document, hand it over, and stay out of the filesystem - the write happens in the screen,
+            // against a URI the user chose, so nothing is saved anywhere until they say where.
+            val export = FakeDataExportRepository()
+            val (viewModel, _) = viewModel(exportRepository = export)
+            viewModel.uiState.first { !it.isLoading }
+
+            viewModel.onExportDataRequested()
+            val prepared = viewModel.uiState.first { it.pendingExport != null }.pendingExport!!
+
+            assertEquals("tonic-export-1234.json", prepared.suggestedFileName)
+            assertEquals(1, export.buildCount)
+            assertNull(viewModel.uiState.value.exportResult, "no outcome until the picker returns")
+        }
+
+    @Test
+    fun `every way the picker can end is reported back to the user`() =
+        runBlocking {
+            // docs/08-UI-SPEC.md §2a: a control that claims to do something must say what happened -
+            // including when the answer is "nothing", which a cancelled picker is.
+            val (viewModel, _) = viewModel()
+            viewModel.uiState.first { !it.isLoading }
+
+            for (outcome in ExportResult.entries) {
+                viewModel.onExportDataRequested()
+                viewModel.uiState.first { it.pendingExport != null }
+
+                viewModel.onExportFinished(outcome)
+                val state = viewModel.uiState.first { it.exportResult != null }
+                assertEquals(outcome, state.exportResult)
+                assertNull(state.pendingExport, "the payload is cleared however the picker ended")
+            }
         }
 }

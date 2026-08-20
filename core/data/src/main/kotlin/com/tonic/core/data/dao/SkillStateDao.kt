@@ -20,4 +20,8 @@ internal interface SkillStateDao {
     /** Mastered nodes ([fsrsDue] is only ever set once a node is mastered) whose review is due. */
     @Query("SELECT skillId FROM skill_states WHERE fsrsDue IS NOT NULL AND fsrsDue <= :now")
     suspend fun dueForReview(now: Long): List<String>
+
+    /** Every skill state. Export only — see [AttemptDao.allAttempts]. */
+    @Query("SELECT * FROM skill_states ORDER BY skillId ASC")
+    suspend fun allSkillStates(): List<SkillStateEntity>
 }

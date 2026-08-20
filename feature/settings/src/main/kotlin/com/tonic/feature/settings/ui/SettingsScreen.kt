@@ -1,5 +1,7 @@
 package com.tonic.feature.settings.ui
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -16,9 +18,11 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -34,6 +38,33 @@ import com.tonic.feature.settings.R
 @Composable
 fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val pending = uiState.pendingExport
+
+    // ACTION_CREATE_DOCUMENT rather than a share sheet or a FileProvider: the user picks the
+    // destination themselves, the app needs no storage permission and no exported provider, and a
+    // cancelled picker leaves nothing behind. docs/20-PHASE-2-SPEC.md §6 - local file, no network,
+    // no account.
+    val createDocument =
+        rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(EXPORT_MIME_TYPE)) { uri ->
+            val payload = pending
+            if (uri == null || payload == null) {
+                viewModel.onExportFinished(ExportResult.CANCELLED)
+                return@rememberLauncherForActivityResult
+            }
+            val written =
+                runCatching {
+                    context.contentResolver.openOutputStream(uri)?.use { out ->
+                        out.write(payload.json.toByteArray())
+                    } ?: error("content resolver returned no stream for $uri")
+                }.isSuccess
+            viewModel.onExportFinished(if (written) ExportResult.SAVED else ExportResult.FAILED)
+        }
+
+    LaunchedEffect(pending) {
+        pending?.let { createDocument.launch(it.suggestedFileName) }
+    }
+
     if (!uiState.isLoading) {
         SettingsContent(
             settings = uiState.settings,
@@ -47,6 +78,8 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
             onDailyReminderChanged = viewModel::onDailyReminderChanged,
             discardResult = uiState.discardResult,
             onDiscardSavedSession = viewModel::onDiscardSavedSession,
+            exportResult = uiState.exportResult,
+            onExportDataRequested = viewModel::onExportDataRequested,
         )
     }
 }
@@ -64,6 +97,8 @@ private fun SettingsContent(
     onDailyReminderChanged: (Boolean, String?) -> Unit,
     discardResult: DiscardResult? = null,
     onDiscardSavedSession: () -> Unit = {},
+    exportResult: ExportResult? = null,
+    onExportDataRequested: () -> Unit = {},
 ) {
     LazyColumn(modifier = Modifier.fillMaxSize().padding(TonicSpacing.md)) {
         item {
@@ -155,6 +190,38 @@ private fun SettingsContent(
                 time = settings.dailyReminderTime,
                 onDailyReminderChanged = onDailyReminderChanged,
             )
+        }
+
+        item {
+            SettingsSection(stringResource(R.string.settings_data_heading)) {
+                Text(
+                    text = stringResource(R.string.settings_export_body),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Spacer(modifier = Modifier.height(TonicSpacing.sm))
+                TextButton(
+                    onClick = onExportDataRequested,
+                    modifier = Modifier.testTag("settings_export"),
+                ) {
+                    Text(stringResource(R.string.settings_export))
+                }
+                // §2a again: saved, cancelled or failed, the press always says what happened.
+                exportResult?.let { result ->
+                    Text(
+                        text =
+                            stringResource(
+                                when (result) {
+                                    ExportResult.SAVED -> R.string.settings_export_saved
+                                    ExportResult.CANCELLED -> R.string.settings_export_cancelled
+                                    ExportResult.FAILED -> R.string.settings_export_failed
+                                },
+                            ),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.testTag("settings_export_result"),
+                    )
+                }
+            }
         }
 
         item {
@@ -327,3 +394,6 @@ private fun SettingsContentPreview() {
         )
     }
 }
+
+/** Plain JSON. Chosen so the file opens in anything, including a text editor. */
+private const val EXPORT_MIME_TYPE = "application/json"

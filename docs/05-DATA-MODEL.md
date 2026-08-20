@@ -1,6 +1,8 @@
 # 05 — Data Model
 
-Local only. Room for relational state, DataStore Preferences for settings. No network, no sync, no export in Phase 1 (export is a Phase 2 candidate).
+Local only. Room for relational state, DataStore Preferences for settings. No network, no sync.
+
+Export landed in Phase 2 (`20-PHASE-2-SPEC.md` §6): the whole database is readable out as one JSON file from Settings, through the system's create-document picker, so the user chooses the destination and the app needs no storage permission. It remains local by construction — the app declares no network permission at all, so an export is a file and can only ever be a file. There is deliberately **no import**. Two fields are deliberately omitted from an export: `resumeStateJson`, a mid-session scratchpad that is not progress, and `amusiaIndicatorFlag`, which is internal routing state that `02-PEDAGOGY.md` §8 forbids ever surfacing evaluatively — a shareable file carrying a column legible as "amusia" is exactly that.
 
 Single-user. There is no user table and no user ID column. If multi-profile is ever needed it becomes a schema migration, and that is an acceptable cost versus carrying a dead foreign key everywhere now.
 
