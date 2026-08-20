@@ -60,6 +60,28 @@ This is the answer input for all of Module 2. It replaces the piano keyboard tha
 
 ---
 
+## 3a. First-run task framing
+
+*(Authored 2026-08-20 to resolve a dangling reference: `11-ONBOARDING-CLARITY.md` §3 and `20-PHASE-2-SPEC.md` §5 both cited this section before it existed in the repo. This is the general UI-level rule; `11-ONBOARDING-CLARITY.md` is the full standard and wins on any detail.)*
+
+**No new task shape reaches a first-time user without a first-run explanation screen carrying a worked example.** This is a shipping gate, not a nicety — the Phase 1 build dropped users straight into a cadence-plus-degree exercise with nothing explaining what the sounds meant or what the buttons did, and it was unusable on first contact even for someone with music background. Explaining what a control does and what a sound means is not front-loading theory; `01-PRODUCT-SPEC.md` §6's "no forced tutorial" rule prohibits a wall of theory, not an explanation of the mechanic.
+
+**What counts as a new task shape:** a different question being asked, a different answer control, or a different thing to listen for. Module 2's degree identification, mode identification, chromatic degrees, and prediction items are each a distinct shape. A *difficulty* change within a shape is not — a fading cadence, a wider register, a new key is the same task made harder, and gets the one-line in-context announcement of `11-ONBOARDING-CLARITY.md` §9.3, never a screen. Interrupting practice with a full explanation for something the user already knows how to do is its own defect.
+
+**What the screen must contain**, per `11-ONBOARDING-CLARITY.md` §1's three steps, in this order:
+
+1. A plain-language explanation of what will happen and what to do. Two to four short sentences. Every term the exercise uses is defined in the same breath it is first used, in the order the user will encounter it — including the causal link between what plays and what is being asked, which is never left to be inferred from audio alone.
+2. One worked example in real audio — the same renderer and player the exercise itself uses — played through end to end with the correct answer shown and explained, before the user is asked to answer anything.
+3. A dismiss/start button. Nothing else.
+
+**What it must not be:** a gate. There is no comprehension check, no quiz, no forced repeat viewing, and no requirement to finish it before practicing. It is shown automatically exactly once per task shape, tracked by its own persisted flag (`05-DATA-MODEL.md` §3), and the session underneath is already starting behind it so dismissing lands on a ready item rather than a spinner.
+
+**Recall:** every screen that introduces a task shape carries a small, low-emphasis help affordance that reopens the explanation on demand, permanently. Recall shows the identical explanation and worked example, never an abbreviated version, and never touches the seen-once flag — `11-ONBOARDING-CLARITY.md` §5. A user who forgets on their tenth session gets exactly what they got on their first.
+
+**Acceptance:** a build stage that introduces a new task shape is not complete without this screen, and "the code works" does not satisfy it. This applies to every future module and phase (`11-ONBOARDING-CLARITY.md` §4, `20-PHASE-2-SPEC.md` §5.1), and belongs in the acceptance criteria of any `09-BUILD-PLAN.md` stage that adds one.
+
+---
+
 ## 4. Practice screen
 
 Vertical layout, top to bottom:
