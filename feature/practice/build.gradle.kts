@@ -128,3 +128,9 @@ tasks.withType<Test> {
     // forked-JVM heap isn't enough headroom for that.
     maxHeapSize = "2g"
 }
+
+// Passthrough for the golden-trace regeneration switch - Gradle does not forward -D to the test JVM,
+// and the switch is useless if it cannot be reached from the command line.
+tasks.withType<Test>().configureEach {
+    System.getProperty("tonic.golden.regenerate")?.let { systemProperty("tonic.golden.regenerate", it) }
+}
