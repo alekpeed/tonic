@@ -31,8 +31,33 @@ class MasteryVerdictTest {
     }
 
     @Test
-    fun `cadence fade criterion is the one that matters and is still just one of five`() {
-        assertEquals(5, MasteryCriterion.Kind.entries.size)
+    fun `the five degree-based criteria are intact, and the binary-node ones are additive`() {
+        // Changed in Phase 2 Stage 2.2. Old: exactly five criterion kinds exist. New: the five that
+        // docs/03-CURRICULUM.md §5.5 defines are still exactly those five, and two more exist for
+        // binary-answer nodes (M9, M12), which have no scale degrees and so cannot use four of the
+        // original five. Reason: docs/20-PHASE-2-SPEC.md §4 forbids changing the M2 mastery structure,
+        // so BinaryMasteryEvaluator is a separate evaluator rather than a loosening of this one - the
+        // assertion is strengthened to pin the original five by name rather than merely counting them.
+        val degreeBased =
+            listOf(
+                MasteryCriterion.Kind.OVERALL_ACCURACY,
+                MasteryCriterion.Kind.DEGREE_COVERAGE,
+                MasteryCriterion.Kind.WEAKEST_DEGREE_ACCURACY,
+                MasteryCriterion.Kind.CONFUSION_CAP,
+                MasteryCriterion.Kind.CADENCE_FADE_MINIMUM,
+            )
+        assertEquals(5, degreeBased.size)
+        assertTrue(MasteryCriterion.Kind.entries.containsAll(degreeBased))
         assertTrue(MasteryCriterion.Kind.entries.contains(MasteryCriterion.Kind.CADENCE_FADE_MINIMUM))
+
+        val binaryOnly =
+            MasteryCriterion.Kind.entries.filterNot {
+                it in degreeBased || it == MasteryCriterion.Kind.OVERALL_ACCURACY
+            }
+        assertEquals(
+            setOf(MasteryCriterion.Kind.WINDOW_COVERAGE, MasteryCriterion.Kind.D_PRIME),
+            binaryOnly.toSet(),
+            "only the two binary-node criteria may be added; anything else needs its own decision",
+        )
     }
 }

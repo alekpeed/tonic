@@ -41,6 +41,25 @@
     <string name="m2_intro_start">Start practicing</string>
     <string name="m2_intro_help">How this works</string>
 
+    <!-- Module 9 explanation - docs/20-PHASE-2-SPEC.md §5.1: "must explain what major and minor are
+         being asked about, in plain terms, without assuming the user knows." Deliberately avoids the
+         words "happy" and "sad": they are the usual shorthand and they are unreliable (plenty of minor
+         music is not sad), and a learner who anchors on mood rather than sound is being taught the
+         wrong cue. The description below points at the third instead, which is the actual difference,
+         without ever using the word "third" - docs/11-ONBOARDING-CLARITY.md §9.4. -->
+    <string name="m9_intro_title">Something new: major or minor</string>
+    <string name="m9_intro_what_changes">Up to now you\'ve been naming single notes inside one key. This asks something different, and simpler: you just say which of two flavors the whole thing has.</string>
+    <string name="m9_intro_the_two">Every key comes in one of two flavors, called major and minor. Same set of steps, one of them shifted slightly, and that one shift changes the whole character of the sound.</string>
+    <string name="m9_intro_the_task">You\'ll hear a short passage. Your job: major, or minor. That\'s the whole question — no notes to name, two buttons.</string>
+    <string name="m9_intro_dont_overthink">Most people hear this before they can explain it. Don\'t look for a rule; play the two examples below a few times and let the difference land on its own.</string>
+    <string name="m9_intro_example_heading">Hear them side by side</string>
+    <string name="m9_intro_play_major">Play the major one</string>
+    <string name="m9_intro_play_minor">Play the minor one</string>
+    <string name="m9_intro_example_hint">Play each a few times, and switch between them. The contrast is much easier to hear than either one alone.</string>
+    <string name="m9_intro_no_wrong">You won\'t be sure at first, and guessing is fine. Nothing here is scored against you.</string>
+    <string name="m9_intro_start">Start</string>
+    <string name="m9_intro_help">What am I listening for?</string>
+
     <!-- Per-item reference-shape line - docs/11-ONBOARDING-CLARITY.md §9.3's per-item corollary,
          added after live use: an announcement at the moment a level changes is not enough when the
          *items themselves* keep a reduced shape. Every item whose setup is anything other than the

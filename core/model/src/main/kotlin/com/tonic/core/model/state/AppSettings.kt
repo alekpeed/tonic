@@ -28,6 +28,13 @@ data class AppSettings(
      * reachable on demand," and recalling it neither depends on nor changes this.
      */
     val module2IntroSeen: Boolean = false,
+    /**
+     * The Module 9 (mode identification) explanation screen and its worked example have been shown
+     * once. Its own flag rather than a shared "intros seen" one, because docs/08-UI-SPEC.md §3a is
+     * per *task shape*: having met degree identification tells a user nothing about being asked
+     * whether something sounds major or minor.
+     */
+    val module9IntroSeen: Boolean = false,
     /** Opt-in only - docs/05-DATA-MODEL.md §3: "defaults to false. Opt-in only." See docs/08-UI-SPEC.md §7. */
     val dailyReminderEnabled: Boolean = false,
     /** `"HH:mm"`, null when [dailyReminderEnabled] is false. */

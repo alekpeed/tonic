@@ -48,6 +48,17 @@ sealed interface AnswerAlphabet {
     }
 
     /**
+     * `M9.*`: which mode is sounding — docs/20-PHASE-2-SPEC.md §2.4. A binary answer, so accuracy alone
+     * cannot certify it and mastery also requires d-prime (§3, the same reasoning as `M0.SAME_DIFF`):
+     * a learner who answers "major" to everything scores 50% while hearing nothing at all.
+     */
+    data object MajorMinor : AnswerAlphabet {
+        const val MAJOR = "MAJOR"
+        const val MINOR = "MINOR"
+        override val labels = listOf(MAJOR, MINOR)
+    }
+
+    /**
      * `M12.*`: the prediction answer — docs/20-PHASE-2-SPEC.md §8.1 decision 3. Three buttons from the
      * first prediction item onward so the control layout never changes shape mid-module, with direction
      * collapsed to a plain "didn't match" for *scoring* at `M12.PREDICT_TRIAD`: a learner who hears that

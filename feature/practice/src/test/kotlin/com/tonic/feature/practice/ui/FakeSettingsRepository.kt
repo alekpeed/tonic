@@ -44,6 +44,10 @@ class FakeSettingsRepository(
         state.value = state.value.copy(onboardingCompleted = completed)
     }
 
+    override suspend fun setModule9IntroSeen(seen: Boolean) {
+        settings.value = settings.value.copy(module9IntroSeen = seen)
+    }
+
     override suspend fun setModule2IntroSeen(seen: Boolean) {
         state.value = state.value.copy(module2IntroSeen = seen)
     }

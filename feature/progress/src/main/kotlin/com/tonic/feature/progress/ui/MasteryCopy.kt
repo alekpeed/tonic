@@ -41,6 +41,16 @@ internal fun copyFor(criterion: MasteryCriterion): MasteryCopy =
             )
         MasteryCriterion.Kind.CADENCE_FADE_MINIMUM ->
             MasteryCopy(R.string.progress_criterion_cadence_fade, emptyList())
+        MasteryCriterion.Kind.WINDOW_COVERAGE ->
+            MasteryCopy(
+                R.string.progress_criterion_window_coverage,
+                listOf(criterion.measuredValue.roundToInt(), criterion.requiredValue.roundToInt()),
+            )
+        // Never phrased as "your d-prime is low": the statistic is the app's business, and naming it
+        // would be jargon a learner cannot act on. The sentence says what it actually measures -
+        // being right for the right reason rather than by a lucky answering habit.
+        MasteryCriterion.Kind.D_PRIME ->
+            MasteryCopy(R.string.progress_criterion_d_prime, emptyList())
     }
 
 private fun percent(fraction: Double): Int = (fraction * 100).roundToInt()

@@ -132,6 +132,7 @@ Settings only. No progress data.
 | `onboarding_completed` | Boolean | `false` |
 | `diagnostic_completed` | Boolean | `false` |
 | `module2_intro_seen` | Boolean | `false` |
+| `module9_intro_seen` | Boolean | `false` |
 | `daily_reminder_enabled` | Boolean | `false` |
 | `daily_reminder_time` | String? | null |
 

@@ -5,7 +5,6 @@ import com.tonic.core.model.items.ReferenceElement
 import com.tonic.core.model.items.ReferencePlan
 import com.tonic.core.model.music.Mode
 import com.tonic.core.model.music.PitchClass
-import com.tonic.core.model.music.ScaleDegree
 import com.tonic.core.model.music.TimbreId
 import kotlin.random.Random
 
@@ -165,6 +164,12 @@ object ReferencePlanBuilder {
         val zeroIndexed = step - 1
         val degreeInOctave = Math.floorMod(zeroIndexed, 7) + 1
         val octaveOffset = Math.floorDiv(zeroIndexed, 7) * 12
-        return tonicMidi + ScaleDegree(degreeInOctave).semitoneOffset(mode) + octaveOffset
+        // Through the mode's own degree list, not ScaleDegree(n) directly: a degree label denotes one
+        // fixed pitch relationship regardless of mode (docs/20-PHASE-2-SPEC.md §2.1), so
+        // ScaleDegree(3) is a major third in *either* mode and minor's third is the distinct value
+        // ScaleDegree(3, -1). Asking the mode which degree sits on this step is the only way a minor
+        // triad comes out minor. Identical output for MAJOR, where step n is exactly ScaleDegree(n).
+        val degree = mode.degreeAtStep(degreeInOctave)
+        return tonicMidi + degree.semitoneOffset(mode) + octaveOffset
     }
 }
