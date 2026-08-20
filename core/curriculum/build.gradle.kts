@@ -43,4 +43,8 @@ dependencies {
 
 tasks.test {
     useJUnitPlatform()
+    // Passthrough for the golden-corpus regeneration switch (docs/20-PHASE-2-SPEC.md §7, Stage 2.0).
+    // Gradle does not forward -D to the test JVM on its own, and the switch is useless if it cannot be
+    // reached from the command line.
+    System.getProperty("tonic.golden.regenerate")?.let { systemProperty("tonic.golden.regenerate", it) }
 }
