@@ -100,4 +100,20 @@ class AudiationBlockTest {
             )
         }
     }
+
+    /**
+     * Replay's way back for a learner who lost home mid-group: silent items carry the establishment as
+     * [com.tonic.core.model.items.Item.FunctionalRecognitionItem.homeReminder], at the GROUP's key -
+     * the exact home the item is asking about. Establishment items don't need one.
+     */
+    @Test
+    fun `silent items carry a home reminder at the block's own key, establishment items don't`() {
+        val items = generateRun(CadenceFadeLevel.L6, 8)
+        assertEquals(null, items[0].homeReminder, "the block-start item already sounds the key itself")
+        for (i in 1..7) {
+            val reminder = items[i].homeReminder
+            kotlin.test.assertNotNull(reminder, "silent item $i must offer a way back to home")
+            assertTrue(reminder.sequentialDurationMs > 0, "the reminder must actually sound")
+        }
+    }
 }

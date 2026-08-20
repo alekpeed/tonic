@@ -21,6 +21,9 @@ internal class PracticeFixture(
     /** Reuse another fixture's persistence, to model "the same device, a later launch" - the engine and ViewModel are always fresh. */
     shared: PracticeFixture? = null,
 ) {
+    /** Mutable so time-dependent behavior (the wall-clock budget, the time bar) can be driven from a test. */
+    var now: Instant = Instant.EPOCH
+
     val attemptRepository: FakeAttemptRepository = shared?.attemptRepository ?: FakeAttemptRepository()
     val skillStateRepository: FakeSkillStateRepository =
         shared?.skillStateRepository ?: FakeSkillStateRepository(attemptRepository)
@@ -29,7 +32,7 @@ internal class PracticeFixture(
     val audioPlayer = FakeAudioPlayer()
     val audioInterruptions = FakeAudioInterruptions()
     val settingsRepository = FakeSettingsRepository(settings)
-    val clock = Clock { Instant.EPOCH }
+    val clock = Clock { now }
     val engine =
         PracticeLoopEngine(
             attemptRepository,

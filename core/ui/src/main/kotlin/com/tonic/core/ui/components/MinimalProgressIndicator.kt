@@ -24,6 +24,25 @@ fun MinimalProgressIndicator(
     modifier: Modifier = Modifier,
 ) {
     val fraction = if (itemsPlanned > 0) (itemsCompleted.toFloat() / itemsPlanned).coerceIn(0f, 1f) else 0f
+    MinimalProgressIndicator(
+        fraction = fraction,
+        contentDescription = "$itemsCompleted of $itemsPlanned",
+        modifier = modifier,
+    )
+}
+
+/**
+ * Fraction form: the practice session's bar draws elapsed *time* over the wall-clock budget rather
+ * than an item count - the plan's item total is an estimate, so an item-based fill barely moved for a
+ * deliberate learner while the session ran on, reading as a stuck timer. Time is what actually bounds
+ * the session (docs/07-ADAPTIVE-ENGINE.md §8), so time is what the bar shows.
+ */
+@Composable
+fun MinimalProgressIndicator(
+    fraction: Float,
+    contentDescription: String,
+    modifier: Modifier = Modifier,
+) {
     LinearProgressIndicator(
         progress = { fraction },
         modifier =
@@ -31,7 +50,7 @@ fun MinimalProgressIndicator(
                 .fillMaxWidth()
                 .height(4.dp)
                 .testTag("session_progress")
-                .semantics { contentDescription = "$itemsCompleted of $itemsPlanned" },
+                .semantics { this.contentDescription = contentDescription },
         color = MaterialTheme.colorScheme.primary,
         trackColor = MaterialTheme.colorScheme.surfaceVariant,
         gapSize = 0.dp,

@@ -162,7 +162,7 @@ class PracticeLoopEngine
 
             val session = sessionRepository.create(rootSeed, itemsPlanned, now)
             sessionId = requireNotNull(session.id) { "SessionRepository.create must return a persisted id" }
-            _state.update { it.copy(sessionId = sessionId) }
+            _state.update { it.copy(sessionId = sessionId, sessionStartedAt = now, sessionEndsAt = sessionDeadline) }
 
             beginAudioSession()
             advance()
@@ -196,7 +196,23 @@ class PracticeLoopEngine
                 // reproduces exactly the items the interrupted run would have played next.
                 this.nextItemIndex = firstRemaining
                 this.sessionId = requireNotNull(session.id) { "a resumable session must be persisted" }
-                _state.update { it.copy(sessionId = sessionId, itemsCompleted = itemsCompleted) }
+
+                // The session-length promise survives the interruption: the stored remaining budget picks
+                // up where it left off. Rows written before the field existed fall back to an estimate
+                // from the remaining plan at the composer's own planning rate.
+                val now = clock.now()
+                val remainingSeconds =
+                    resumeState.budgetRemainingSeconds
+                        ?: ((plan.plannedSlots.size - firstRemaining) * SECONDS_PER_PLANNED_ITEM_ESTIMATE)
+                sessionDeadline = now.plusSeconds(remainingSeconds.coerceAtLeast(MIN_RESUMED_BUDGET_SECONDS))
+                _state.update {
+                    it.copy(
+                        sessionId = sessionId,
+                        itemsCompleted = itemsCompleted,
+                        sessionStartedAt = now,
+                        sessionEndsAt = sessionDeadline,
+                    )
+                }
 
                 beginAudioSession()
                 advance()
@@ -307,7 +323,19 @@ class PracticeLoopEngine
             val plan = sessionPlan ?: return
             val id = sessionId
             val completed = itemsCompleted
-            val resumeState = ResumeState(plan = plan, completedSlotIndex = lastScoredPlannedIndex)
+            val remainingSeconds =
+                sessionDeadline?.let {
+                    java.time.Duration
+                        .between(clock.now(), it)
+                        .seconds
+                        .coerceAtLeast(0)
+                }
+            val resumeState =
+                ResumeState(
+                    plan = plan,
+                    completedSlotIndex = lastScoredPlannedIndex,
+                    budgetRemainingSeconds = remainingSeconds,
+                )
             enqueuePersist { sessionRepository.updateResumeState(id, completed, resumeState) }
         }
 
@@ -378,12 +406,35 @@ class PracticeLoopEngine
             persistJob?.join()
         }
 
-        /** Replays the current item's already-rendered audio. Unlimited and unpenalized — docs/08-UI-SPEC.md §4. */
+        /**
+         * Replays the current item. Unlimited and unpenalized — docs/08-UI-SPEC.md §4. For an item whose
+         * own reference is silent (an L1 group item, an L6/L7 block item), the replay plays the item's
+         * [Item.FunctionalRecognitionItem.homeReminder] in front of the target: replay exists for "I
+         * didn't catch that", and on a silent item the thing not caught is home itself — replaying the
+         * bare note again answers nothing, which was reported from live use in exactly those words. The
+         * *first* presentation stays silent (the retention demand is the level's point), and every
+         * replay still increments [Attempt.replayCount], so reliance on the reminder is visible in
+         * diagnostics rather than penalized.
+         */
         suspend fun replay() =
             loopMutex.withLock {
                 val current = pending ?: return@withLock
                 replayCountForCurrent++
-                audioPlayer.play(current.buffer)
+                val reminder = current.item.homeReminder
+                val buffer =
+                    if (reminder != null) {
+                        SynthEngine.renderItem(
+                            referencePlan = reminder,
+                            gapAfterReferenceMs = current.item.timing.gapAfterReferenceMs,
+                            targetMidi = current.item.targetMidi,
+                            targetTimbre = current.item.timbre,
+                            targetDurationMs = current.item.timing.targetDurationMs,
+                            seed = current.item.seed,
+                        )
+                    } else {
+                        current.buffer
+                    }
+                audioPlayer.play(buffer)
                 Unit
             }
 
@@ -835,6 +886,16 @@ class PracticeLoopEngine
 
         companion object {
             private const val INDEPENDENCE_CHECK_CADENCE_LEVEL = 6
+
+            /**
+             * Fallback pace for resumed sessions persisted before budgets were stored: the composer's
+             * own planning rate of ~9 items/minute (docs/07-ADAPTIVE-ENGINE.md §8) — generous is fine,
+             * the plan itself still bounds the session.
+             */
+            private const val SECONDS_PER_PLANNED_ITEM_ESTIMATE = 7L
+
+            /** A resumed session always gets at least one meaningful stretch of practice. */
+            private const val MIN_RESUMED_BUDGET_SECONDS = 60L
 
             // Distinct from renderItemAudio's own `seed + 999_999L` target offset so a contrast-sequence
             // render never collides with the item's original rendering.

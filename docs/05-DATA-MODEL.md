@@ -78,7 +78,7 @@ Materialized per-skill state. Rebuildable from `attempts` — provide a rebuild 
 | `plannedItemCount` | Int | |
 | `completedItemCount` | Int | |
 | `rootSeed` | Long | The session seed; all item seeds derive from it |
-| `resumeStateJson` | String? | Non-null if interrupted; enables resume |
+| `resumeStateJson` | String? | Non-null if interrupted; enables resume. Carries the plan, the last scored slot index, and the remaining wall-clock budget in seconds (`07-ADAPTIVE-ENGINE.md` §8) — nullable, so rows written before the budget field existed still decode |
 
 ### `diagnostic_results`
 

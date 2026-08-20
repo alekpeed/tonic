@@ -59,6 +59,7 @@ class PracticeViewModel
 
         private var phaseJob: Job? = null
         private var skipNoticeJob: Job? = null
+        private var timeTickerJob: Job? = null
         private var started = false
 
         /** The one worked example, generated once and reused for replays so the audio never changes under the narration. */
@@ -199,7 +200,44 @@ class PracticeViewModel
             observeEngineAndSettings()
         }
 
+        /**
+         * Drives [PracticeUiState.timeFraction] once a second from the engine's session window. Wall
+         * clock on purpose: the budget is wall-clock (docs/07-ADAPTIVE-ENGINE.md §8), so the bar keeps
+         * moving through pauses and thinking time alike - "timed from the time I start the practice."
+         */
+        private fun startTimeTicker() {
+            timeTickerJob?.cancel()
+            timeTickerJob =
+                viewModelScope.launch {
+                    while (true) {
+                        val loopState = engine.state.value
+                        val startedAt = loopState.sessionStartedAt
+                        val endsAt = loopState.sessionEndsAt
+                        if (startedAt != null && endsAt != null && !loopState.isFinished) {
+                            val total =
+                                java.time.Duration
+                                    .between(startedAt, endsAt)
+                                    .toMillis()
+                                    .coerceAtLeast(1)
+                            val elapsed =
+                                java.time.Duration
+                                    .between(startedAt, clock.now())
+                                    .toMillis()
+                            _uiState.update {
+                                it.copy(timeFraction = (elapsed.toFloat() / total).coerceIn(0f, 1f))
+                            }
+                        }
+                        if (loopState.isFinished) {
+                            _uiState.update { it.copy(timeFraction = 1f) }
+                            return@launch
+                        }
+                        delay(TIME_TICK_MS)
+                    }
+                }
+        }
+
         private fun observeEngineAndSettings() {
+            startTimeTicker()
             viewModelScope.launch {
                 settingsRepository.settings.collect { settings ->
                     _uiState.update {
@@ -355,5 +393,8 @@ class PracticeViewModel
 
             /** Long enough to read across the item change; short enough to be gone before the next answer. */
             const val SKIP_NOTICE_MS = 1_600L
+
+            /** One second: the finest granularity a thin, unlabeled time bar can meaningfully show. */
+            const val TIME_TICK_MS = 1_000L
         }
     }

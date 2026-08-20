@@ -50,6 +50,13 @@ data class PracticeUiState(
      * is indistinguishable from the button doing nothing.
      */
     val skipAcknowledged: Boolean = false,
+    /**
+     * Elapsed fraction of the session's wall-clock budget, 0..1 — what the progress bar draws. Time,
+     * not items, by the maintainer's direct instruction after live use: the plan's item count is an
+     * estimate, so an item-based bar barely moved for a deliberate learner while the session ran on;
+     * the session is bounded by minutes, and the bar shows exactly that.
+     */
+    val timeFraction: Float = 0f,
 ) {
     val activeDegrees: List<ScaleDegree> get() = item?.activeDegrees ?: emptyList()
 }

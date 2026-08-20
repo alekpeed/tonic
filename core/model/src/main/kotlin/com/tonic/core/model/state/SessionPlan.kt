@@ -40,6 +40,13 @@ data class ResumeState(
     val schemaVersion: Int = CURRENT_SCHEMA_VERSION,
     val plan: SessionPlan,
     val completedSlotIndex: Int,
+    /**
+     * Wall-clock budget the session had left when it was interrupted, so a resumed session keeps the
+     * user's session-length promise instead of running unbounded (docs/07-ADAPTIVE-ENGINE.md §8's
+     * wall-clock bound). Nullable with a default for rows written before this field existed — those
+     * fall back to an estimate from the remaining plan.
+     */
+    val budgetRemainingSeconds: Long? = null,
 ) {
     companion object {
         const val CURRENT_SCHEMA_VERSION = 1

@@ -64,9 +64,9 @@ This is the answer input for all of Module 2. It replaces the piano keyboard tha
 
 Vertical layout, top to bottom:
 
-1. **Minimal progress indicator** — a thin, unlabeled bar showing position in the session. No item count, no percentage, no score.
+1. **Minimal progress indicator** — a thin, unlabeled bar filling with elapsed session time, from session start toward the configured session length (`07-ADAPTIVE-ENGINE.md` §8's wall-clock budget). No item count, no percentage, no score, no digits. It fills forward and never counts down, which is what keeps it on the right side of §1's "no timers, no countdown bars": it answers "how much of my session have I used," not "how long until I'm cut off." An earlier item-count version was reported from live use as a bar that "continues to not move" — items answered is not what the session-length setting promises.
 2. **Playback state** — a large, calm visual indicating that audio is playing, in which phase (reference / gap / target). This is not decoration: a user needs to know whether the app is still playing the setup or has moved to the question. Distinguish phases clearly and non-verbally.
-3. **Replay button** — always available, unlimited, unpenalized. Replay count is recorded but never shown to the user or used against them.
+3. **Replay button** — always available, unlimited, unpenalized. Replay count is recorded but never shown to the user or used against them. On an item that plays no reference of its own (an L1 group item, an L6/L7 audiation-block item), replay plays a brief home reminder in front of the target instead of the bare note again: replay exists for "I didn't catch that," and on a silent item the thing not caught is home itself. The first presentation stays silent — the retention demand is the level's point — and reliance on the reminder shows up in the recorded replay count, not in any penalty.
 4. **Degree ladder** — the answer input.
 5. **Skip** — small, low-emphasis, always present. A skipped item records `responseLabel = null` and does not enter the mastery window.
 

@@ -45,7 +45,7 @@
          added after live use: an announcement at the moment a level changes is not enough when the
          *items themselves* keep a reduced shape. Every item whose setup is anything other than the
          full chord sequence states what its setup is - including "none at all". -->
-    <string name="practice_ref_none">No setup this time — same home as before. Hold it in your head.</string>
+    <string name="practice_ref_none">No setup this time — same home as before. Lost it? Replay brings home back.</string>
     <string name="practice_ref_two_chords">Two chords this time — the second one is home.</string>
     <string name="practice_ref_one_chord">One chord — that chord is home.</string>
     <string name="practice_ref_drone">A soft note held underneath — that note is home.</string>

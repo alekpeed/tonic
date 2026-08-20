@@ -334,9 +334,11 @@ private fun PracticeContent(
             )
         }
 
+        // Time, not items - the session is bounded by minutes (docs/07-ADAPTIVE-ENGINE.md §8), so the
+        // bar fills steadily from session start and reaches full exactly when the budget does.
         MinimalProgressIndicator(
-            itemsCompleted = uiState.itemsCompleted,
-            itemsPlanned = uiState.itemsPlanned,
+            fraction = uiState.timeFraction,
+            contentDescription = "session time",
         )
 
         uiState.item?.let { item ->

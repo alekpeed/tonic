@@ -28,6 +28,9 @@ data class PracticeLoopState(
      * the next item by construction, since that item's levels match the one before it.
      */
     val axisChange: AxisChange? = null,
+    /** When this run began and when its wall-clock budget ends — what the practice screen's time bar is drawn from. */
+    val sessionStartedAt: java.time.Instant? = null,
+    val sessionEndsAt: java.time.Instant? = null,
 )
 
 /** Shown briefly after [PracticeLoopEngine.submitAnswer], before the next item starts. */

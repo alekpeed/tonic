@@ -113,6 +113,16 @@ sealed interface Item {
         val timing: ItemTiming,
         val activeDegrees: List<ScaleDegree>,
         override val seed: Long,
+        /**
+         * For an item whose own [referencePlan] is silent (an L1 group item, an L6/L7 block item): the
+         * key establishment that Replay plays in front of the target, so a learner who lost hold of
+         * "home" always has a way back. The default presentation stays silent — that retention demand
+         * is the level's whole point — and every replay is recorded via `Attempt.replayCount`, so
+         * leaning on this is visible in diagnostics rather than penalized (docs/08-UI-SPEC.md §4:
+         * replay is "always available, unlimited, unpenalized"). Null when the item's own plan already
+         * establishes the key.
+         */
+        val homeReminder: ReferencePlan? = null,
     ) : Item {
         override val answerAlphabet: AnswerAlphabet = AnswerAlphabet.ScaleDegrees(activeDegrees)
     }

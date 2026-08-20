@@ -103,6 +103,25 @@ object M2ItemGenerator {
         // Before this, L6/L7 items sampled a FRESH key per item with no reference audio at all - a bare
         // note in a key the user had never heard, unanswerable except by chance, and reported from live
         // use as exactly that.
+        // The way back for a learner who lost hold of home mid-group: Replay on a silent item plays
+        // this establishment first. Built at the GROUP's key and tonic, i.e. the exact home this item
+        // is asking about - not a fresh sample.
+        val homeReminder =
+            if (openGroup != null) {
+                builtPlan.copy(
+                    elements =
+                        ReferencePlanBuilder.keyEstablishment(
+                            keyPitchClass = key,
+                            mode = Mode.MAJOR,
+                            tonicMidi = tonicMidi,
+                            timbre = referenceTimbre,
+                            chordDurationMs = timing.referenceDurationMs,
+                            seed = seed xor 0x5EEDL,
+                        ),
+                )
+            } else {
+                null
+            }
         val referencePlan =
             when {
                 openGroup != null -> builtPlan.copy(elements = emptyList())
@@ -161,6 +180,7 @@ object M2ItemGenerator {
                 timing = ItemTiming(timing.referenceDurationMs, gapAfterReferenceMs, timing.targetDurationMs),
                 activeDegrees = activeDegrees,
                 seed = seed,
+                homeReminder = homeReminder,
             )
 
         return M2GenerationResult(item, history.with(targetDegree, keyValue, octaveOffset, updatedGroup))

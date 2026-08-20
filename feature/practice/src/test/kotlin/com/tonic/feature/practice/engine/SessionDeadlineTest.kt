@@ -81,6 +81,59 @@ class SessionDeadlineTest {
         }
 
     @Test
+    fun `an interrupted session resumes with its remaining budget, not a fresh one`() =
+        runBlocking {
+            val fixture = Fixture()
+            fixture.engine.start(
+                SkillWorkContext(
+                    SkillIds.M2_DEG_SET_1,
+                    axisLevels = DifficultyAxis.entries.associateWith { 0 },
+                    totalAttempts = 0,
+                ),
+                dueReviews = emptyList(),
+                sessionLengthMinutes = 3,
+                rootSeed = 79L,
+                now = fixture.now,
+            )
+
+            // Two items at 30 seconds each - one minute of the three spent.
+            repeat(2) {
+                val item = fixture.engine.state.value.currentItem!!
+                fixture.now = fixture.now.plusSeconds(30)
+                fixture.engine.submitAnswer(item.targetDegree.degree.toString())
+            }
+            fixture.engine.leaveSession()
+
+            val saved = fixture.sessionRepository.findResumable()
+            assertEquals(
+                120L,
+                saved?.resumeState?.budgetRemainingSeconds,
+                "the session-length promise survives the interruption: 3 minutes minus the 1 spent",
+            )
+
+            // Hours later, the same session is resumed - the clock gap in between must not count.
+            fixture.now = fixture.now.plusSeconds(3_600)
+            val resumedAt = fixture.now
+            fixture.engine.resume(saved!!)
+            assertEquals(
+                resumedAt.plusSeconds(120),
+                fixture.engine.state.value.sessionEndsAt,
+                "the resumed deadline is now + the stored remainder",
+            )
+
+            // The same deliberate pace spends the remaining 2 minutes in 4 items, then the budget ends it.
+            var answered = 0
+            while (!fixture.engine.state.value.isFinished && answered < 50) {
+                val item = fixture.engine.state.value.currentItem ?: break
+                fixture.now = fixture.now.plusSeconds(30)
+                fixture.engine.submitAnswer(item.targetDegree.degree.toString())
+                answered++
+            }
+            assertTrue(fixture.engine.state.value.isFinished)
+            assertEquals(4, answered, "2 remaining minutes at 30s/item is 4 items")
+        }
+
+    @Test
     fun `a session finishing its plan before the budget is untouched by the deadline`() =
         runBlocking {
             val fixture = Fixture()
