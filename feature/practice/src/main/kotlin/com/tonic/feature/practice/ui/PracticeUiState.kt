@@ -9,7 +9,8 @@ import com.tonic.core.ui.components.PlaybackPhase
 
 /** Everything docs/08-UI-SPEC.md §4's Practice screen needs to render one moment of a session. */
 data class PracticeUiState(
-    val item: Item.FunctionalRecognitionItem? = null,
+    /** Any supported item type; the screen branches on it to pick an answer control. */
+    val item: Item? = null,
     val labelStyle: LabelStyle = LabelStyle.NUMBERS,
     val reduceMotion: Boolean = false,
     val hapticsEnabled: Boolean = true,
@@ -57,6 +58,19 @@ data class PracticeUiState(
      * the session is bounded by minutes, and the bar shows exactly that.
      */
     val timeFraction: Float = 0f,
+    /** `M9` answers: which mode the user picked, and which was right once revealed. Null on other item types. */
+    val selectedModeLabel: String? = null,
+    val correctModeLabel: String? = null,
 ) {
-    val activeDegrees: List<ScaleDegree> get() = item?.activeDegrees ?: emptyList()
+    /** The ladder's contents. Empty for an item type that does not answer with a degree, such as `M9`. */
+    val activeDegrees: List<ScaleDegree>
+        get() = (item as? Item.FunctionalRecognitionItem)?.activeDegrees ?: emptyList()
+
+    /** The recognition item, when that is what is on screen — the ladder and its captions need the concrete type. */
+    val recognitionItem: Item.FunctionalRecognitionItem?
+        get() = item as? Item.FunctionalRecognitionItem
+
+    /** The mode-identification item, when that is what is on screen. */
+    val modeItem: Item.ModeIdentificationItem?
+        get() = item as? Item.ModeIdentificationItem
 }

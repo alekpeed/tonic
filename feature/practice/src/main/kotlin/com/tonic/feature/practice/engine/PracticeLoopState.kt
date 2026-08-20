@@ -5,7 +5,12 @@ import com.tonic.core.model.items.Item
 
 /** What a caller (Stage 7's ViewModel, or a headless test harness) needs to render one moment of a session. */
 data class PracticeLoopState(
-    val currentItem: Item.FunctionalRecognitionItem? = null,
+    /**
+     * Any item type the practice loop supports — recognition (`M2`, and later `M10`/`M11`) or mode
+     * identification (`M9`). The UI branches on the concrete type to choose an answer control; the loop
+     * itself no longer needs to know which it is holding (see [PracticeItems]).
+     */
+    val currentItem: Item? = null,
     /** True while [currentItem] is one of the 30 forced-L6 `M2.INDEPENDENCE_CHECK` probes, not ordinary practice. */
     val isIndependenceCheckProbe: Boolean = false,
     val itemsCompleted: Int = 0,

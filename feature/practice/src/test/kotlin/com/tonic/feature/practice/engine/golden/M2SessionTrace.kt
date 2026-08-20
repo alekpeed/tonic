@@ -11,6 +11,7 @@ import com.tonic.feature.practice.engine.FakeConfusionRepository
 import com.tonic.feature.practice.engine.FakeSessionRepository
 import com.tonic.feature.practice.engine.FakeSkillStateRepository
 import com.tonic.feature.practice.engine.PracticeLoopEngine
+import com.tonic.feature.practice.engine.recognitionItem
 import kotlinx.coroutines.flow.first
 import java.time.Instant
 
@@ -84,7 +85,7 @@ object M2SessionTrace {
 
         var index = 0
         while (!engine.state.value.isFinished && index < MAX_ITEMS) {
-            val item = engine.state.value.currentItem ?: break
+            val item = engine.state.value.recognitionItem ?: break
             val correct = item.targetDegree.canonicalLabel
             val response = answerFor(index, correct, item.activeDegrees.map { it.canonicalLabel })
 

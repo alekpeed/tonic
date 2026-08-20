@@ -84,7 +84,7 @@ class InterruptionHandlingTest {
         runBlocking {
             val fixture = Fixture()
             fixture.startSession()
-            val interruptedItem = assertNotNull(fixture.engine.state.value.currentItem)
+            val interruptedItem = assertNotNull(fixture.engine.state.value.recognitionItem)
 
             fixture.audioInterruptions.emit(AudioInterruptionEvent.TransientLoss)
             fixture.awaitPaused()
@@ -96,7 +96,7 @@ class InterruptionHandlingTest {
             assertFalse(recorded.correct)
             assertEquals(interruptedItem.seed, recorded.itemSeed)
             assertTrue(fixture.audioPlayer.stopCount >= 1, "playback must stop immediately")
-            assertNull(fixture.engine.state.value.currentItem, "no item should be live while paused")
+            assertNull(fixture.engine.state.value.recognitionItem, "no item should be live while paused")
             assertFalse(fixture.engine.state.value.isFinished, "a pause is not the end of the session")
 
             // "does not enter the ... mastery window" - the abandoned attempt leaves skill state untouched.
@@ -162,7 +162,7 @@ class InterruptionHandlingTest {
 
             fixture.audioInterruptions.emit(AudioInterruptionEvent.FocusRegained)
             val resumed = withTimeout(TIMEOUT_MS) { fixture.engine.state.first { !it.isPaused } }
-            assertNotNull(resumed.currentItem, "the loop should be running again on a fresh item")
+            assertNotNull(resumed.recognitionItem, "the loop should be running again on a fresh item")
         }
 
     @Test
@@ -196,7 +196,7 @@ class InterruptionHandlingTest {
             fixture.engine.resumeAfterPause()
 
             assertFalse(fixture.engine.state.value.isPaused)
-            assertNotNull(fixture.engine.state.value.currentItem)
+            assertNotNull(fixture.engine.state.value.recognitionItem)
             assertEquals(
                 requestsBefore + 1,
                 fixture.audioInterruptions.focusRequestCount,

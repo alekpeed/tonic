@@ -59,7 +59,7 @@ class PracticeLoopEngineTest {
     ) {
         val random = Random(seed)
         while (!fixture.engine.state.value.isFinished) {
-            val item = fixture.engine.state.value.currentItem ?: break
+            val item = fixture.engine.state.value.recognitionItem ?: break
             if (thinkTimeMs > 0) delay(thinkTimeMs)
             val correct = random.nextDouble() < accuracy
             val label =
@@ -90,7 +90,7 @@ class PracticeLoopEngineTest {
             )
 
             val state = fixture.engine.state.value
-            assertNotNull(state.currentItem)
+            assertNotNull(state.recognitionItem)
             assertEquals(1, fixture.audioPlayer.playedBuffers.size)
             assertFalse(state.isFinished)
             // The Summary screen's own `summary/{sessionId}` nav argument (docs/09-BUILD-PLAN.md Stage 9)
@@ -110,7 +110,7 @@ class PracticeLoopEngineTest {
                 rootSeed = 1L,
                 now = Instant.EPOCH,
             )
-            val firstItem = fixture.engine.state.value.currentItem!!
+            val firstItem = fixture.engine.state.value.recognitionItem!!
 
             fixture.engine.submitAnswer(firstItem.targetDegree.degree.toString())
 
@@ -124,7 +124,7 @@ class PracticeLoopEngineTest {
                     .single()
                     .correct,
             )
-            val secondItem = fixture.engine.state.value.currentItem
+            val secondItem = fixture.engine.state.value.recognitionItem
             assertNotNull(secondItem)
             assertTrue(fixture.audioPlayer.playedBuffers.size >= 2)
         }
@@ -204,7 +204,7 @@ class PracticeLoopEngineTest {
             val submitDurationsMs = mutableListOf<Long>()
             var guard = 0
             while (!fixture.engine.state.value.isFinished && guard < 30) {
-                val item = fixture.engine.state.value.currentItem ?: break
+                val item = fixture.engine.state.value.recognitionItem ?: break
                 delay(thinkTimeMs) // simulated user think time - this is when pre-rendering has to finish
                 val t0 = System.nanoTime()
                 fixture.engine.submitAnswer(item.targetDegree.degree.toString())
@@ -246,7 +246,7 @@ class PracticeLoopEngineTest {
                 rootSeed = 11L,
                 now = Instant.EPOCH,
             )
-            val item = fixture.engine.state.value.currentItem!!
+            val item = fixture.engine.state.value.recognitionItem!!
 
             val t0 = System.nanoTime()
             fixture.engine.submitAnswer(item.targetDegree.degree.toString(), autoAdvance = false)
@@ -332,7 +332,7 @@ class PracticeLoopEngineTest {
                 rootSeed = 1L,
                 now = Instant.EPOCH,
             )
-            val item = fixture.engine.state.value.currentItem!!
+            val item = fixture.engine.state.value.recognitionItem!!
 
             fixture.engine.replay()
             fixture.engine.replay()
@@ -360,7 +360,7 @@ class PracticeLoopEngineTest {
                 rootSeed = 1L,
                 now = Instant.EPOCH,
             )
-            val item = fixture.engine.state.value.currentItem!!
+            val item = fixture.engine.state.value.recognitionItem!!
             val wrongLabel =
                 item.activeDegrees
                     .first { it != item.targetDegree }
@@ -371,11 +371,15 @@ class PracticeLoopEngineTest {
 
             fixture.engine.awaitPersistence()
             assertEquals(1, fixture.attemptRepository.all.size, "the attempt is still recorded, just not synchronously")
-            assertEquals(item, fixture.engine.state.value.currentItem, "must not have advanced past the answered item")
+            assertEquals(
+                item,
+                fixture.engine.state.value.recognitionItem,
+                "must not have advanced past the answered item",
+            )
 
             fixture.engine.proceedToNextItem()
             assertTrue(
-                fixture.engine.state.value.currentItem != item || fixture.engine.state.value.isFinished,
+                fixture.engine.state.value.recognitionItem != item || fixture.engine.state.value.isFinished,
                 "proceedToNextItem should now advance",
             )
         }
@@ -391,7 +395,7 @@ class PracticeLoopEngineTest {
                 rootSeed = 1L,
                 now = Instant.EPOCH,
             )
-            val item = fixture.engine.state.value.currentItem!!
+            val item = fixture.engine.state.value.recognitionItem!!
             val wrongDegree = item.activeDegrees.first { it != item.targetDegree }
             val wrongLabel = wrongDegree.degree.toString()
 
@@ -414,7 +418,7 @@ class PracticeLoopEngineTest {
             )
 
             fixture.engine.proceedToNextItem()
-            assertTrue(fixture.engine.state.value.currentItem != item)
+            assertTrue(fixture.engine.state.value.recognitionItem != item)
         }
 
     @Test
@@ -476,7 +480,7 @@ class PracticeLoopEngineTest {
             var cadenceBeforeCheck: Int? = null
             while (!fixture.engine.state.value.isFinished && guard < 3000) {
                 val state = fixture.engine.state.value
-                val item = state.currentItem ?: break
+                val item = state.recognitionItem ?: break
                 if (state.isIndependenceCheckProbe) {
                     if (!independenceCheckSeen) {
                         cadenceBeforeCheck =

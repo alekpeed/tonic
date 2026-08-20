@@ -6,7 +6,6 @@ import com.tonic.core.audio.player.AudioPlayer
 import com.tonic.core.audio.synth.PcmBuffer
 import com.tonic.core.audio.synth.SynthEngine
 import com.tonic.core.curriculum.generators.GenerationHistory
-import com.tonic.core.curriculum.generators.M2ItemGenerator
 import com.tonic.core.curriculum.graph.SkillGraph
 import com.tonic.core.data.repository.AttemptRepository
 import com.tonic.core.data.repository.ConfusionRepository
@@ -354,8 +353,7 @@ class PracticeLoopEngine
             autoAdvance: Boolean = true,
         ) = loopMutex.withLock {
             val current = pending ?: return@withLock
-            val correctLabel =
-                current.item.targetDegree.canonicalLabel
+            val correctLabel = PracticeItems.correctLabel(current.item)
             val correct = responseLabel == correctLabel
             val attempt = buildAttempt(current, responseLabel, correct, isAbandoned = false, latencyMs)
 
@@ -419,16 +417,19 @@ class PracticeLoopEngine
             loopMutex.withLock {
                 val current = pending ?: return@withLock
                 replayCountForCurrent++
-                val reminder = current.item.homeReminder
+                // Only a recognition item has a "way back home" to replay - see the KDoc above. Every
+                // other item type replays exactly what it played the first time.
+                val reminder = (current.item as? Item.FunctionalRecognitionItem)?.homeReminder
                 val buffer =
                     if (reminder != null) {
+                        val m2 = current.item as Item.FunctionalRecognitionItem
                         SynthEngine.renderItem(
                             referencePlan = reminder,
-                            gapAfterReferenceMs = current.item.timing.gapAfterReferenceMs,
-                            targetMidi = current.item.targetMidi,
-                            targetTimbre = current.item.timbre,
-                            targetDurationMs = current.item.timing.targetDurationMs,
-                            seed = current.item.seed,
+                            gapAfterReferenceMs = m2.timing.gapAfterReferenceMs,
+                            targetMidi = m2.targetMidi,
+                            targetTimbre = m2.timbre,
+                            targetDurationMs = m2.timing.targetDurationMs,
+                            seed = m2.seed,
                         )
                     } else {
                         current.buffer
@@ -450,7 +451,10 @@ class PracticeLoopEngine
         suspend fun playIncorrectContrast(responseLabel: String) =
             loopMutex.withLock {
                 val current = pending ?: return@withLock
-                val item = current.item
+                // docs/02-PEDAGOGY.md §6's contrast sequence is about *which degree* was chosen versus
+                // which was correct, so it applies to recognition items only. A mode-identification
+                // answer has no "note you picked" to sound back.
+                val item = current.item as? Item.FunctionalRecognitionItem ?: return@withLock
                 audioPlayer.play(current.buffer).awaitCompletion()
 
                 val chosenDegree =
@@ -771,7 +775,7 @@ class PracticeLoopEngine
                             if (work.slot.isWarmup) reducedCadenceFade(snapshotted) else snapshotted
                         }
                     val effectiveSlot = work.slot.copy(axisLevels = effectiveLevels)
-                    val result = M2ItemGenerator.generate(effectiveSlot.skillId, effectiveLevels, seed, history)
+                    val result = PracticeItems.generate(effectiveSlot.skillId, effectiveLevels, seed, history)
                     history = result.updatedHistory
                     RenderedSlot(
                         effectiveSlot,
@@ -782,7 +786,7 @@ class PracticeLoopEngine
                     )
                 }
                 is UpcomingWork.IndependenceProbe -> {
-                    val result = M2ItemGenerator.generate(SkillIds.M2_FULL_DIATONIC, work.axisLevels, seed, history)
+                    val result = PracticeItems.generate(SkillIds.M2_FULL_DIATONIC, work.axisLevels, seed, history)
                     history = result.updatedHistory
                     val slot =
                         PlannedSlot(SkillIds.M2_FULL_DIATONIC, work.axisLevels, isWarmup = false, isReview = false)
@@ -797,15 +801,7 @@ class PracticeLoopEngine
             }
         }
 
-        private fun renderItemAudio(item: Item.FunctionalRecognitionItem): PcmBuffer =
-            SynthEngine.renderItem(
-                referencePlan = item.referencePlan,
-                gapAfterReferenceMs = item.timing.gapAfterReferenceMs,
-                targetMidi = item.targetMidi,
-                targetTimbre = item.timbre,
-                targetDurationMs = item.timing.targetDurationMs,
-                seed = item.seed,
-            )
+        private fun renderItemAudio(item: Item): PcmBuffer = PracticeItems.renderAudio(item)
 
         private fun buildAttempt(
             rendered: RenderedSlot,
@@ -819,16 +815,15 @@ class PracticeLoopEngine
                 sessionId = sessionId,
                 itemSeed = rendered.item.seed,
                 axisLevels = rendered.slot.axisLevels,
-                targetLabel =
-                    rendered.item.targetDegree.canonicalLabel,
+                targetLabel = PracticeItems.correctLabel(rendered.item),
                 responseLabel = responseLabel,
                 correct = correct,
                 latencyMs = latencyMs,
                 replayCount = replayCountForCurrent,
-                keyPitchClass = rendered.item.key.value,
-                targetMidi = rendered.item.targetMidi,
-                timbreId = rendered.item.timbre.name,
-                cadenceFadeLevel = rendered.slot.axisLevels[DifficultyAxis.CADENCE_FADE] ?: 0,
+                keyPitchClass = PracticeItems.keyPitchClass(rendered.item),
+                targetMidi = PracticeItems.targetMidi(rendered.item),
+                timbreId = PracticeItems.timbreId(rendered.item),
+                cadenceFadeLevel = PracticeItems.cadenceFadeLevel(rendered.item, rendered.slot.axisLevels),
                 timestamp = clock.now(),
                 isWarmup = rendered.slot.isWarmup,
                 isAbandoned = isAbandoned,
@@ -875,7 +870,7 @@ class PracticeLoopEngine
 
         private data class RenderedSlot(
             val slot: PlannedSlot,
-            val item: Item.FunctionalRecognitionItem,
+            val item: Item,
             val buffer: PcmBuffer,
             val isIndependenceProbe: Boolean,
             /** Null for an independence-check probe — probes aren't part of the session plan. */

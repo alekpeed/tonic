@@ -264,6 +264,8 @@ class PracticeViewModel
                             isLoading = false,
                             selectedDegree = if (itemChanged) null else it.selectedDegree,
                             correctDegree = if (itemChanged) null else it.correctDegree,
+                            selectedModeLabel = if (itemChanged) null else it.selectedModeLabel,
+                            correctModeLabel = if (itemChanged) null else it.correctModeLabel,
                             inputEnabled = if (itemChanged) false else it.inputEnabled,
                         )
                     }
@@ -274,8 +276,34 @@ class PracticeViewModel
             }
         }
 
-        /** docs/08-UI-SPEC.md §4's reference -> gap -> target -> "your turn" sequence, timed from [Item.FunctionalRecognitionItem.timing] since the engine only reports *what* is playing, not when each phase ends. */
-        private fun runPlaybackPhaseTimer(item: Item.FunctionalRecognitionItem) {
+        /**
+         * docs/08-UI-SPEC.md §4's reference -> gap -> target -> "your turn" sequence, timed from the
+         * item's own timing since the engine reports *what* is playing, not when each phase ends.
+         *
+         * An `M9` item has no target note: the passage being judged *is* the whole item, so it runs one
+         * phase and then opens for an answer. Modeling that as a zero-length target phase would flash
+         * "one note, alone" over silence, which is precisely the kind of caption-versus-audio mismatch
+         * that got reported in live use.
+         */
+        private fun runPlaybackPhaseTimer(item: Item) {
+            when (item) {
+                is Item.FunctionalRecognitionItem -> runRecognitionPhaseTimer(item)
+                is Item.ModeIdentificationItem -> runModePhaseTimer(item)
+                else -> Unit
+            }
+        }
+
+        private fun runModePhaseTimer(item: Item.ModeIdentificationItem) {
+            phaseJob?.cancel()
+            phaseJob =
+                viewModelScope.launch {
+                    _uiState.update { it.copy(phase = PlaybackPhase.REFERENCE, inputEnabled = false) }
+                    delay(item.timing.referenceDurationMs)
+                    _uiState.update { it.copy(phase = PlaybackPhase.AWAITING_ANSWER, inputEnabled = true) }
+                }
+        }
+
+        private fun runRecognitionPhaseTimer(item: Item.FunctionalRecognitionItem) {
             phaseJob?.cancel()
             phaseJob =
                 viewModelScope.launch {
@@ -300,7 +328,9 @@ class PracticeViewModel
 
         fun onDegreeSelected(degree: ScaleDegree) {
             if (!_uiState.value.inputEnabled) return
-            val item = _uiState.value.item ?: return
+            // The ladder is only ever on screen for a recognition item; narrowing here rather than at
+            // every use below keeps the rest of this path exactly as it was.
+            val item = _uiState.value.recognitionItem ?: return
             _uiState.update { it.copy(selectedDegree = degree, inputEnabled = false) }
 
             viewModelScope.launch {
@@ -318,6 +348,27 @@ class PracticeViewModel
                     delay(INCORRECT_FLASH_SETTLE_MS)
                     engine.playIncorrectContrast(degree.canonicalLabel)
                 }
+                delay(INTER_ITEM_PAUSE_MS)
+                engine.proceedToNextItem()
+            }
+        }
+
+        /**
+         * An `M9` answer — major or minor. Deliberately not routed through [onDegreeSelected]: there is
+         * no degree to select, no ladder button to flash, and docs/02-PEDAGOGY.md §6's contrast sequence
+         * has nothing to contrast, so the incorrect-answer path is a plain pause rather than audio.
+         */
+        fun onModeSelected(label: String) {
+            if (!_uiState.value.inputEnabled) return
+            _uiState.update { it.copy(selectedModeLabel = label, inputEnabled = false) }
+
+            viewModelScope.launch {
+                engine.submitAnswer(label, autoAdvance = false)
+                val feedback = engine.state.value.lastFeedback ?: return@launch
+                _uiState.update { it.copy(correctModeLabel = feedback.correctLabel) }
+                if (_uiState.value.hapticsEnabled) _hapticEvents.tryEmit(Unit)
+
+                delay(if (feedback.correct) CORRECT_FEEDBACK_MS else INCORRECT_MODE_SETTLE_MS)
                 delay(INTER_ITEM_PAUSE_MS)
                 engine.proceedToNextItem()
             }
@@ -387,6 +438,13 @@ class PracticeViewModel
         private companion object {
             const val CORRECT_FEEDBACK_MS = 300L
             const val INCORRECT_FLASH_SETTLE_MS = 250L
+
+            /**
+             * Longer than the correct-answer pause: on a wrong answer the user needs a beat to see
+             * which one it actually was. Shorter than the recognition path's total, which also plays
+             * an audio contrast sequence this task has no equivalent for.
+             */
+            const val INCORRECT_MODE_SETTLE_MS = 900L
 
             // "Between items: a short, consistent pause (~400 ms). Do not vary it randomly" - docs/08-UI-SPEC.md §4.
             const val INTER_ITEM_PAUSE_MS = 400L

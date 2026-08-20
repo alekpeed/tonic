@@ -353,7 +353,7 @@ internal fun PracticeContent(
             contentDescription = "session time",
         )
 
-        uiState.item?.let { item ->
+        uiState.recognitionItem?.let { item ->
             referenceNoteRes(item)?.let { res ->
                 Text(
                     text = stringResource(res),

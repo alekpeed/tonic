@@ -60,7 +60,7 @@ class SessionDeadlineTest {
             // A deliberate beginner: ~30 seconds per item, i.e. one third of the planned pace.
             var answered = 0
             while (!fixture.engine.state.value.isFinished && answered < planned) {
-                val item = fixture.engine.state.value.currentItem ?: break
+                val item = fixture.engine.state.value.recognitionItem ?: break
                 fixture.now = fixture.now.plusSeconds(30)
                 fixture.engine.submitAnswer(item.targetDegree.degree.toString())
                 answered++
@@ -98,7 +98,7 @@ class SessionDeadlineTest {
 
             // Two items at 30 seconds each - one minute of the three spent.
             repeat(2) {
-                val item = fixture.engine.state.value.currentItem!!
+                val item = fixture.engine.state.value.recognitionItem!!
                 fixture.now = fixture.now.plusSeconds(30)
                 fixture.engine.submitAnswer(item.targetDegree.degree.toString())
             }
@@ -124,7 +124,7 @@ class SessionDeadlineTest {
             // The same deliberate pace spends the remaining 2 minutes in 4 items, then the budget ends it.
             var answered = 0
             while (!fixture.engine.state.value.isFinished && answered < 50) {
-                val item = fixture.engine.state.value.currentItem ?: break
+                val item = fixture.engine.state.value.recognitionItem ?: break
                 fixture.now = fixture.now.plusSeconds(30)
                 fixture.engine.submitAnswer(item.targetDegree.degree.toString())
                 answered++
@@ -153,7 +153,7 @@ class SessionDeadlineTest {
             // A quick responder: 2 seconds per item, well inside the budget.
             var answered = 0
             while (!fixture.engine.state.value.isFinished && answered < planned + 5) {
-                val item = fixture.engine.state.value.currentItem ?: break
+                val item = fixture.engine.state.value.recognitionItem ?: break
                 fixture.now = fixture.now.plusSeconds(2)
                 fixture.engine.submitAnswer(item.targetDegree.degree.toString())
                 answered++
