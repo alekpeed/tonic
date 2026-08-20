@@ -86,9 +86,6 @@ object SkillIds {
     val M6_TWO_VOICE = SkillId("M6.TWO_VOICE")
     val M6_FOUR_VOICE = SkillId("M6.FOUR_VOICE")
 
-    val M7_REAL_MELODY = SkillId("M7.REAL_MELODY")
-    val M7_REAL_HARMONY = SkillId("M7.REAL_HARMONY")
-
     // Phase 2, docs/20-PHASE-2-SPEC.md §3. M9 identifies *which mode* is sounding and gates everything
     // in minor: before a learner can name a degree within minor, they have to hear that it is minor.
     val M9_MODE_ID_CADENCE = SkillId("M9.MODE_ID_CADENCE")
