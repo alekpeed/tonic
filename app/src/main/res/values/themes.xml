@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Base platform theme for the Activity window before Compose takes over.
+         All real theming (light/dark palettes, typography) lives in
+         :core:ui's Compose MaterialTheme wrapper — see docs/08-UI-SPEC.md. -->
+    <style name="Theme.Tonic" parent="android:Theme.Material.NoActionBar" />
+</resources>

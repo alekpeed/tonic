@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="progress_title">Progress</string>
+
+    <!-- Mastery map - docs/08-UI-SPEC.md §6.1: "the skill graph as a simple vertical path." -->
+    <string name="progress_mastery_map_heading">Mastery map</string>
+    <string name="progress_status_locked">Locked</string>
+    <string name="progress_status_available">Not started yet</string>
+    <string name="progress_status_in_progress">In progress</string>
+    <string name="progress_status_mastered">Mastered</string>
+
+    <!-- Blocking-criterion sentences - docs/08-UI-SPEC.md §6.1's own examples, kept in the same voice. -->
+    <string name="progress_criterion_overall_accuracy">You\'re at %1$d%% — %2$d%% needed.</string>
+    <string name="progress_criterion_degree_coverage">Not enough recent practice on every note yet — %1$d of %2$d attempts needed on the least-practiced one.</string>
+    <string name="progress_criterion_weakest_degree">Your weakest note is at %1$d%% — %2$d%% needed.</string>
+    <string name="progress_criterion_confusion_cap">One mix-up is happening more often than it should — needs to be under %2$d%%, currently %1$d%%.</string>
+    <string name="progress_criterion_cadence_fade">The reference is still playing before every note; it needs to fade further.</string>
+
+    <!-- Per-degree accuracy - docs/08-UI-SPEC.md §6.2. -->
+    <string name="progress_degree_accuracy_heading">Per-degree accuracy</string>
+    <string name="progress_degree_accuracy_no_data">No attempts yet.</string>
+    <string name="progress_degree_accuracy_value">%1$d%%</string>
+
+    <!-- Confusion view - docs/08-UI-SPEC.md §6.3: "plain-language statements... not a matrix grid." -->
+    <string name="progress_confusion_heading">Common mix-ups</string>
+    <string name="progress_confusion_statement">You often hear %1$s as %2$s.</string>
+    <string name="progress_confusion_empty">No common mix-ups right now.</string>
+
+    <!-- Independence check - docs/08-UI-SPEC.md §6: "surfaced here as the headline achievement." -->
+    <string name="progress_independence_heading">Independent hearing check</string>
+    <string name="progress_independence_not_yet">Not attempted yet — this appears once the full set is mastered.</string>
+    <string name="progress_independence_passed">Passed, with no reference playing beforehand.</string>
+    <string name="progress_independence_failed">Not yet — a bit more practice with less reference support first.</string>
+</resources>

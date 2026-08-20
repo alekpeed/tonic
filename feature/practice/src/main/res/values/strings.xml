@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- docs/08-UI-SPEC.md §7: "Session completion acknowledgment: brief, factual." No fanfare. -->
+    <string name="practice_session_complete">Session complete.</string>
+    <!-- Stage name, shown persistently on the practice screen - docs/11-ONBOARDING-CLARITY.md §9.1. -->
+    <string name="practice_stage_name">Practice</string>
+
+    <!-- Exit - docs/08-UI-SPEC.md §2a: every screen has a way out, always visible, progress kept. -->
+    <string name="practice_exit">End session</string>
+    <string name="practice_paused_exit">Back to Home</string>
+
+    <string name="practice_replay">Replay</string>
+    <string name="practice_skip">Skip</string>
+    <!-- Transient acknowledgment after Skip - docs/08-UI-SPEC.md §2a: visible confirmation, always. -->
+    <string name="practice_skipped">Skipped — here\'s a different one.</string>
+
+    <!-- Caption under the phase indicator, changes with playback phase - unlike the phase indicator
+         itself (deliberately non-verbal per docs/08-UI-SPEC.md §4), this says in words what's
+         happening and what to do, on every item, every time. -->
+    <string name="practice_phase_reference">Setting up \"home\" — more notes than your buttons. That\'s normal.</string>
+    <string name="practice_phase_target">One note, alone — this is the question.</string>
+    <string name="practice_phase_awaiting_answer">Tap where it sits, relative to home. Not sure? Guess.</string>
+
+    <!-- Module 2 explanation screen - docs/11-ONBOARDING-CLARITY.md §3's six required content points,
+         in the order it specifies. §9.4: every term defined at first use, short sentences, nothing left
+         implicit. Shown automatically once (module2_intro_seen) and reachable on demand forever after. -->
+    <string name="m2_intro_title">Before you start</string>
+    <string name="m2_intro_what_plays_first">First you\'ll hear a few chords played one after another. A chord is several notes sounding together. Their job is to set up a \"home\" note — the one everything else gets compared to. The last chord lands back on home, so home is the sound you\'re left with.</string>
+    <string name="m2_intro_what_plays_second">Then, after a short gap, you\'ll hear one single note on its own.</string>
+    <string name="m2_intro_the_task">That single note is the question. Your job is to say where it sits compared to home.</string>
+    <string name="m2_intro_buttons">You answer with the buttons at the bottom. Right now there are three: \"1\" is home itself, and \"3\" and \"5\" are the two other notes from that opening chord — a little above home, and higher still.</string>
+    <string name="m2_intro_example_heading">Here\'s one, worked through</string>
+    <string name="m2_intro_example_prompt">Play it and listen for the single note at the end.</string>
+    <string name="m2_intro_example_play">Play the example</string>
+    <string name="m2_intro_example_replay">Play it again</string>
+    <string name="m2_intro_example_reveal">Show me the answer</string>
+    <string name="m2_intro_example_answer">That last note was \"%1$s\".</string>
+    <string name="m2_intro_example_answer_home">It was home itself — the note the chords settled on.</string>
+    <string name="m2_intro_example_answer_above">It sits above home, and you can hear it leaning against home rather than resting on it.</string>
+    <string name="m2_intro_no_wrong">You won\'t always be sure, and that\'s expected. Guessing is how this gets easier — nothing is scored and nothing is held against you.</string>
+    <string name="m2_intro_start">Start practicing</string>
+    <string name="m2_intro_help">How this works</string>
+
+    <!-- Per-item reference-shape line - docs/11-ONBOARDING-CLARITY.md §9.3's per-item corollary,
+         added after live use: an announcement at the moment a level changes is not enough when the
+         *items themselves* keep a reduced shape. Every item whose setup is anything other than the
+         full chord sequence states what its setup is - including "none at all". -->
+    <string name="practice_ref_none">No setup this time — same home as before. Lost it? Replay brings home back.</string>
+    <string name="practice_ref_two_chords">Two chords this time — the second one is home.</string>
+    <string name="practice_ref_one_chord">One chord — that chord is home.</string>
+    <string name="practice_ref_drone">A soft note held underneath — that note is home.</string>
+    <string name="practice_ref_flash">A quick home note, then silence.</string>
+    <string name="practice_ref_block_start">A reminder of home first — after this, it\'s from memory.</string>
+
+    <!-- Axis-change announcements - docs/11-ONBOARDING-CLARITY.md §9.3: "a plain, short statement:
+         what changed, framed as forward progress, not as an unexplained shift." One line, non-blocking,
+         shown on the item where the change lands. Every axis in 03-CURRICULUM.md §5.3 is covered, in
+         both directions: a decrease is support being added back and is never framed as a demotion
+         (08-UI-SPEC.md §7 prohibits loss framing). No level numbers - they'd mean nothing to the user. -->
+    <string name="practice_axis_cadence_harder">Fewer chords now — you\'re ready for less support.</string>
+    <string name="practice_axis_cadence_easier">More of the chord setup back for a bit.</string>
+    <string name="practice_axis_timbre_harder">New instrument sounds from here.</string>
+    <string name="practice_axis_timbre_easier">Back to steadier instrument sounds for a bit.</string>
+    <string name="practice_axis_register_harder">Notes will range wider now.</string>
+    <string name="practice_axis_register_easier">Narrowing the range back for a bit.</string>
+    <string name="practice_axis_octave_harder">The note may now land in a different octave.</string>
+    <string name="practice_axis_octave_easier">Keeping the note nearer home for a bit.</string>
+    <string name="practice_axis_tempo_harder">Slightly quicker from here.</string>
+    <string name="practice_axis_tempo_easier">Easing the pace back for a bit.</string>
+    <string name="practice_axis_key_harder">More keys in the mix now.</string>
+    <string name="practice_axis_key_easier">Fewer keys for a bit.</string>
+
+    <!-- Resume offer - docs/10-TESTING.md §11. Plain and factual; picking up where you left off is
+         presented as an option, never as something you owe the app (docs/08-UI-SPEC.md §7). -->
+    <string name="practice_resume_title">You have a session in progress.</string>
+    <string name="practice_resume_body">You can pick up where you left off, or start a new one.</string>
+    <string name="practice_resume_continue">Continue</string>
+    <string name="practice_resume_start_fresh">Start a new session</string>
+
+    <!-- Paused after an interruption - docs/06-AUDIO-ENGINE.md §8. States what happened, no blame. -->
+    <string name="practice_paused_title">Paused.</string>
+    <string name="practice_paused_body">That note wasn\'t scored. Continue whenever you\'re ready.</string>
+    <string name="practice_paused_continue">Continue</string>
+</resources>

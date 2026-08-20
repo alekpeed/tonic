@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Stage name, shown persistently on every diagnostic screen - docs/11-ONBOARDING-CLARITY.md §9.1. -->
+    <string name="diagnostic_stage_name">Calibration</string>
+
+    <!-- Intro - docs/08-UI-SPEC.md §5: "Frame as calibration, not testing." -->
+    <string name="diagnostic_intro_title">Let\'s find your starting point.</string>
+    <string name="diagnostic_intro_body">Four short sections, one after another. Each one asks the same kind of question a few times - how many depends on your answers, so don\'t worry about the pace. No scores, no timers, and there\'s no way to get it \"wrong\": just answer with what you hear.</string>
+    <string name="diagnostic_begin">Begin</string>
+
+    <!-- Section heading, shown throughout that section (not just at the diagnostic's own intro) -
+         "which of the 4 sections is this, and what is it called." No item count within the section:
+         each section's own length is adaptive and genuinely unknown in advance. -->
+    <string name="diagnostic_section_label">Section %1$d of %2$d — %3$s</string>
+    <string name="diagnostic_section_name_pitch_direction">Pitch direction</string>
+    <string name="diagnostic_section_name_same_different">Same or different</string>
+    <string name="diagnostic_section_name_tonal_memory">Short phrase</string>
+    <string name="diagnostic_section_name_amusia_screen">One more phrase</string>
+
+    <!-- What you'll hear before you're asked to answer - distinct from the prompt below it, which is
+         the question itself. -->
+    <string name="diagnostic_setup_pitch_direction">You\'ll hear two notes, one right after the other.</string>
+    <string name="diagnostic_setup_same_different">You\'ll hear two notes, one right after the other.</string>
+    <string name="diagnostic_setup_tonal_memory">You\'ll hear a short phrase, then hear it again.</string>
+    <string name="diagnostic_setup_amusia_screen">You\'ll hear a short phrase, once.</string>
+
+    <!-- Per sub-test prompts. Plain language throughout - no music-theory terms. -->
+    <string name="diagnostic_prompt_pitch_direction">Was the second note higher or lower?</string>
+    <string name="diagnostic_prompt_same_different">Same, or different?</string>
+    <string name="diagnostic_prompt_tonal_memory">Did that repeat exactly, or was something different?</string>
+    <string name="diagnostic_prompt_amusia_screen">Did that sound right, or did something sound off?</string>
+
+    <!-- Answer button labels, shared by every sub-test that uses the same choice pair. -->
+    <string name="diagnostic_answer_higher">Higher</string>
+    <string name="diagnostic_answer_lower">Lower</string>
+    <string name="diagnostic_answer_same">Same</string>
+    <string name="diagnostic_answer_different">Different</string>
+    <string name="diagnostic_answer_sounded_right">Sounded right</string>
+    <string name="diagnostic_answer_something_off">Something was off</string>
+
+    <string name="diagnostic_replay">Replay</string>
+
+    <!-- Result - docs/08-UI-SPEC.md §5: "states where the user is starting and why in plain terms -
+         never a level, grade, percentile, or diagnosis." The remediation copy is neutral and
+         forward-looking with no implication of deficit - docs/02-PEDAGOGY.md §8. -->
+    <string name="diagnostic_result_proceed_title">Calibration finished.</string>
+    <string name="diagnostic_result_proceed_body">That\'s the setup done — no more calibration questions. Practice starts next: you\'ll hear notes in the context of a key and say where each one sits.</string>
+    <string name="diagnostic_result_fundamentals_title">Calibration finished.</string>
+    <string name="diagnostic_result_fundamentals_body">That\'s the setup done — no more calibration questions. Practice starts next, beginning with the fundamentals and building up one step at a time.</string>
+    <string name="diagnostic_continue">Continue</string>
+</resources>
