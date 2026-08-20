@@ -110,6 +110,11 @@ dependencies {
     testImplementation(libs.androidx.test.ext.junit)
     testRuntimeOnly(libs.junit.vintage.engine)
 
+    // Compose UI testing on the JVM under Robolectric - see the note in :core:ui's build file. Stage
+    // 7's ladder-sizing criterion is a claim about the practice screen, so it has to be measurable here.
+    testImplementation(libs.compose.ui.test.junit4)
+    testImplementation(libs.compose.ui.test.manifest)
+
     androidTestImplementation(platform(libs.compose.bom))
     androidTestImplementation(libs.compose.ui.test.junit4)
     debugImplementation(libs.compose.ui.test.manifest)

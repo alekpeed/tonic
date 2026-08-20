@@ -289,8 +289,12 @@ private fun phaseCaptionRes(phase: PlaybackPhase): Int =
         PlaybackPhase.AWAITING_ANSWER -> R.string.practice_phase_awaiting_answer
     }
 
+// `internal`, not private: docs/09-BUILD-PLAN.md Stage 7's "ladder fits ... on a 5-inch screen" is a
+// claim about this composable's layout, and it went unverified through all of Phase 1 because nothing
+// could reach it. PracticeScreenLayoutTest measures it directly. Still module-private - no widening of
+// the feature's public API (docs/04-ARCHITECTURE.md §4).
 @Composable
-private fun PracticeContent(
+internal fun PracticeContent(
     uiState: PracticeUiState,
     onDegreeSelected: (ScaleDegree) -> Unit,
     onReplay: () -> Unit,
