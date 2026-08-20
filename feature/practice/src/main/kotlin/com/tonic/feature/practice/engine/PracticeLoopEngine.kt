@@ -355,8 +355,7 @@ class PracticeLoopEngine
         ) = loopMutex.withLock {
             val current = pending ?: return@withLock
             val correctLabel =
-                current.item.targetDegree.degree
-                    .toString()
+                current.item.targetDegree.canonicalLabel
             val correct = responseLabel == correctLabel
             val attempt = buildAttempt(current, responseLabel, correct, isAbandoned = false, latencyMs)
 
@@ -455,7 +454,7 @@ class PracticeLoopEngine
                 audioPlayer.play(current.buffer).awaitCompletion()
 
                 val chosenDegree =
-                    requireNotNull(item.activeDegrees.firstOrNull { it.degree.toString() == responseLabel }) {
+                    requireNotNull(item.activeDegrees.firstOrNull { it.canonicalLabel == responseLabel }) {
                         "responseLabel '$responseLabel' is not one of this item's active degrees"
                     }
                 val chosenMidi =
@@ -821,8 +820,7 @@ class PracticeLoopEngine
                 itemSeed = rendered.item.seed,
                 axisLevels = rendered.slot.axisLevels,
                 targetLabel =
-                    rendered.item.targetDegree.degree
-                        .toString(),
+                    rendered.item.targetDegree.canonicalLabel,
                 responseLabel = responseLabel,
                 correct = correct,
                 latencyMs = latencyMs,

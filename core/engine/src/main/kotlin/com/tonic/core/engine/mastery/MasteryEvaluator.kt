@@ -39,7 +39,7 @@ object MasteryEvaluator {
         val overallAccuracy = if (window.isEmpty()) 0.0 else window.count { it.correct }.toDouble() / window.size
 
         val attemptsByDegree = window.groupingBy { it.targetLabel }.eachCount()
-        val activeDegreeLabels = activeDegrees.map { it.degree.toString() }
+        val activeDegreeLabels = activeDegrees.map { it.canonicalLabel }
         val minCoverage = activeDegreeLabels.minOfOrNull { attemptsByDegree.getOrDefault(it, 0) } ?: 0
 
         // docs/03-CURRICULUM.md's literal "at least 5 attempts per active degree in a 30-item window" is

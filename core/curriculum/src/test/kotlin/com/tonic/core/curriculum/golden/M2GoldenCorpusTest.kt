@@ -70,7 +70,11 @@ class M2GoldenCorpusTest {
         // passing the byte-identity test above while proving progressively less.
         val rendered = M2GoldenCorpus.render()
         val runHeaders = rendered.lines().filter { it.startsWith("## run=") }
-        val skills = runHeaders.mapNotNull { line -> line.substringAfter("skill=").substringBefore(" ").takeIf { it.isNotBlank() } }.distinct()
+        val skills =
+            runHeaders
+                .mapNotNull { line ->
+                    line.substringAfter("skill=").substringBefore(" ").takeIf { it.isNotBlank() }
+                }.distinct()
         val fadeConfigs = runHeaders.map { it.substringAfter("config=").substringBefore(" ") }.distinct()
 
         assertEquals(

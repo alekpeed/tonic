@@ -109,7 +109,7 @@ class DiagnosticLoopEngine
          */
         private suspend fun applyPlacement(result: DiagnosticResult) {
             val axisLevels =
-                result.initialAxisLevels.ifEmpty { DifficultyAxis.entries.associateWith { 0 } }
+                result.initialAxisLevels.ifEmpty { DifficultyAxis.RECOGNITION_AXES.associateWith { 0 } }
             skillStateRepository.update(
                 SkillState.initial(SkillIds.M2_DEG_SET_1).copy(
                     masteryState = MasteryState.AVAILABLE,

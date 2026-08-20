@@ -208,7 +208,9 @@ object AxisScheduler {
 
 /** Per-skill-node axis scheduling state. Threaded by the caller across successive [AxisScheduler.update] calls. */
 data class AxisSchedulerState(
-    val levels: Map<DifficultyAxis, Int> = DifficultyAxis.entries.associateWith { 0 },
+    // Recognition axes, not every axis: a prediction axis in an M2 node's level map would be dead
+    // weight in `staircaseStateJson` and a standing invitation for the scheduler to pick one.
+    val levels: Map<DifficultyAxis, Int> = DifficultyAxis.RECOGNITION_AXES.associateWith { 0 },
     val staircases: Map<DifficultyAxis, StaircaseState> = emptyMap(),
     val frozen: Set<DifficultyAxis> = emptySet(),
     val activeAxis: DifficultyAxis? = null,

@@ -14,7 +14,11 @@ class SkillStatePersistenceTypesTest {
     fun `SkillState initial is LOCKED, has every axis at 0, and no history`() {
         val state = SkillState.initial(SkillIds.M2_DEG_SET_1)
         assertEquals(MasteryState.LOCKED, state.masteryState)
-        assertEquals(DifficultyAxis.entries.associateWith { 0 }, state.axisLevels)
+        // Changed in Phase 2 Stage 2.0. Old: every axis at 0. New: every *recognition* axis at 0, which
+        // for M2_DEG_SET_1 is the same six axes and the same map Phase 1 produced - byte-identical.
+        // Reason: SkillState.initial is now scope-aware so an M12 node carries its two prediction axes
+        // instead of six recognition axes it can never move (docs/20-PHASE-2-SPEC.md §4 change 3).
+        assertEquals(DifficultyAxis.RECOGNITION_AXES.associateWith { 0 }, state.axisLevels)
         assertTrue(state.staircaseStates.isEmpty())
         assertNull(state.activeAxis)
         assertNull(state.masteredAt)

@@ -75,7 +75,7 @@ class ProgressViewModel
             val matrix = confusionRepository.matrixFor(currentNodeId)
             val activeDegrees = SkillGraph.activeDegreesFor(currentNodeId).sortedBy { it.degree }
             val degreeAccuracy =
-                activeDegrees.map { degree -> DegreeAccuracy(degree, matrix.accuracyFor(degree.degree.toString())) }
+                activeDegrees.map { degree -> DegreeAccuracy(degree, matrix.accuracyFor(degree.canonicalLabel)) }
             val confusionStatements =
                 ConfusionTracker.confusionPairs(matrix).map { cell ->
                     ConfusionStatement(ScaleDegree(cell.target.toInt()), ScaleDegree(cell.response.toInt()))

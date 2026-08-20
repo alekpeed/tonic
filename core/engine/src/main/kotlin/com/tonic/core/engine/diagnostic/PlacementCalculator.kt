@@ -68,13 +68,18 @@ object PlacementCalculator {
             }
         val tempoDensity = if (tonalMemorySpan >= 4) 1 else 0
 
-        return DifficultyAxis.entries.associateWith { axis ->
+        // Recognition axes only: placement routes a user into M2, which is a recognition node. The
+        // prediction axes exist but are not placeable - M12 is reached by mastering M2, never by the
+        // diagnostic (docs/20-PHASE-2-SPEC.md §3).
+        return DifficultyAxis.RECOGNITION_AXES.associateWith { axis ->
             when (axis) {
                 DifficultyAxis.CADENCE_FADE -> cadenceFade
                 DifficultyAxis.TIMBRE_VARIETY -> timbreVariety
                 DifficultyAxis.KEY_SPREAD -> keySpread
                 DifficultyAxis.TEMPO_DENSITY -> tempoDensity
                 DifficultyAxis.REGISTER_SPREAD, DifficultyAxis.OCTAVE_DISPLACE -> 0
+                DifficultyAxis.PREDICT_GAP, DifficultyAxis.PREDICT_DEVIATION ->
+                    error("unreachable: $axis is a prediction axis and cannot appear in RECOGNITION_AXES")
             }
         }
     }

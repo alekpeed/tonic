@@ -66,7 +66,7 @@ class PracticeViewModel
         private val workedExample by lazy { WorkedExample.generate() }
 
         /** What the worked example's correct answer is, for the reveal - read off the real item, never hardcoded. */
-        val workedExampleAnswer: String get() = workedExample.targetDegree.degree.toString()
+        val workedExampleAnswer: String get() = workedExample.targetDegree.canonicalLabel
 
         /** Idempotent - a rotation or process restart re-collecting this ViewModel must not start a second session. */
         fun startIfNeeded() {
@@ -304,9 +304,9 @@ class PracticeViewModel
             _uiState.update { it.copy(selectedDegree = degree, inputEnabled = false) }
 
             viewModelScope.launch {
-                engine.submitAnswer(degree.degree.toString(), autoAdvance = false)
+                engine.submitAnswer(degree.canonicalLabel, autoAdvance = false)
                 val feedback = engine.state.value.lastFeedback ?: return@launch
-                val correctDegree = item.activeDegrees.first { it.degree.toString() == feedback.correctLabel }
+                val correctDegree = item.activeDegrees.first { it.canonicalLabel == feedback.correctLabel }
                 _uiState.update { it.copy(correctDegree = correctDegree) }
                 if (_uiState.value.hapticsEnabled) _hapticEvents.tryEmit(Unit)
 
@@ -316,7 +316,7 @@ class PracticeViewModel
                     // docs/02-PEDAGOGY.md §6: replay target-in-context, the chosen note, target again -
                     // "do not advance until it completes" (docs/08-UI-SPEC.md §3).
                     delay(INCORRECT_FLASH_SETTLE_MS)
-                    engine.playIncorrectContrast(degree.degree.toString())
+                    engine.playIncorrectContrast(degree.canonicalLabel)
                 }
                 delay(INTER_ITEM_PAUSE_MS)
                 engine.proceedToNextItem()

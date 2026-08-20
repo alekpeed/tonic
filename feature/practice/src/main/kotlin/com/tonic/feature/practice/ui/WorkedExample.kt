@@ -27,7 +27,7 @@ internal object WorkedExample {
         M2ItemGenerator
             .generate(
                 skill = SkillIds.M2_DEG_SET_1,
-                axes = DifficultyAxis.entries.associateWith { 0 },
+                axes = DifficultyAxis.RECOGNITION_AXES.associateWith { 0 },
                 seed = SEED,
             ).item
 }

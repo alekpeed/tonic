@@ -271,6 +271,14 @@ private fun axisChangeRes(change: AxisChange): Int =
             if (change.isIncrease) R.string.practice_axis_tempo_harder else R.string.practice_axis_tempo_easier
         DifficultyAxis.KEY_SPREAD ->
             if (change.isIncrease) R.string.practice_axis_key_harder else R.string.practice_axis_key_easier
+        // Prediction axes never reach this screen: M12 items have their own screen and their own
+        // announcements (docs/20-PHASE-2-SPEC.md §5.3), and the scheduler cannot offer a prediction axis
+        // to a recognition node (DifficultyAxis.Scope). Left as an explicit branch rather than an `else`
+        // so that adding a real recognition axis still fails to compile here until it has copy - which
+        // is docs/11-ONBOARDING-CLARITY.md §9.3's "no silent difficulty changes, ever" enforced by the
+        // type system rather than by remembering.
+        DifficultyAxis.PREDICT_GAP, DifficultyAxis.PREDICT_DEVIATION ->
+            error("${change.axis} is a prediction axis and cannot move on the recognition practice screen")
     }
 
 /** In words, every time - the phase indicator itself is deliberately non-verbal (docs/08-UI-SPEC.md §4). */
