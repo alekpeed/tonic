@@ -10,6 +10,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.tonic.core.model.music.Mode
 import com.tonic.core.model.music.ScaleDegree
 import com.tonic.core.model.state.LabelStyle
 import org.junit.Rule
@@ -45,7 +46,11 @@ class MinorLadderTest {
     fun `every minor degree gets a real button, not a gap`() {
         setLadder(minorSet4)
         for (degree in minorSet4) {
-            compose.onNodeWithTag("degree_button_${degree.degree}").assertIsDisplayed()
+            // Tagged by canonicalLabel, not by slot number. Changed in Stage 2.4: harmonic minor puts
+            // ♭7 and ♮7 in the same slot, so a slot-numbered tag would address two different buttons -
+            // and did, silently. Identical tags for every unaltered degree, since canonicalLabel is the
+            // bare numeral there.
+            compose.onNodeWithTag("degree_button_${degree.canonicalLabel}").assertIsDisplayed()
         }
     }
 
@@ -76,6 +81,7 @@ class MinorLadderTest {
                 Box(modifier = Modifier.fillMaxSize()) {
                     DegreeLadder(
                         activeDegrees = active,
+                        mode = Mode.MINOR,
                         labelStyle = style,
                         enabled = true,
                         selectedDegree = null,

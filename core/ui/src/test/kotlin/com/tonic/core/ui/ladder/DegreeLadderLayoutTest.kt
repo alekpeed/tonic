@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.height
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.tonic.core.model.music.Mode
 import com.tonic.core.model.music.ScaleDegree
 import com.tonic.core.model.state.LabelStyle
 import com.tonic.core.ui.theme.TonicSpacing
@@ -136,6 +137,7 @@ class DegreeLadderLayoutTest {
                     Box(modifier = Modifier.fillMaxSize()) {
                         DegreeLadder(
                             activeDegrees = active,
+                            mode = Mode.MAJOR,
                             labelStyle = LabelStyle.NUMBERS,
                             enabled = true,
                             selectedDegree = null,

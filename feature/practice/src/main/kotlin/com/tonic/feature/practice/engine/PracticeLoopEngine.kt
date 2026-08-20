@@ -17,7 +17,6 @@ import com.tonic.core.engine.session.SessionComposer
 import com.tonic.core.engine.session.SkillWorkContext
 import com.tonic.core.model.attempts.Attempt
 import com.tonic.core.model.ids.SkillId
-import com.tonic.core.model.ids.SkillIds
 import com.tonic.core.model.items.AxisChange
 import com.tonic.core.model.items.DifficultyAxis
 import com.tonic.core.model.items.Item
@@ -597,8 +596,11 @@ class PracticeLoopEngine
             skillId: SkillId,
             state: SkillState,
         ) {
-            if (skillId == SkillIds.M2_FULL_DIATONIC) {
-                queueIndependenceCheck(state.axisLevels)
+            // Whichever chain's final node this is - major or minor. Hardcoding M2 here meant minor
+            // could be mastered without ever being asked to hold a key unaided, which is the one thing
+            // the check exists to establish.
+            if (SkillGraph.triggersIndependenceCheck(skillId)) {
+                queueIndependenceCheck(skillId, state.axisLevels)
                 return
             }
             val successor = SkillGraph.successorOf(skillId) ?: return
@@ -623,10 +625,13 @@ class PracticeLoopEngine
          * very same call goes on to pick up the first probe queued here. (Cancelling the pre-render from
          * inside the pre-render coroutine cancelled that coroutine itself.)
          */
-        private fun queueIndependenceCheck(currentAxisLevels: Map<DifficultyAxis, Int>) {
+        private fun queueIndependenceCheck(
+            skillId: SkillId,
+            currentAxisLevels: Map<DifficultyAxis, Int>,
+        ) {
             val forcedAxes = currentAxisLevels + (DifficultyAxis.CADENCE_FADE to INDEPENDENCE_CHECK_CADENCE_LEVEL)
             independenceCheckAttempts.clear()
-            val probes = List(IndependenceCheck.REQUIRED_ITEMS) { UpcomingWork.IndependenceProbe(forcedAxes) }
+            val probes = List(IndependenceCheck.REQUIRED_ITEMS) { UpcomingWork.IndependenceProbe(skillId, forcedAxes) }
             // addFirst repeatedly would reverse the order - insert back-to-front so the first probe in
             // the list is the first one dequeued.
             for (probe in probes.asReversed()) queue.addFirst(probe)
@@ -641,8 +646,9 @@ class PracticeLoopEngine
          * write that a later ordinary review attempt's own rebuild would silently recompute away.
          */
         private suspend fun finishIndependenceCheck() {
+            val certified = independenceCheckAttempts.firstOrNull()?.skillId
             independenceCheckAttempts.clear()
-            skillStateRepository.rebuildFromAttempts(SkillIds.M2_FULL_DIATONIC)
+            certified?.let { skillStateRepository.rebuildFromAttempts(it) }
         }
 
         /** The one way a session completes, whether the plan ran out or the wall-clock budget did. */
@@ -786,10 +792,10 @@ class PracticeLoopEngine
                     )
                 }
                 is UpcomingWork.IndependenceProbe -> {
-                    val result = PracticeItems.generate(SkillIds.M2_FULL_DIATONIC, work.axisLevels, seed, history)
+                    val result = PracticeItems.generate(work.skillId, work.axisLevels, seed, history)
                     history = result.updatedHistory
                     val slot =
-                        PlannedSlot(SkillIds.M2_FULL_DIATONIC, work.axisLevels, isWarmup = false, isReview = false)
+                        PlannedSlot(work.skillId, work.axisLevels, isWarmup = false, isReview = false)
                     RenderedSlot(
                         slot,
                         result.item,
@@ -864,6 +870,8 @@ class PracticeLoopEngine
             ) : UpcomingWork
 
             data class IndependenceProbe(
+                /** The node being certified — its own degree set and mode are what the probes test. */
+                val skillId: SkillId,
                 val axisLevels: Map<DifficultyAxis, Int>,
             ) : UpcomingWork
         }

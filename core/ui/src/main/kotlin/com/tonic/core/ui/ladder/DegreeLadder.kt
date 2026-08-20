@@ -7,6 +7,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.rememberScrollState
@@ -25,6 +26,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.tonic.core.model.music.Mode
 import com.tonic.core.model.music.ScaleDegree
 import com.tonic.core.model.state.LabelStyle
 import com.tonic.core.ui.labels.displayLabel
@@ -47,6 +49,12 @@ enum class DegreeButtonState { IDLE, CORRECT, INCORRECT, DISABLED }
 @Composable
 fun DegreeLadder(
     activeDegrees: List<ScaleDegree>,
+    /**
+     * Defines the ladder's *spine* — the seven scale positions this mode's own degrees occupy. Anything
+     * active that is not one of them is an alteration of a spine degree and is drawn beside it. See the
+     * slot loop below.
+     */
+    mode: Mode,
     labelStyle: LabelStyle,
     enabled: Boolean,
     selectedDegree: ScaleDegree?,
@@ -71,32 +79,53 @@ fun DegreeLadder(
         modifier = modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(TonicSpacing.sm),
     ) {
-        // Degree 7 first (top of the column) down to degree 1 last (bottom) - ascending pitch maps to
-        // ascending screen position.
+        // Slot 7 at the top down to slot 1 at the bottom - ascending pitch maps to ascending screen
+        // position. A "slot" is a scale position, not a single degree: a mode can put more than one
+        // degree in the same position, and harmonic minor does exactly that with ♭7 and ♮7. Matching a
+        // slot to one degree dropped the second silently, leaving no button for the note that *defines*
+        // harmonic minor.
+        //
+        // So each slot draws every active degree sitting at that position, side by side, sorted by
+        // pitch - lower on the left. This is docs/20-PHASE-2-SPEC.md §8.1 decision 1's geometry: the
+        // mode's own diatonic degree keeps the spine and is drawn wide; an alteration of it hangs
+        // alongside, narrower, distinguished by size and position rather than by fill. Twelve positions
+        // therefore cost no more vertical height than seven, which is the property that makes the
+        // ladder fit at all (§8.2).
         for (slot in 7 downTo 1) {
-            // Matched by slot number, not by whole-value equality. A minor node's active set holds
-            // ScaleDegree(3, -1), which is a different value from ScaleDegree(3) by design
-            // (docs/20-PHASE-2-SPEC.md §2.1) - so an equality check rendered every one of minor's
-            // characteristic degrees as an inactive gap and left the learner with no button for ♭3.
-            // The slot is the scale position; whichever degree occupies it is what gets drawn there.
-            val scaleDegree = activeDegrees.firstOrNull { it.degree == slot }
-            if (scaleDegree != null) {
-                val state =
-                    when {
-                        correctDegree == scaleDegree -> DegreeButtonState.CORRECT
-                        selectedDegree == scaleDegree && correctDegree != null -> DegreeButtonState.INCORRECT
-                        !enabled -> DegreeButtonState.DISABLED
-                        else -> DegreeButtonState.IDLE
-                    }
-                DegreeButton(
-                    degree = scaleDegree,
-                    label = scaleDegree.displayLabel(labelStyle),
-                    state = state,
-                    reduceMotion = reduceMotion,
-                    onClick = { onDegreeSelected(scaleDegree) },
-                )
-            } else {
+            val spineDegree = mode.degreeAtStep(slot)
+            val atThisSlot = activeDegrees.filter { it.degree == slot }.sortedBy { it.semitoneOffset(mode) }
+
+            if (atThisSlot.isEmpty()) {
                 InactiveDegreeGap()
+                continue
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(TonicSpacing.xs),
+            ) {
+                for (scaleDegree in atThisSlot) {
+                    val state =
+                        when {
+                            correctDegree == scaleDegree -> DegreeButtonState.CORRECT
+                            selectedDegree == scaleDegree && correctDegree != null -> DegreeButtonState.INCORRECT
+                            !enabled -> DegreeButtonState.DISABLED
+                            else -> DegreeButtonState.IDLE
+                        }
+                    DegreeButton(
+                        degree = scaleDegree,
+                        label = scaleDegree.displayLabel(labelStyle),
+                        state = state,
+                        reduceMotion = reduceMotion,
+                        onClick = { onDegreeSelected(scaleDegree) },
+                        // The spine degree dominates the row; an alteration reads as secondary to it.
+                        // Both stay far wider than any touch-target minimum at any phone width.
+                        modifier =
+                            Modifier.weight(
+                                if (scaleDegree == spineDegree) SPINE_WEIGHT else ALTERATION_WEIGHT,
+                            ),
+                    )
+                }
             }
         }
     }
@@ -109,6 +138,7 @@ private fun DegreeButton(
     state: DegreeButtonState,
     reduceMotion: Boolean,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val extended = TonicTheme.extendedColors
     val targetContainer =
@@ -167,10 +197,11 @@ private fun DegreeButton(
         onClick = onClick,
         enabled = state != DegreeButtonState.DISABLED,
         modifier =
-            Modifier
-                .fillMaxWidth()
+            modifier
                 .height(TonicSpacing.minTouchTarget)
-                .testTag("degree_button_${degree.degree}")
+                // Tagged by the *whole* degree, not its slot: ♭7 and ♮7 share a slot and must be
+                // separately findable, by a test and by anything else that addresses a button.
+                .testTag("degree_button_${degree.canonicalLabel}")
                 .semantics { contentDescription = description }
                 .background(container, RoundedCornerShape(TonicSpacing.sm))
                 .border(2.dp, border, RoundedCornerShape(TonicSpacing.sm)),
@@ -225,6 +256,10 @@ private fun InactiveDegreeGap() {
         )
     }
 }
+
+/** The spine degree takes twice the width of an alteration beside it. */
+private const val SPINE_WEIGHT = 2f
+private const val ALTERATION_WEIGHT = 1f
 
 /**
  * A gap occupies a slot, but not a *button-sized* one.

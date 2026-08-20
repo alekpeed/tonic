@@ -41,6 +41,7 @@ import com.tonic.core.model.items.AxisChange
 import com.tonic.core.model.items.CadenceFadeLevel
 import com.tonic.core.model.items.DifficultyAxis
 import com.tonic.core.model.items.Item
+import com.tonic.core.model.music.Mode
 import com.tonic.core.model.music.ScaleDegree
 import com.tonic.core.ui.components.MinimalProgressIndicator
 import com.tonic.core.ui.components.PlaybackPhase
@@ -391,6 +392,9 @@ internal fun PracticeContent(
         Box(modifier = Modifier.weight(1f)) {
             DegreeLadder(
                 activeDegrees = uiState.activeDegrees,
+                // The item's own mode decides which degrees form the ladder's spine and which hang
+                // beside them as alterations - see DegreeLadder's slot loop.
+                mode = uiState.recognitionItem?.mode ?: Mode.MAJOR,
                 labelStyle = uiState.labelStyle,
                 enabled = uiState.inputEnabled,
                 selectedDegree = uiState.selectedDegree,

@@ -82,7 +82,37 @@ object SkillGraph {
                     ),
                 mode = Mode.MINOR,
             ),
+            SkillNode(
+                SkillIds.M10_MIN_NATURAL,
+                prerequisite = SkillIds.M10_MIN_SET_4,
+                activeDegrees = ScaleDegree.ALL_NATURAL_MINOR,
+                mode = Mode.MINOR,
+            ),
+            // Harmonic and melodic minor are natural minor plus an alteration, never separate scales
+            // (docs/20-PHASE-2-SPEC.md §2.1). That is what keeps one label meaning one pitch across all
+            // three forms - the ♭7 a learner already knows stays ♭7, and the new note is ♮7 beside it.
+            SkillNode(
+                SkillIds.M10_MIN_HARMONIC,
+                prerequisite = SkillIds.M10_MIN_NATURAL,
+                activeDegrees = ScaleDegree.ALL_NATURAL_MINOR + ScaleDegree(7),
+                mode = Mode.MINOR,
+            ),
+            SkillNode(
+                SkillIds.M10_MIN_MELODIC,
+                prerequisite = SkillIds.M10_MIN_HARMONIC,
+                activeDegrees = ScaleDegree.ALL_NATURAL_MINOR + ScaleDegree(7) + ScaleDegree(6),
+                mode = Mode.MINOR,
+            ),
         )
+
+    /**
+     * Nodes whose mastery triggers an independence check — docs/03-CURRICULUM.md §5.6 for `M2`, and
+     * docs/20-PHASE-2-SPEC.md §3 for `M10`. The last node of each chain: the check asks whether the
+     * learner can hold a key without the cadence propping it up, which only means anything once the
+     * whole degree set is in play.
+     */
+    fun triggersIndependenceCheck(skillId: SkillId): Boolean =
+        skillId == m2Nodes.last().id || skillId == m10Nodes.last().id
 
     /** Every recognition node the practice loop can run, in either mode. */
     val recognitionNodes: List<SkillNode> = m2Nodes + m10Nodes

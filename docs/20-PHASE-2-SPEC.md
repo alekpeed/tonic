@@ -299,3 +299,15 @@ Phase 1 resolved this conflict by accident, in the worst available way: `Column`
 Measured result on the 5-inch reference device: every active button is at or above the touch target at both 100% and 200% font scale, and the starting node shows all of its buttons at once with no scrolling. The full seven-degree set scrolls slightly, which is the case §3's author assumed away.
 
 **This also settles the shape of decision 1's redesign.** Twelve inline positions were already impossible at 760dp; the piano geometry that hangs chromatic degrees off the seams between diatonic neighbors is now the only design that fits, and Stage 2.5 must verify it against `PracticeScreenLayoutTest` rather than against a preview.
+
+### 8.3 Two degrees can share one scale position
+
+**Found in Stage 2.4, while building the three minor forms.**
+
+Harmonic minor is natural minor plus a raised 7, so `♭7` and `♮7` are both answers and both sit at scale position 7. Melodic minor does the same at position 6. The ladder matched each position to a single degree, so the second one was dropped silently — a learner practicing harmonic minor would have had no button for the note that *defines* harmonic minor.
+
+The fix is §8.1 decision 1's geometry, arriving a stage earlier than planned and generalized: a slot draws **every** active degree at that position, side by side, sorted by pitch with the lower on the left. The mode's own diatonic degree keeps the spine and is drawn at twice the width; an alteration of it hangs alongside, narrower. Distinguished by size and position rather than by fill, and twelve positions cost no more vertical height than seven — which is the property §8.2 depends on.
+
+This is the same mechanism `M11` needs in Stage 2.5, so chromatic degrees in major require no further ladder work: `♯4` hangs off position 4 exactly as `♮7` hangs off position 7.
+
+Two consequences worth stating. Button test tags are keyed by the degree's canonical label rather than its position, since a position no longer identifies a button — identical for every unaltered degree, so nothing about `M2` changed. And the independence check is now per chain rather than hardcoded to `M2.FULL_DIATONIC`: before this, minor could be mastered end to end without ever being asked to hold a key unaided, which is the one thing the check exists to establish.
