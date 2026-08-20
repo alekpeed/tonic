@@ -104,28 +104,25 @@ class DegreeLadderLayoutTest {
     }
 
     @Test
-    fun `the full seven-degree ladder does not fit a 5-inch screen alongside the practice chrome`() {
-        // The finding that made this harness Stage 2.0 work rather than Stage 2.5 work. The ladder's
-        // 440dp is most of a 5-inch screen's ~568dp usable height on its own, and the practice screen
-        // places roughly 300dp of chrome above and below it (header, phase indicator, captions, replay,
-        // help/skip row). The ladder sits in a weight(1f) Box wrapping a non-scrolling Column, so the
-        // overflow does not scroll - it clips, silently.
+    fun `seven full-size slots exceed a 5-inch screen's usable height on their own`() {
+        // The arithmetic behind docs/20-PHASE-2-SPEC.md §8.2's deviation, pinned so it cannot be
+        // re-litigated from memory. 440dp of slots against ~568dp of usable screen leaves 128dp for
+        // every other thing docs/08-UI-SPEC.md §4 mandates - header, time bar, phase indicator, phase
+        // caption, replay, help/skip - which is not enough. That is why the ladder scrolls as a last
+        // resort rather than squeezing, and why twelve positions must hang off the seams instead of
+        // extending the column.
         //
-        // This test documents the constraint rather than asserting the bug: it measures what the ladder
-        // needs against what a realistic practice screen leaves it. If a future layout change makes the
-        // ladder fit, this test fails and should be updated to assert the stronger property - which is
-        // exactly the signal wanted, since today it does not fit.
+        // Whether the real screen keeps every button tappable is asserted where it belongs, against the
+        // real composable: PracticeScreenLayoutTest in :feature:practice.
         setLadder(ScaleDegree.ALL_DIATONIC.toList())
 
         val needed =
-            (compose.onNodeWithTag("degree_button_1").bottomDp() - compose.onNodeWithTag("degree_button_7").topDp())
-        val available = FIVE_INCH_USABLE_HEIGHT - TYPICAL_PRACTICE_CHROME_HEIGHT
+            compose.onNodeWithTag("degree_button_1").bottomDp() - compose.onNodeWithTag("degree_button_7").topDp()
 
         assertTrue(
-            needed > available,
-            "The seven-slot ladder now fits ($needed needed, $available available). That is good news " +
-                "and this assertion is obsolete - replace it with the positive assertion that every " +
-                "slot is fully on screen, and update docs/20-PHASE-2-SPEC.md §8.1 decision 1.",
+            needed > FIVE_INCH_USABLE_HEIGHT - MINIMUM_PRACTICE_CHROME_HEIGHT,
+            "seven slots measured $needed, which now fits alongside the minimum chrome - if that is " +
+                "real, revisit docs/20-PHASE-2-SPEC.md §8.2 and the scroll fallback it justifies",
         )
     }
 
@@ -166,12 +163,13 @@ class DegreeLadderLayoutTest {
         /** 640dp tall minus a 24dp status bar and a 48dp navigation bar. */
         val FIVE_INCH_USABLE_HEIGHT = 568.dp
 
-        /**
-         * Measured from `PracticeScreen.PracticeContent`: header row 48 + reference/axis caption lines
-         * ~40 + time bar 4 + spacers 48 + phase indicator 48 + phase caption ~20 + replay 48 +
-         * help/skip row 48 + column padding ~32.
+/**
+         * The floor for docs/08-UI-SPEC.md §4's mandated chrome, with every discretionary spacer already
+         * removed: header 48 + time bar 4 + phase indicator 48 + phase caption 20 + replay 48 +
+         * help/skip row 48 + column padding 32. Nothing here can be deleted without dropping a
+         * requirement.
          */
-        val TYPICAL_PRACTICE_CHROME_HEIGHT = 336.dp
+        val MINIMUM_PRACTICE_CHROME_HEIGHT = 248.dp
     }
 }
 

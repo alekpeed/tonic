@@ -364,8 +364,9 @@ internal fun PracticeContent(
             }
         }
 
-        Spacer(modifier = Modifier.height(TonicSpacing.lg))
-
+        // One break here, not two. A Spacer(lg) immediately followed by the indicator's own lg top
+        // padding stacked 48dp of empty space for a single visual separation - dead height the ladder
+        // needed (see DegreeLadder's scroll note).
         PlaybackPhaseIndicator(
             phase = uiState.phase,
             reduceMotion = uiState.reduceMotion,
@@ -375,7 +376,7 @@ internal fun PracticeContent(
             text = stringResource(phaseCaptionRes(uiState.phase)),
             style = MaterialTheme.typography.bodyMedium,
             textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth().padding(bottom = TonicSpacing.lg),
+            modifier = Modifier.fillMaxWidth().padding(bottom = TonicSpacing.sm),
         )
 
         TextButton(
@@ -385,7 +386,7 @@ internal fun PracticeContent(
             Text(stringResource(R.string.practice_replay))
         }
 
-        Spacer(modifier = Modifier.height(TonicSpacing.md))
+        Spacer(modifier = Modifier.height(TonicSpacing.sm))
 
         Box(modifier = Modifier.weight(1f)) {
             DegreeLadder(

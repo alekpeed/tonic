@@ -9,7 +9,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -54,7 +56,19 @@ fun DegreeLadder(
     reduceMotion: Boolean = false,
 ) {
     Column(
-        modifier = modifier.fillMaxWidth(),
+        // Scrolls only when it must. A Column of fixed-height slots inside a bounded parent does not
+        // overflow and does not warn - Compose squeezes its trailing children to nothing, which on the
+        // 5-inch reference screen of docs/08-UI-SPEC.md §3 rendered degrees 1, 2 and 3 at *zero height*
+        // and made the tonic untappable. Silently unanswerable is the worst failure this widget has, so
+        // a button's height is now inviolable and the shortfall becomes scroll instead.
+        //
+        // This is a deliberate, narrow deviation from §3's "scrolling during an answer is unacceptable",
+        // recorded in docs/20-PHASE-2-SPEC.md §8.2. §3 assumed seven 56dp buttons fit a 5-inch screen;
+        // they do not - 7*56 + 6*8 = 440dp against roughly 308dp of usable space once the chrome §4
+        // mandates is placed. Given a choice between a ladder that sometimes scrolls and a ladder whose
+        // buttons cannot be pressed, this takes scrolling. With the gap slots below reduced to their
+        // true (non-interactive) size, no scrolling occurs at all on the nodes reachable today.
+        modifier = modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(TonicSpacing.sm),
     ) {
         // Degree 7 first (top of the column) down to degree 1 last (bottom) - ascending pitch maps to
@@ -181,7 +195,7 @@ private fun InactiveDegreeGap() {
         modifier =
             Modifier
                 .fillMaxWidth()
-                .height(TonicSpacing.minTouchTarget)
+                .height(GAP_SLOT_HEIGHT)
                 .clearAndSetSemantics {},
         contentAlignment = Alignment.Center,
     ) {
@@ -197,6 +211,20 @@ private fun InactiveDegreeGap() {
         )
     }
 }
+
+/**
+ * A gap occupies a slot, but not a *button-sized* one.
+ *
+ * It used to be [TonicSpacing.minTouchTarget] tall - the full 56dp of a real button - which quietly
+ * cost the ladder 44dp per inactive degree for no benefit: docs/08-UI-SPEC.md §1's 56dp floor governs
+ * **touch targets**, and this is explicitly not one (no `onClick`, and [Modifier.clearAndSetSemantics]
+ * removes it from the accessibility tree). At `M2.DEG_SET_1` that was 176dp of dead height on a screen
+ * that did not have it to spare, and it is what pushed real buttons off the bottom.
+ *
+ * Still tall enough to read as a held position in the scale rather than a closed-up seam, so §3's
+ * "new degrees appear in their correct slots rather than reshuffling the layout" still holds.
+ */
+private val GAP_SLOT_HEIGHT = 24.dp
 
 /** Narrow enough that it cannot be mistaken for the full-width buttons above and below it. */
 private const val GAP_RULE_WIDTH_FRACTION = 0.18f

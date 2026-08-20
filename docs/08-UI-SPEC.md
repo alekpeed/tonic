@@ -54,7 +54,11 @@ This is the answer input for all of Module 2. It replaces the piano keyboard tha
 
 **States per button:** idle, pressed, correct (brief), incorrect (brief), disabled.
 
-**Sizing:** the ladder must fit seven buttons plus the reserved gaps on a 5-inch screen without scrolling. Scrolling during an answer is unacceptable.
+**Sizing:** every button in the active set is at least the minimum touch target (§1), always, on every screen size and at every font scale. **This is inviolable and outranks the no-scroll preference below.** A button too small to press is the worst failure this widget has, and it is a silent one: a `Column` of fixed-height slots in a bounded parent neither scrolls nor warns, it squeezes its trailing children to nothing. That is exactly what shipped through Phase 1 — on the 5-inch reference screen the tonic rendered at zero height and could not be pressed, at the very first skill node, for the entire life of the build. It went unnoticed because nothing measured it; `PracticeScreenLayoutTest` and `DegreeLadderLayoutTest` now do, on every run.
+
+The ladder should not need to scroll, and at the node a user is actually on it does not. But when the active set genuinely cannot fit — seven buttons need `7×56 + 6×8 = 440dp` against roughly 308dp of usable height on a 5-inch screen once §4's mandated chrome is placed — the ladder scrolls rather than shrinking a button. The original rule here asserted that seven buttons plus gaps fit a 5-inch screen without scrolling; that was never true and the arithmetic had not been checked. See `20-PHASE-2-SPEC.md` §8.2.
+
+**Gaps are not touch targets.** An inactive position is non-interactive and absent from the accessibility tree, so §1's minimum does not apply to it. It occupies a slim slot — enough to hold its place in the scale's shape, not a full button's height. Sizing gaps like buttons cost 44dp each for no benefit and was the direct cause of the squeeze above.
 
 **Feedback:** on incorrect, the chosen button flashes muted red and the correct button pulses. Then the audio contrast sequence plays (`02-PEDAGOGY.md` §6). Do not advance until it completes.
 

@@ -276,3 +276,26 @@ Response bias was not the deciding factor, because d-prime already defeats it: a
 **4 — Minor cadence: both, bound to the node rather than randomized.** `i–iv–v–i`, all natural minor, is the reference cadence for `M10.MIN_SET_1` through `M10.MIN_NATURAL`. `i–iv–V–i` with the major V arrives at `M10.MIN_HARMONIC`, which is precisely where the raised `7` becomes an answer option.
 
 The rule this enforces: **the reference must never sound a pitch the learner has no button for and has not been taught.** A major V in early minor sounds a `♮7` in every single cadence while the learner's active set contains only `♭7` and no `♮7` button exists — reproducing, in a pedagogically active form, the exact "the chords contain notes my buttons don't have" confusion reported from live Phase 1 use in major. The trade-off is accepted knowingly: `i–iv–v–i` establishes the tonic less forcefully without a leading tone, and Stage 2.3 must verify by spectral test and by ear that it still establishes a key at every fade level. Randomizing the two per item was rejected: it adds reference variance at the same time the `CADENCE_FADE` axis is already varying the reference, which is the confound `07-ADAPTIVE-ENGINE.md` §3 exists to prevent.
+
+### 8.2 Deviation: the ladder may scroll
+
+**Accepted 2026-08-20, while fixing a Phase 1 defect the Stage 2.0 layout harness surfaced.**
+
+Three requirements cannot all hold on the 5-inch screen `08-UI-SPEC.md` §3 names:
+
+1. every touch target is at least 56dp (`08-UI-SPEC.md` §1),
+2. the ladder never scrolls during an answer (§3, as originally written),
+3. the practice screen carries the chrome §4 mandates — header, time bar, phase indicator, phase caption, replay, help/skip.
+
+Seven buttons need `7×56 + 6×8 = 440dp`. A 5-inch screen has ~568dp after its system bars, and §4's chrome occupies ~248dp of that even with every discretionary spacer removed, leaving ~308dp. The shortfall is arithmetic, not styling.
+
+Phase 1 resolved this conflict by accident, in the worst available way: `Column` squeezed its trailing children, so degrees 1, 2 and 3 rendered at **zero height** and the tonic was unpressable at `M2.DEG_SET_1` — the node every user starts on. Nothing detected it because no test measured layout.
+
+**Resolution: requirement 2 gives.** Touch targets are inviolable; the ladder scrolls when the active set cannot fit. Two changes mean this almost never engages in practice:
+
+- Inactive gaps now occupy a slim slot rather than a full 56dp button slot. They are not touch targets — no `onClick`, cleared from the accessibility tree — so §1 never applied to them. At `M2.DEG_SET_1` this alone reclaimed 176dp.
+- The practice chrome's doubled spacing was removed (a `Spacer(lg)` stacked directly on the phase indicator's own `lg` top padding, 48dp for one visual break). No mandated element was dropped.
+
+Measured result on the 5-inch reference device: every active button is at or above the touch target at both 100% and 200% font scale, and the starting node shows all of its buttons at once with no scrolling. The full seven-degree set scrolls slightly, which is the case §3's author assumed away.
+
+**This also settles the shape of decision 1's redesign.** Twelve inline positions were already impossible at 760dp; the piano geometry that hangs chromatic degrees off the seams between diatonic neighbors is now the only design that fits, and Stage 2.5 must verify it against `PracticeScreenLayoutTest` rather than against a preview.
