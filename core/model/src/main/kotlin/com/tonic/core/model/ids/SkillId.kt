@@ -98,6 +98,19 @@ object SkillIds {
     /** In prerequisite order — each node strips away a layer of harmonic support. */
     val M9_NODES_IN_ORDER = listOf(M9_MODE_ID_CADENCE, M9_MODE_ID_TRIAD, M9_MODE_ID_MELODIC)
 
+    // M10 mirrors M2's structure in natural minor - same six axes, same cadence-fade mechanic, same
+    // mastery criteria (docs/20-PHASE-2-SPEC.md §3). Every id is declared now so the schema is stable;
+    // Stage 2.3 builds sets 1-4, Stage 2.4 the three minor forms and the independence check.
+    val M10_MIN_SET_1 = SkillId("M10.MIN_SET_1")
+    val M10_MIN_SET_2 = SkillId("M10.MIN_SET_2")
+    val M10_MIN_SET_3 = SkillId("M10.MIN_SET_3")
+    val M10_MIN_SET_4 = SkillId("M10.MIN_SET_4")
+    val M10_MIN_NATURAL = SkillId("M10.MIN_NATURAL")
+    val M10_MIN_HARMONIC = SkillId("M10.MIN_HARMONIC")
+    val M10_MIN_MELODIC = SkillId("M10.MIN_MELODIC")
+    val M10_MIN_INDEPENDENCE_CHECK = SkillId("M10.MIN_INDEPENDENCE_CHECK")
+    val M10_MIXED_MODE = SkillId("M10.MIXED_MODE")
+
     val M8_MINOR_MODE = SkillId("M8.MINOR_MODE")
     val M8_CHROMATIC_DEGREES = SkillId("M8.CHROMATIC_DEGREES")
     val M8_MODAL = SkillId("M8.MODAL")

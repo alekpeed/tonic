@@ -73,9 +73,14 @@ fun DegreeLadder(
     ) {
         // Degree 7 first (top of the column) down to degree 1 last (bottom) - ascending pitch maps to
         // ascending screen position.
-        for (degree in 7 downTo 1) {
-            val scaleDegree = ScaleDegree(degree)
-            if (scaleDegree in activeDegrees) {
+        for (slot in 7 downTo 1) {
+            // Matched by slot number, not by whole-value equality. A minor node's active set holds
+            // ScaleDegree(3, -1), which is a different value from ScaleDegree(3) by design
+            // (docs/20-PHASE-2-SPEC.md §2.1) - so an equality check rendered every one of minor's
+            // characteristic degrees as an inactive gap and left the learner with no button for ♭3.
+            // The slot is the scale position; whichever degree occupies it is what gets drawn there.
+            val scaleDegree = activeDegrees.firstOrNull { it.degree == slot }
+            if (scaleDegree != null) {
                 val state =
                     when {
                         correctDegree == scaleDegree -> DegreeButtonState.CORRECT
@@ -142,11 +147,20 @@ private fun DegreeButton(
             ).value
         }
 
+    // Spoken, not glyphed: TalkBack reads this aloud, and "♭3" either gets skipped or read as a
+    // stray character. Saying "flat 3" is the difference between a screen-reader user knowing which
+    // button they are on in minor and not (docs/08-UI-SPEC.md §9).
+    val spokenDegree =
+        when {
+            degree.alteration < 0 -> "flat ${degree.degree}"
+            degree.alteration > 0 -> "sharp ${degree.degree}"
+            else -> "${degree.degree}"
+        }
     val description =
         when (state) {
-            DegreeButtonState.CORRECT -> "$label, scale degree ${degree.degree}, correct answer"
-            DegreeButtonState.INCORRECT -> "$label, scale degree ${degree.degree}, your answer, incorrect"
-            else -> "$label, scale degree ${degree.degree}"
+            DegreeButtonState.CORRECT -> "$label, scale degree $spokenDegree, correct answer"
+            DegreeButtonState.INCORRECT -> "$label, scale degree $spokenDegree, your answer, incorrect"
+            else -> "$label, scale degree $spokenDegree"
         }
 
     TextButton(

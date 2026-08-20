@@ -65,6 +65,9 @@ class PracticeViewModel
         /** The one worked example, generated once and reused for replays so the audio never changes under the narration. */
         private val workedExample by lazy { WorkedExample.generate() }
 
+        /** The minor counterpart, for [IntroKind.M10]'s screen. */
+        private val minorWorkedExample by lazy { WorkedExample.generateMinor() }
+
         /** What the worked example's correct answer is, for the reveal - read off the real item, never hardcoded. */
         val workedExampleAnswer: String get() = workedExample.targetDegree.canonicalLabel
 
@@ -73,11 +76,15 @@ class PracticeViewModel
             if (started) return
             started = true
             viewModelScope.launch {
-                // docs/11-ONBOARDING-CLARITY.md §1/§5: shown automatically exactly once, before the
-                // first M2 item ever plays. The session underneath still starts, so dismissing the
-                // screen lands straight on a ready item rather than a spinner.
-                if (!settingsRepository.settings.first().module2IntroSeen) {
-                    _uiState.update { it.copy(showIntro = true) }
+                // docs/11-ONBOARDING-CLARITY.md §1/§5 and docs/08-UI-SPEC.md §3a: shown automatically
+                // exactly once per task shape, before that shape's first item ever plays. Which one is
+                // decided by the node the session is about to resolve to, not by module 2 alone -
+                // otherwise a learner reaching minor would be handed the major explanation, or none.
+                // The session underneath still starts, so dismissing lands on a ready item.
+                val settings = settingsRepository.settings.first()
+                val kind = introKindFor(resolveSessionStart().first.skillId, settings)
+                if (kind != IntroKind.NONE) {
+                    _uiState.update { it.copy(showIntro = true, introKind = kind) }
                 }
                 // docs/10-TESTING.md §11: "force stop mid-session -> resume offered, no data loss." An
                 // interrupted session is offered back rather than silently replaced with a fresh one -
@@ -121,15 +128,18 @@ class PracticeViewModel
          * than once is the point.
          */
         fun onPlayWorkedExample() {
+            // Whichever shape is being explained - playing the major example on the minor screen would
+            // demonstrate the wrong thing at exactly the moment the learner is forming their idea of it.
+            val example = if (_uiState.value.introKind == IntroKind.M10) minorWorkedExample else workedExample
             viewModelScope.launch {
                 audioPlayer.play(
                     SynthEngine.renderItem(
-                        referencePlan = workedExample.referencePlan,
-                        gapAfterReferenceMs = workedExample.timing.gapAfterReferenceMs,
-                        targetMidi = workedExample.targetMidi,
-                        targetTimbre = workedExample.timbre,
-                        targetDurationMs = workedExample.timing.targetDurationMs,
-                        seed = workedExample.seed,
+                        referencePlan = example.referencePlan,
+                        gapAfterReferenceMs = example.timing.gapAfterReferenceMs,
+                        targetMidi = example.targetMidi,
+                        targetTimbre = example.timbre,
+                        targetDurationMs = example.timing.targetDurationMs,
+                        seed = example.seed,
                     ),
                 )
             }
@@ -145,9 +155,34 @@ class PracticeViewModel
          * automatically again. Recalling it later via [onOpenIntro] deliberately does not touch the flag.
          */
         fun onIntroDismissed() {
+            val kind = _uiState.value.introKind
             _uiState.update { it.copy(showIntro = false, introAnswerRevealed = false) }
-            viewModelScope.launch { settingsRepository.setModule2IntroSeen(true) }
+            viewModelScope.launch {
+                // Only the shape that was actually shown is marked seen. Marking both would silently
+                // rob the learner of an explanation they never received.
+                when (kind) {
+                    IntroKind.M2 -> settingsRepository.setModule2IntroSeen(true)
+                    IntroKind.M10 -> settingsRepository.setModule10IntroSeen(true)
+                    IntroKind.NONE -> Unit
+                }
+            }
         }
+
+        /**
+         * Which explanation a node needs, or none. Recalling one on demand ([onOpenIntro]) deliberately
+         * does not consult this — docs/11-ONBOARDING-CLARITY.md §5: recall neither depends on nor
+         * changes the seen-once flag.
+         */
+        private fun introKindFor(
+            skillId: com.tonic.core.model.ids.SkillId,
+            settings: com.tonic.core.model.state.AppSettings,
+        ): IntroKind =
+            when {
+                skillId in SkillGraph.m10Nodes.map { it.id } ->
+                    if (settings.module10IntroSeen) IntroKind.NONE else IntroKind.M10
+                settings.module2IntroSeen -> IntroKind.NONE
+                else -> IntroKind.M2
+            }
 
         /**
          * The help affordance - docs/11-ONBOARDING-CLARITY.md §5: "always reachable on demand... the
@@ -411,9 +446,14 @@ class PracticeViewModel
          */
         private suspend fun resolveSessionStart(): Pair<SkillWorkContext, List<DueReview>> {
             val states = skillStateRepository.observeAll().first()
+            // Major first, then minor. Minor only opens once the whole major chain is mastered: M10's
+            // real prerequisite is M9.MODE_ID_TRIAD (docs/20-PHASE-2-SPEC.md §3), and until the M9
+            // gate is reachable from Home this is the conservative stand-in - it never routes a learner
+            // into minor before they can hold a key in major, which is the property that matters.
+            val chain = SkillGraph.m2Nodes + SkillGraph.m10Nodes
             val currentNodeId =
-                SkillGraph.m2Nodes.firstOrNull { states[it.id]?.masteryState != MasteryState.MASTERED }?.id
-                    ?: SkillGraph.m2Nodes.last().id
+                chain.firstOrNull { states[it.id]?.masteryState != MasteryState.MASTERED }?.id
+                    ?: chain.last().id
             val currentState = states[currentNodeId]
             val currentContext =
                 SkillWorkContext(

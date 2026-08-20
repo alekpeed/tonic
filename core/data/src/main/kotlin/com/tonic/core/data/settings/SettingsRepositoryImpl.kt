@@ -27,6 +27,7 @@ internal object SettingsKeys {
     val DIAGNOSTIC_COMPLETED = booleanPreferencesKey("diagnostic_completed")
     val MODULE2_INTRO_SEEN = booleanPreferencesKey("module2_intro_seen")
     val MODULE9_INTRO_SEEN = booleanPreferencesKey("module9_intro_seen")
+    val MODULE10_INTRO_SEEN = booleanPreferencesKey("module10_intro_seen")
     val DAILY_REMINDER_ENABLED = booleanPreferencesKey("daily_reminder_enabled")
     val DAILY_REMINDER_TIME = stringPreferencesKey("daily_reminder_time")
 }
@@ -78,6 +79,10 @@ internal class SettingsRepositoryImpl
             dataStore.edit { it[SettingsKeys.MODULE9_INTRO_SEEN] = seen }
         }
 
+        override suspend fun setModule10IntroSeen(seen: Boolean) {
+            dataStore.edit { it[SettingsKeys.MODULE10_INTRO_SEEN] = seen }
+        }
+
         override suspend fun setDiagnosticCompleted(completed: Boolean) {
             dataStore.edit { it[SettingsKeys.DIAGNOSTIC_COMPLETED] = completed }
         }
@@ -115,6 +120,7 @@ private fun Preferences.toAppSettings(): AppSettings {
         diagnosticCompleted = this[SettingsKeys.DIAGNOSTIC_COMPLETED] ?: defaults.diagnosticCompleted,
         module2IntroSeen = this[SettingsKeys.MODULE2_INTRO_SEEN] ?: defaults.module2IntroSeen,
         module9IntroSeen = this[SettingsKeys.MODULE9_INTRO_SEEN] ?: defaults.module9IntroSeen,
+        module10IntroSeen = this[SettingsKeys.MODULE10_INTRO_SEEN] ?: defaults.module10IntroSeen,
         dailyReminderEnabled = this[SettingsKeys.DAILY_REMINDER_ENABLED] ?: defaults.dailyReminderEnabled,
         dailyReminderTime = this[SettingsKeys.DAILY_REMINDER_TIME],
     )

@@ -29,6 +29,13 @@ data class AppSettings(
      */
     val module2IntroSeen: Boolean = false,
     /**
+     * The minor-mode explanation screen has been shown once (docs/05-DATA-MODEL.md §3
+     * `module10_intro_seen`). A separate flag from [module2IntroSeen] on purpose: minor is a new task
+     * shape under docs/08-UI-SPEC.md §3a, and having seen the major explanation says nothing about
+     * whether a learner has been told what `♭3` means.
+     */
+    val module10IntroSeen: Boolean = false,
+    /**
      * The Module 9 (mode identification) explanation screen and its worked example have been shown
      * once. Its own flag rather than a shared "intros seen" one, because docs/08-UI-SPEC.md §3a is
      * per *task shape*: having met degree identification tells a user nothing about being asked

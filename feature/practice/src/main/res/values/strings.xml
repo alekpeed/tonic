@@ -60,6 +60,17 @@
     <string name="m9_intro_start">Start</string>
     <string name="m9_intro_help">What am I listening for?</string>
 
+    <!-- Minor-mode explanation screen - docs/20-PHASE-2-SPEC.md §5.1: "must explain what changed from
+         major and why ♭3 is labeled that way", under 08-UI-SPEC.md §3a's first-run rule. Written to
+         assume nothing: the learner has mastered major degrees, and that is all. -->
+    <string name="m10_intro_title">Something new: minor</string>
+    <string name="m10_intro_what_changed">Everything works the same way as before. Chords set up a \"home\" note, then one note plays, and you say where it sits. What changes is the flavor of the scale those notes come from.</string>
+    <string name="m10_intro_the_sound">Play the example and you\'ll hear it straight away. Minor sounds darker, heavier, sadder — most people hear the difference long before they can name it. You don\'t need a word for it. You just need to hear where the note sits.</string>
+    <string name="m10_intro_flat_three">One button looks different now: \u266d3, said \"flat three\". It sits between 2 and 3 — a little lower than the 3 you already know. That small drop is most of what makes the whole thing sound minor.</string>
+    <string name="m10_intro_why_flat">It keeps its number because it is still the third note of the scale. The \u266d just says \"the lower version of it\". Same for \u266d6 later on. A number always means the same distance from home, in every key and either flavor — that is the point of the labels.</string>
+    <string name="m10_intro_start">Start practicing</string>
+    <string name="m10_intro_help">How minor works</string>
+
     <!-- Per-item reference-shape line - docs/11-ONBOARDING-CLARITY.md §9.3's per-item corollary,
          added after live use: an announcement at the moment a level changes is not enough when the
          *items themselves* keep a reduced shape. Every item whose setup is anything other than the

@@ -114,7 +114,7 @@ internal fun M2IntroContent(
 }
 
 @Composable
-private fun IntroParagraph(text: String) {
+internal fun IntroParagraph(text: String) {
     Text(
         text = text,
         style = MaterialTheme.typography.bodyLarge,

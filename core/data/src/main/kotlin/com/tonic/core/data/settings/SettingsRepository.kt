@@ -30,6 +30,8 @@ interface SettingsRepository {
     /** See [com.tonic.core.model.state.AppSettings.module2IntroSeen]. */
     suspend fun setModule2IntroSeen(seen: Boolean)
 
+    suspend fun setModule10IntroSeen(seen: Boolean)
+
     /** See [com.tonic.core.model.state.AppSettings.module9IntroSeen]. */
     suspend fun setModule9IntroSeen(seen: Boolean)
 

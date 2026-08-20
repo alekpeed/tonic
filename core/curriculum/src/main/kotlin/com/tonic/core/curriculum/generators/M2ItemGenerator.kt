@@ -7,7 +7,6 @@ import com.tonic.core.model.ids.SkillId
 import com.tonic.core.model.items.DifficultyAxis
 import com.tonic.core.model.items.Item
 import com.tonic.core.model.items.ItemTiming
-import com.tonic.core.model.music.Mode
 import com.tonic.core.model.music.PitchClass
 import com.tonic.core.model.music.ScaleDegree
 import kotlin.random.Random
@@ -39,6 +38,11 @@ object M2ItemGenerator {
         val tempoDensityLevel = level(axes, DifficultyAxis.TEMPO_DENSITY)
         val keySpreadLevel = level(axes, DifficultyAxis.KEY_SPREAD)
 
+        // The node's own mode, not a hardcoded major. M10 mirrors M2 exactly except for this
+        // (docs/20-PHASE-2-SPEC.md §3), so one lookup here is the whole of what makes minor work:
+        // every reference chord, every target pitch and every octave calculation below already takes
+        // mode as a parameter and was simply always being handed MAJOR.
+        val mode = SkillGraph.modeFor(skill)
         val activeDegrees = SkillGraph.activeDegreesFor(skill).sortedBy { it.degree }
         val targetDegree = BalancedSampler.pick(activeDegrees, history.recentDegrees, random, degreeWeights)
 
@@ -67,7 +71,7 @@ object M2ItemGenerator {
             (
                 tonicMidi +
                     targetDegree.semitoneOffset(
-                        Mode.MAJOR,
+                        mode,
                     ) + 12 * octaveOffset
             ).coerceIn(SAFE_MIDI_RANGE)
 
@@ -85,7 +89,7 @@ object M2ItemGenerator {
             ReferencePlanBuilder.build(
                 cadenceFadeLevel = cadenceFadeLevel,
                 keyPitchClass = key,
-                mode = Mode.MAJOR,
+                mode = mode,
                 tonicMidi = tonicMidi,
                 timbre = referenceTimbre,
                 chordDurationMs = timing.referenceDurationMs,
@@ -112,7 +116,7 @@ object M2ItemGenerator {
                     elements =
                         ReferencePlanBuilder.keyEstablishment(
                             keyPitchClass = key,
-                            mode = Mode.MAJOR,
+                            mode = mode,
                             tonicMidi = tonicMidi,
                             timbre = referenceTimbre,
                             chordDurationMs = timing.referenceDurationMs,
@@ -130,7 +134,7 @@ object M2ItemGenerator {
                         elements =
                             ReferencePlanBuilder.keyEstablishment(
                                 keyPitchClass = key,
-                                mode = Mode.MAJOR,
+                                mode = mode,
                                 tonicMidi = tonicMidi,
                                 timbre = referenceTimbre,
                                 chordDurationMs = timing.referenceDurationMs,
@@ -171,7 +175,7 @@ object M2ItemGenerator {
             Item.FunctionalRecognitionItem(
                 skill = skill,
                 key = key,
-                mode = Mode.MAJOR,
+                mode = mode,
                 targetDegree = targetDegree,
                 targetMidi = targetMidi,
                 referencePlan = referencePlan,

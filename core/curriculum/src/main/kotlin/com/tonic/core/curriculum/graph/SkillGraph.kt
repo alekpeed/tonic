@@ -2,6 +2,7 @@ package com.tonic.core.curriculum.graph
 
 import com.tonic.core.model.ids.SkillId
 import com.tonic.core.model.ids.SkillIds
+import com.tonic.core.model.music.Mode
 import com.tonic.core.model.music.ScaleDegree
 
 /**
@@ -32,9 +33,69 @@ object SkillGraph {
             ),
         )
 
-    private val byId: Map<SkillId, SkillNode> = m2Nodes.associateBy { it.id }
+    /**
+     * M10's minor nodes — docs/20-PHASE-2-SPEC.md §3. Structurally identical to [m2Nodes]: the same
+     * widening degree sets, the same cadence-fade mechanic, the same mastery criteria. What differs is
+     * the mode, and therefore which degrees are in the set: minor's third, sixth and seventh carry a
+     * flat, so `♭3` is `ScaleDegree(3, -1)` and never a reinterpretation of `3` (§2.1).
+     *
+     * Stage 2.3 builds sets 1-4; the three minor forms and the independence check are Stage 2.4.
+     */
+    val m10Nodes: List<SkillNode> =
+        listOf(
+            SkillNode(
+                SkillIds.M10_MIN_SET_1,
+                prerequisite = SkillIds.M9_MODE_ID_TRIAD,
+                activeDegrees = setOf(ScaleDegree(1), ScaleDegree(3, -1), ScaleDegree(5)),
+                mode = Mode.MINOR,
+            ),
+            SkillNode(
+                SkillIds.M10_MIN_SET_2,
+                prerequisite = SkillIds.M10_MIN_SET_1,
+                activeDegrees = setOf(ScaleDegree(1), ScaleDegree(2), ScaleDegree(3, -1), ScaleDegree(5)),
+                mode = Mode.MINOR,
+            ),
+            SkillNode(
+                SkillIds.M10_MIN_SET_3,
+                prerequisite = SkillIds.M10_MIN_SET_2,
+                activeDegrees =
+                    setOf(
+                        ScaleDegree(1),
+                        ScaleDegree(2),
+                        ScaleDegree(3, -1),
+                        ScaleDegree(5),
+                        ScaleDegree(6, -1),
+                    ),
+                mode = Mode.MINOR,
+            ),
+            SkillNode(
+                SkillIds.M10_MIN_SET_4,
+                prerequisite = SkillIds.M10_MIN_SET_3,
+                activeDegrees =
+                    setOf(
+                        ScaleDegree(1),
+                        ScaleDegree(2),
+                        ScaleDegree(3, -1),
+                        ScaleDegree(4),
+                        ScaleDegree(5),
+                        ScaleDegree(6, -1),
+                    ),
+                mode = Mode.MINOR,
+            ),
+        )
 
-    fun node(skillId: SkillId): SkillNode = byId[skillId] ?: error("Not an M2 skill node: $skillId")
+    /** Every recognition node the practice loop can run, in either mode. */
+    val recognitionNodes: List<SkillNode> = m2Nodes + m10Nodes
+
+    private val byId: Map<SkillId, SkillNode> = recognitionNodes.associateBy { it.id }
+
+    fun node(skillId: SkillId): SkillNode = byId[skillId] ?: error("Not a recognition skill node: $skillId")
+
+    /**
+     * The mode a node's items are generated in. The single place that answers it, so a generator never
+     * has to infer mode from a skill id's spelling.
+     */
+    fun modeFor(skillId: SkillId): Mode = node(skillId).mode
 
     fun activeDegreesFor(skillId: SkillId): Set<ScaleDegree> = node(skillId).activeDegrees
 
@@ -43,16 +104,21 @@ object SkillGraph {
 
     /** The node immediately after [skillId] in mastery order, or null if it's [SkillIds.M2_FULL_DIATONIC]. */
     fun successorOf(skillId: SkillId): SkillId? {
-        val index = m2Nodes.indexOfFirst { it.id == skillId }
-        return m2Nodes.getOrNull(index + 1)?.id
+        // Within the node's own module: mastering the last M2 node does not roll into M10, which is
+        // gated on M9 instead (docs/20-PHASE-2-SPEC.md §3).
+        val chain = if (skillId in m10Nodes.map { it.id }) m10Nodes else m2Nodes
+        val index = chain.indexOfFirst { it.id == skillId }
+        return chain.getOrNull(index + 1)?.id
     }
 
     private fun degrees(vararg values: Int): Set<ScaleDegree> = values.map { ScaleDegree(it) }.toSet()
 }
 
-/** One M2 skill node: its active degree set and prerequisite. Mastery criteria live in `:core:engine` (Stage 4). */
+/** One recognition skill node: its active degree set, prerequisite and mode. Mastery criteria live in `:core:engine` (Stage 4). */
 data class SkillNode(
     val id: SkillId,
     val prerequisite: SkillId?,
     val activeDegrees: Set<ScaleDegree>,
+    /** Major unless stated. Every Phase 1 node is major, so the default reproduces them exactly. */
+    val mode: Mode = Mode.MAJOR,
 )

@@ -61,6 +61,12 @@ data class PracticeUiState(
     /** `M9` answers: which mode the user picked, and which was right once revealed. Null on other item types. */
     val selectedModeLabel: String? = null,
     val correctModeLabel: String? = null,
+    /**
+     * Which first-run explanation to show, if any — docs/08-UI-SPEC.md §3a. Chosen from the module the
+     * session actually resolved to, so a learner meets each new task shape's explanation once and is
+     * never shown one for a module they are not practicing.
+     */
+    val introKind: IntroKind = IntroKind.NONE,
 ) {
     /** The ladder's contents. Empty for an item type that does not answer with a degree, such as `M9`. */
     val activeDegrees: List<ScaleDegree>
@@ -73,4 +79,15 @@ data class PracticeUiState(
     /** The mode-identification item, when that is what is on screen. */
     val modeItem: Item.ModeIdentificationItem?
         get() = item as? Item.ModeIdentificationItem
+}
+
+/** The first-run explanations, one per task shape (docs/08-UI-SPEC.md §3a). */
+enum class IntroKind {
+    NONE,
+
+    /** Degree identification in major. */
+    M2,
+
+    /** Degree identification in minor — what changed, and what `♭3` means. */
+    M10,
 }
