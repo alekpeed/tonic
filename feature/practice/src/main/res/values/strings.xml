@@ -71,6 +71,15 @@
     <string name="m10_intro_start">Start practicing</string>
     <string name="m10_intro_help">How minor works</string>
 
+    <!-- Module 11 (chromatic degrees) first-run explanation - docs/20-PHASE-2-SPEC.md §5.1. -->
+    <string name="m11_intro_title">Notes between the notes</string>
+    <string name="m11_intro_between">Until now every note you\'ve named came from the seven the key is built on. Those seven were never all the notes there are — they\'re the ones this key uses as its own. In between some of them sits another note, closer to its neighbor than any two of the seven are to each other. You\'ve been hearing these in music your whole life. Now you get to name them.</string>
+    <string name="m11_intro_why_label">A new note needs a name, and it borrows one. \u266f4 means \"the 4 you know, nudged up\". \u266d7 means \"the 7 you know, nudged down\". The number still says the same thing it always did — how far from home — and the sign in front says which version of it you\'re hearing. Exactly like \u266d3 in minor.</string>
+    <string name="m11_intro_where_on_ladder">On the ladder these sit alongside the note they\'re named after, slightly narrower, so you can see at a glance which is which. \u266f4 is beside 4, just above it, and below the 5 it wants to fall into.</string>
+    <string name="m11_intro_one_at_a_time">You get one of these at a time, mixed in with all the notes you already know — that\'s the point. On its own a new note is just a sound. What makes it recognizable is where it sits against the ones around it.</string>
+    <string name="m11_intro_start">Start practicing</string>
+    <string name="m11_intro_help">Notes between the notes</string>
+
     <!-- Per-item reference-shape line - docs/11-ONBOARDING-CLARITY.md §9.3's per-item corollary,
          added after live use: an announcement at the moment a level changes is not enough when the
          *items themselves* keep a reduced shape. Every item whose setup is anything other than the

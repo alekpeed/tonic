@@ -111,6 +111,15 @@ object SkillIds {
     val M10_MIN_INDEPENDENCE_CHECK = SkillId("M10.MIN_INDEPENDENCE_CHECK")
     val M10_MIXED_MODE = SkillId("M10.MIXED_MODE")
 
+    // M11 introduces the five notes outside the diatonic set, one node at a time, in the pull-strength
+    // order of docs/20-PHASE-2-SPEC.md §2.2. Each node adds exactly one degree to the previous set.
+    val M11_CHROM_SHARP4 = SkillId("M11.CHROM_SHARP4")
+    val M11_CHROM_FLAT7 = SkillId("M11.CHROM_FLAT7")
+    val M11_CHROM_FLAT6 = SkillId("M11.CHROM_FLAT6")
+    val M11_CHROM_FLAT3 = SkillId("M11.CHROM_FLAT3")
+    val M11_CHROM_FLAT2 = SkillId("M11.CHROM_FLAT2")
+    val M11_CHROM_FULL = SkillId("M11.CHROM_FULL")
+
     val M8_MINOR_MODE = SkillId("M8.MINOR_MODE")
     val M8_CHROMATIC_DEGREES = SkillId("M8.CHROMATIC_DEGREES")
     val M8_MODAL = SkillId("M8.MODAL")

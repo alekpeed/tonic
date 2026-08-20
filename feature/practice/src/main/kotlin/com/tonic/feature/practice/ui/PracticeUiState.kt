@@ -90,4 +90,7 @@ enum class IntroKind {
 
     /** Degree identification in minor — what changed, and what `♭3` means. */
     M10,
+
+    /** Chromatic degrees — what a note *between* the familiar ones is, and why it borrows their number. */
+    M11,
 }

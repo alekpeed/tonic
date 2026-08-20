@@ -44,7 +44,11 @@ object M2ItemGenerator {
         // mode as a parameter and was simply always being handed MAJOR.
         val mode = SkillGraph.modeFor(skill)
         val activeDegrees = SkillGraph.activeDegreesFor(skill).sortedBy { it.degree }
-        val targetDegree = BalancedSampler.pick(activeDegrees, history.recentDegrees, random, degreeWeights)
+        // A caller's explicit weights win; otherwise the node's own. M11 weights the degree it
+        // introduces (see SkillGraph.degreeWeightsFor); every other node returns empty and samples
+        // uniformly exactly as it always has.
+        val effectiveWeights = degreeWeights.ifEmpty { SkillGraph.degreeWeightsFor(skill) }
+        val targetDegree = BalancedSampler.pick(activeDegrees, history.recentDegrees, random, effectiveWeights)
 
         // An open reference group holds its key and tonic across the whole group; only the first item
         // of a group samples fresh ones. L1 groups reuse a cadence for a few items; L6/L7 groups are

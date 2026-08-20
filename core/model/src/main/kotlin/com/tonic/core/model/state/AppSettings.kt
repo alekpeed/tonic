@@ -42,6 +42,13 @@ data class AppSettings(
      * whether something sounds major or minor.
      */
     val module9IntroSeen: Boolean = false,
+    /**
+     * The chromatic-degrees explanation screen has been shown once (docs/05-DATA-MODEL.md §3
+     * `module11_intro_seen`). Its own flag for the same docs/08-UI-SPEC.md §3a reason as the others:
+     * knowing what `♭3` means in minor does not tell a learner why a note exists between 4 and 5 in
+     * major, which is the belief `M11` has to overturn.
+     */
+    val module11IntroSeen: Boolean = false,
     /** Opt-in only - docs/05-DATA-MODEL.md §3: "defaults to false. Opt-in only." See docs/08-UI-SPEC.md §7. */
     val dailyReminderEnabled: Boolean = false,
     /** `"HH:mm"`, null when [dailyReminderEnabled] is false. */

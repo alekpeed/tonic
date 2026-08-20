@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.State
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.SemanticsNodeInteraction
@@ -15,6 +17,7 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.height
+import androidx.compose.ui.unit.width
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.tonic.core.model.music.Mode
 import com.tonic.core.model.music.ScaleDegree
@@ -127,8 +130,101 @@ class DegreeLadderLayoutTest {
         )
     }
 
+    @Test
+    fun `all twelve chromatic degrees render, each at or above the minimum touch target`() {
+        // Stage 2.5's acceptance criterion - docs/20-PHASE-2-SPEC.md §7, "ladder legible at 12
+        // positions (or redesigned)" - measured rather than asserted, which is the entire reason §8.1
+        // decision 1 required this harness before the redesign.
+        setLadder(ScaleDegree.ALL_CHROMATIC.toList())
+
+        for (degree in ScaleDegree.ALL_CHROMATIC) {
+            val node = compose.onNodeWithTag("degree_button_${degree.canonicalLabel}")
+            val bounds = node.getUnclippedBoundsInRoot()
+            assertTrue(
+                bounds.height >= TonicSpacing.minTouchTarget,
+                "${degree.canonicalLabel} is ${bounds.height} tall, below the touch-target minimum",
+            )
+            assertTrue(
+                bounds.width >= TonicSpacing.minTouchTarget,
+                "${degree.canonicalLabel} is ${bounds.width} wide, below the touch-target minimum - " +
+                    "docs/20-PHASE-2-SPEC.md §5.2: adding chromatic positions must not shrink buttons " +
+                    "below it",
+            )
+        }
+    }
+
+    @Test
+    fun `twelve degrees cost no more vertical height than seven`() {
+        // The property docs/20-PHASE-2-SPEC.md §8.1 decision 1 is built on and §8.2 depends on. A
+        // twelve-*slot* column would be 12*56 + 11*8 = 760dp against ~568dp of usable screen; hanging
+        // the chromatic degrees off their diatonic neighbors keeps the column at seven slots, so the
+        // ladder's height is identical whether the learner has 3 degrees or all 12.
+        // One composition, recomposed - the rule allows setContent only once per test, and comparing
+        // across two renders of the same ladder is the point anyway.
+        val active = mutableStateOf(ScaleDegree.ALL_DIATONIC.toList())
+        setLadder(active)
+
+        val diatonicHeight =
+            compose.onNodeWithTag("degree_button_1").bottomDp() - compose.onNodeWithTag("degree_button_7").topDp()
+
+        active.value = ScaleDegree.ALL_CHROMATIC.toList()
+        compose.waitForIdle()
+        val chromaticHeight =
+            compose.onNodeWithTag("degree_button_1").bottomDp() - compose.onNodeWithTag("degree_button_7").topDp()
+
+        assertTrue(
+            abs((chromaticHeight - diatonicHeight).value) < TOLERANCE_DP,
+            "seven degrees occupy $diatonicHeight and twelve occupy $chromaticHeight - if these have " +
+                "diverged, the chromatic degrees have started extending the column and §8.2's " +
+                "arithmetic no longer holds",
+        )
+    }
+
+    @Test
+    fun `twelve degrees still clear the touch target at 200 percent font scale`() {
+        // docs/20-PHASE-2-SPEC.md §5.2 asks for exactly this case: twelve positions, 5-inch screen,
+        // maximum font scale. The narrow alteration buttons are where it would break first - they get a
+        // third of the row width and the same label growth as the spine.
+        setLadder(ScaleDegree.ALL_CHROMATIC.toList(), fontScale = MAX_SUPPORTED_FONT_SCALE)
+
+        for (degree in ScaleDegree.ALL_CHROMATIC) {
+            val bounds = compose.onNodeWithTag("degree_button_${degree.canonicalLabel}").getUnclippedBoundsInRoot()
+            assertTrue(
+                bounds.height >= TonicSpacing.minTouchTarget && bounds.width >= TonicSpacing.minTouchTarget,
+                "at 200% font scale ${degree.canonicalLabel} measured ${bounds.width} x ${bounds.height}",
+            )
+        }
+    }
+
+    @Test
+    fun `a chromatic degree is drawn beside the diatonic note it is named after, never in place of it`() {
+        // What "legible at 12 positions" has to mean pedagogically (§2.2): ♯4 is only recognizable as
+        // "not 4, not 5", so 4 must still be on screen and adjacent when ♯4 appears. Sorted by pitch,
+        // lower on the left - so ♯4 sits to the right of 4, and ♭2 to the left of 2.
+        setLadder(ScaleDegree.ALL_CHROMATIC.toList())
+
+        val four = compose.onNodeWithTag("degree_button_4").getUnclippedBoundsInRoot()
+        val sharpFour = compose.onNodeWithTag("degree_button_#4").getUnclippedBoundsInRoot()
+        assertTrue(abs((four.top - sharpFour.top).value) < TOLERANCE_DP, "♯4 shares slot 4's row")
+        assertTrue(sharpFour.left >= four.right, "♯4 is the higher pitch, so it sits to the right of 4")
+
+        val two = compose.onNodeWithTag("degree_button_2").getUnclippedBoundsInRoot()
+        val flatTwo = compose.onNodeWithTag("degree_button_b2").getUnclippedBoundsInRoot()
+        assertTrue(abs((two.top - flatTwo.top).value) < TOLERANCE_DP, "♭2 shares slot 2's row")
+        assertTrue(flatTwo.right <= two.left, "♭2 is the lower pitch, so it sits to the left of 2")
+
+        // And the spine still dominates: an alteration reads as secondary by size, which is §8.1
+        // decision 1's "distinguished by shape and position rather than by fill".
+        assertTrue(four.width > sharpFour.width, "the diatonic 4 keeps the wider spine slot")
+    }
+
     private fun setLadder(
         active: List<ScaleDegree>,
+        fontScale: Float = 1.0f,
+    ) = setLadder(mutableStateOf(active), fontScale)
+
+    private fun setLadder(
+        active: State<List<ScaleDegree>>,
         fontScale: Float = 1.0f,
     ) {
         compose.setContent {
@@ -136,7 +232,7 @@ class DegreeLadderLayoutTest {
                 TonicTheme {
                     Box(modifier = Modifier.fillMaxSize()) {
                         DegreeLadder(
-                            activeDegrees = active,
+                            activeDegrees = active.value,
                             mode = Mode.MAJOR,
                             labelStyle = LabelStyle.NUMBERS,
                             enabled = true,

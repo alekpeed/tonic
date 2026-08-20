@@ -163,6 +163,7 @@ class PracticeViewModel
                 when (kind) {
                     IntroKind.M2 -> settingsRepository.setModule2IntroSeen(true)
                     IntroKind.M10 -> settingsRepository.setModule10IntroSeen(true)
+                    IntroKind.M11 -> settingsRepository.setModule11IntroSeen(true)
                     IntroKind.NONE -> Unit
                 }
             }
@@ -178,6 +179,8 @@ class PracticeViewModel
             settings: com.tonic.core.model.state.AppSettings,
         ): IntroKind =
             when {
+                skillId in SkillGraph.m11Nodes.map { it.id } ->
+                    if (settings.module11IntroSeen) IntroKind.NONE else IntroKind.M11
                 skillId in SkillGraph.m10Nodes.map { it.id } ->
                     if (settings.module10IntroSeen) IntroKind.NONE else IntroKind.M10
                 settings.module2IntroSeen -> IntroKind.NONE
@@ -446,11 +449,14 @@ class PracticeViewModel
          */
         private suspend fun resolveSessionStart(): Pair<SkillWorkContext, List<DueReview>> {
             val states = skillStateRepository.observeAll().first()
-            // Major first, then minor. Minor only opens once the whole major chain is mastered: M10's
-            // real prerequisite is M9.MODE_ID_TRIAD (docs/20-PHASE-2-SPEC.md §3), and until the M9
-            // gate is reachable from Home this is the conservative stand-in - it never routes a learner
-            // into minor before they can hold a key in major, which is the property that matters.
-            val chain = SkillGraph.m2Nodes + SkillGraph.m10Nodes
+            // Major, then minor, then the chromatic degrees. Minor only opens once the whole major
+            // chain is mastered: M10's real prerequisite is M9.MODE_ID_TRIAD (docs/20-PHASE-2-SPEC.md
+            // §3), and until the M9 gate is reachable from Home this is the conservative stand-in - it
+            // never routes a learner into minor before they can hold a key in major, which is the
+            // property that matters. M11 sits last for the same reason: its declared prerequisite is
+            // M2.INDEPENDENCE_CHECK, which this stand-in cannot observe, so it waits for strictly more
+            // than the spec requires rather than less.
+            val chain = SkillGraph.m2Nodes + SkillGraph.m10Nodes + SkillGraph.m11Nodes
             val currentNodeId =
                 chain.firstOrNull { states[it.id]?.masteryState != MasteryState.MASTERED }?.id
                     ?: chain.last().id

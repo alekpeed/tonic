@@ -90,5 +90,12 @@ data class ScaleDegree(
                 ScaleDegree(3, -1), // ♭3, pulls down to 2
                 ScaleDegree(2, -1), // ♭2, pulls down to 1
             )
+
+        /**
+         * All twelve pitches of the octave, named as degrees of major — the answer set `M11.CHROM_FULL`
+         * ends at (docs/20-PHASE-2-SPEC.md §2.2). Twelve distinct [semitoneOffset] values, which is the
+         * property `ChromaticDegreesTest` checks rather than assumes.
+         */
+        val ALL_CHROMATIC = ALL_DIATONIC + CHROMATIC_INTRODUCTION_ORDER
     }
 }

@@ -80,8 +80,15 @@ fun PracticeScreen(
 
     // Above every other state: docs/11-ONBOARDING-CLARITY.md §1 requires this before the first item
     // plays, and §5 makes it recallable at any point afterwards.
+    //
+    // Which one is dispatched on the kind the ViewModel resolved from the node. This screen previously
+    // rendered M2IntroContent unconditionally, so M10IntroContent - built, tested and correctly
+    // selected by introKindFor - was unreachable, and a learner arriving at minor was shown the major
+    // explanation. The bug was in the one line that connects them, which is exactly where a test that
+    // exercises a composable directly cannot see it.
     if (uiState.showIntro) {
-        M2IntroContent(
+        IntroForKind(
+            kind = uiState.introKind,
             answerLabel = viewModel.workedExampleAnswer,
             answerRevealed = uiState.introAnswerRevealed,
             onPlayExample = viewModel::onPlayWorkedExample,
@@ -294,6 +301,43 @@ private fun phaseCaptionRes(phase: PlaybackPhase): Int =
 // claim about this composable's layout, and it went unverified through all of Phase 1 because nothing
 // could reach it. PracticeScreenLayoutTest measures it directly. Still module-private - no widening of
 // the feature's public API (docs/04-ARCHITECTURE.md §4).
+
+/**
+ * The one place that maps a resolved [IntroKind] to the screen that explains it.
+ *
+ * Extracted from [PracticeScreen] because it is where a real bug lived and could not be seen: the
+ * screen rendered [M2IntroContent] unconditionally, so [M10IntroContent] — built, previewed, and
+ * correctly selected by the ViewModel — was unreachable, and a learner arriving at minor was handed
+ * the major explanation. Every test in the repository exercised either the composables or the
+ * ViewModel, and the defect was in the line between them. It is a separate composable now so that
+ * line has something to test.
+ */
+@Composable
+internal fun IntroForKind(
+    kind: IntroKind,
+    answerLabel: String,
+    answerRevealed: Boolean,
+    onPlayExample: () -> Unit,
+    onRevealAnswer: () -> Unit,
+    onStart: () -> Unit,
+) {
+    when (kind) {
+        IntroKind.M10 -> M10IntroContent(onPlayExample = onPlayExample, onStart = onStart)
+        IntroKind.M11 -> M11IntroContent(onStart = onStart)
+        // NONE reaches here only through onOpenIntro's recall on a node with no explanation of its
+        // own, where the major screen is the right thing to show: it is the one that explains the task
+        // shape every recognition node shares.
+        IntroKind.M2, IntroKind.NONE ->
+            M2IntroContent(
+                answerLabel = answerLabel,
+                answerRevealed = answerRevealed,
+                onPlayExample = onPlayExample,
+                onRevealAnswer = onRevealAnswer,
+                onStart = onStart,
+            )
+    }
+}
+
 @Composable
 internal fun PracticeContent(
     uiState: PracticeUiState,

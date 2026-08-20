@@ -14,7 +14,9 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.height
+import androidx.compose.ui.unit.width
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.tonic.core.model.music.ScaleDegree
 import com.tonic.core.ui.theme.TonicSpacing
 import com.tonic.core.ui.theme.TonicTheme
 import org.junit.Rule
@@ -92,6 +94,27 @@ class PracticeScreenLayoutTest {
             assertTrue(
                 slotHeight(degree) >= TonicSpacing.minTouchTarget,
                 "degree $degree measured ${slotHeight(degree)} - squeezed below the touch target",
+            )
+        }
+    }
+
+    @Test
+    fun `at twelve degrees every button is still tappable on the real screen`() {
+        // Stage 2.5's acceptance criterion where it actually has to hold: not the ladder in isolation
+        // but the ladder competing with docs/08-UI-SPEC.md §4's chrome on a 5-inch screen. This is the
+        // widest answer set the app ever shows.
+        renderPractice(PreviewStates.fullChromaticSet)
+
+        for (degree in ScaleDegree.ALL_CHROMATIC) {
+            val bounds =
+                compose.onNodeWithTag("degree_button_${degree.canonicalLabel}").getUnclippedBoundsInRoot()
+            assertTrue(
+                bounds.height >= TonicSpacing.minTouchTarget,
+                "${degree.canonicalLabel} measured ${bounds.height} - squeezed below the touch target",
+            )
+            assertTrue(
+                bounds.width >= TonicSpacing.minTouchTarget,
+                "${degree.canonicalLabel} measured ${bounds.width} wide - narrower than the touch target",
             )
         }
     }

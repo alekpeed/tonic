@@ -105,7 +105,14 @@ class ProgressViewModel
                     MasteryState.LOCKED, MasteryState.MASTERED -> null
                     MasteryState.AVAILABLE, MasteryState.IN_PROGRESS -> {
                         val window = masteryWindowFor(skillId)
-                        MasteryEvaluator.evaluate(window, SkillGraph.activeDegreesFor(skillId), state.axisLevels)
+                        MasteryEvaluator.evaluate(
+                            window,
+                            SkillGraph.activeDegreesFor(skillId),
+                            state.axisLevels,
+                            // The same six criteria the replayer applies, so the progress screen shows
+                            // what is actually blocking rather than a subset of it.
+                            focusDegree = SkillGraph.focusDegreeFor(skillId),
+                        )
                     }
                 }
             return MasteryMapNode(skillId, activeDegrees, state.masteryState, verdict)

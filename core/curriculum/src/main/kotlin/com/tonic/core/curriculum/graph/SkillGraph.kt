@@ -106,6 +106,78 @@ object SkillGraph {
         )
 
     /**
+     * M11's chromatic nodes — docs/20-PHASE-2-SPEC.md §3, in §2.2's introduction order: strongest pull
+     * toward a stable tone first, because a strong pull is easier to hear. Each node adds exactly one
+     * degree to the previous set, "introduced against the already-mastered diatonic set, never in
+     * isolation" — the skill is telling `♯4` from the `4` and `5` it sits between, which only exists as
+     * a question when all three are on screen.
+     */
+    val m11Nodes: List<SkillNode> =
+        run {
+            val diatonic = ScaleDegree.ALL_DIATONIC
+            val ids =
+                listOf(
+                    SkillIds.M11_CHROM_SHARP4,
+                    SkillIds.M11_CHROM_FLAT7,
+                    SkillIds.M11_CHROM_FLAT6,
+                    SkillIds.M11_CHROM_FLAT3,
+                    SkillIds.M11_CHROM_FLAT2,
+                )
+            var accumulated = diatonic
+            val progressive =
+                ids.mapIndexed { index, id ->
+                    accumulated = accumulated + ScaleDegree.CHROMATIC_INTRODUCTION_ORDER[index]
+                    SkillNode(
+                        id = id,
+                        prerequisite = if (index == 0) SkillIds.M2_INDEPENDENCE_CHECK else ids[index - 1],
+                        activeDegrees = accumulated,
+                        introduces = ScaleDegree.CHROMATIC_INTRODUCTION_ORDER[index],
+                    )
+                }
+            // CHROM_FULL introduces nothing new - all twelve are already in play by CHROM_FLAT2. It is
+            // the consolidation node, and its mastery is judged on the whole set rather than on one
+            // degree, which is why it has no focus degree (see focusDegreeFor).
+            progressive + SkillNode(SkillIds.M11_CHROM_FULL, prerequisite = ids.last(), activeDegrees = accumulated)
+        }
+
+    /**
+     * The one degree a node introduces and is judged on, or null.
+     *
+     * Declared by the node rather than derived by differencing it against its prerequisite. Differencing
+     * looked tidier and was wrong twice over: `M11.CHROM_SHARP4`'s prerequisite is
+     * `M2.INDEPENDENCE_CHECK`, a gate rather than a degree-set parent, so the difference was undefined
+     * for the very first chromatic node; and it would have handed a focus degree to every `M2` and `M10`
+     * node too, applying docs/20-PHASE-2-SPEC.md §3's sixth criterion to nodes the spec never asks it
+     * of. The nodes that have one declare it at construction, beside the degree they add, so the two
+     * cannot disagree.
+     */
+    fun focusDegreeFor(skillId: SkillId): ScaleDegree? = byId[skillId]?.introduces
+
+    /**
+     * Sampling weights for a node's target degrees, or empty for uniform.
+     *
+     * Only `M11` returns anything: its nodes each introduce one chromatic degree, and that degree has
+     * to appear often enough for [com.tonic.core.engine.mastery.MasteryEvaluator]'s focus criterion to
+     * have a real sample behind it. Uniform sampling across twelve active degrees gives roughly two
+     * attempts per degree in a 30-item window, and two answers cannot distinguish hearing a note from
+     * guessing it. Weighting is also the pedagogically right shape: §2.2's "each is introduced against
+     * the already-mastered diatonic set" means the new note is the *subject* of the node, not one
+     * twelfth of it.
+     *
+     * Deliberately empty for `M2` and `M10`, whose degree sets widen by one too: applying this to them
+     * would change long-settled generation for no benefit, and the Stage 2.0 golden corpus would
+     * (correctly) reject it.
+     */
+    fun degreeWeightsFor(skillId: SkillId): Map<ScaleDegree, Double> {
+        if (skillId !in m11Nodes.map { it.id }) return emptyMap()
+        val focus = focusDegreeFor(skillId) ?: return emptyMap()
+        return mapOf(focus to CHROMATIC_FOCUS_WEIGHT)
+    }
+
+    /** Enough to lift the new degree clear of the focus criterion's five-attempt floor. */
+    private const val CHROMATIC_FOCUS_WEIGHT = 3.0
+
+    /**
      * Nodes whose mastery triggers an independence check — docs/03-CURRICULUM.md §5.6 for `M2`, and
      * docs/20-PHASE-2-SPEC.md §3 for `M10`. The last node of each chain: the check asks whether the
      * learner can hold a key without the cadence propping it up, which only means anything once the
@@ -115,11 +187,22 @@ object SkillGraph {
         skillId == m2Nodes.last().id || skillId == m10Nodes.last().id
 
     /** Every recognition node the practice loop can run, in either mode. */
-    val recognitionNodes: List<SkillNode> = m2Nodes + m10Nodes
+    val recognitionNodes: List<SkillNode> = m2Nodes + m10Nodes + m11Nodes
 
     private val byId: Map<SkillId, SkillNode> = recognitionNodes.associateBy { it.id }
 
     fun node(skillId: SkillId): SkillNode = byId[skillId] ?: error("Not a recognition skill node: $skillId")
+
+    /**
+     * Whether this skill is a recognition node with a full mastery lifecycle — a degree set, a
+     * staircase, the mastery criteria, FSRS review.
+     *
+     * The predicate the replayer needs, and deliberately not "is it `M2`". Membership of this graph is
+     * the property that actually decides whether the full reduction is defined for a skill; module
+     * identity only happened to coincide with it while `M2` was the only recognition module. `M10` and
+     * `M11` are the same shape and must replay the same way.
+     */
+    fun isRecognitionNode(skillId: SkillId): Boolean = skillId in byId
 
     /**
      * The mode a node's items are generated in. The single place that answers it, so a generator never
@@ -136,7 +219,12 @@ object SkillGraph {
     fun successorOf(skillId: SkillId): SkillId? {
         // Within the node's own module: mastering the last M2 node does not roll into M10, which is
         // gated on M9 instead (docs/20-PHASE-2-SPEC.md §3).
-        val chain = if (skillId in m10Nodes.map { it.id }) m10Nodes else m2Nodes
+        val chain =
+            when (skillId) {
+                in m10Nodes.map { it.id } -> m10Nodes
+                in m11Nodes.map { it.id } -> m11Nodes
+                else -> m2Nodes
+            }
         val index = chain.indexOfFirst { it.id == skillId }
         return chain.getOrNull(index + 1)?.id
     }
@@ -151,4 +239,10 @@ data class SkillNode(
     val activeDegrees: Set<ScaleDegree>,
     /** Major unless stated. Every Phase 1 node is major, so the default reproduces them exactly. */
     val mode: Mode = Mode.MAJOR,
+    /**
+     * The degree this node exists to teach, if it has one — only `M11`'s chromatic nodes do. Drives
+     * both the sampling weight that gets it heard and the mastery criterion that judges it
+     * (docs/20-PHASE-2-SPEC.md §3).
+     */
+    val introduces: ScaleDegree? = null,
 )

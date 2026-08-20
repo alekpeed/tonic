@@ -25,6 +25,29 @@ object MasteryEvaluator {
     const val MIN_DEGREE_ACCURACY = 0.80
     const val MAX_CONFUSION_PAIR_SHARE = 0.15
 
+    /** Mirrors `BalancedSampler.MAX_FREQUENCY_MULTIPLE` — docs/03-CURRICULUM.md §5.4's 1.5x cap. */
+    private const val BALANCE_MAX_FREQUENCY_MULTIPLE = 1.5
+
+    /**
+     * How many attempts the node's newly-introduced degree needs before its accuracy means anything —
+     * docs/20-PHASE-2-SPEC.md §3, which asks for 5.
+     *
+     * Five is not always reachable, and the reason is a conflict inside the specs rather than a
+     * shortfall here. docs/03-CURRICULUM.md §5.4 caps any degree at 1.5x its expected rate to stop
+     * sampling clumps from distorting the confusion matrix; at twelve simultaneously active degrees
+     * that cap is about two attempts per twenty items, so no degree can reach 5 in a 30-item window no
+     * matter how it is weighted. §5.5's own per-degree coverage rule already hit the identical wall and
+     * resolved it the same way — scale the requirement to what the window can actually deliver, capped
+     * at the documented value.
+     *
+     * So this is a ceiling, not a constant: nodes with room still require the full 5 (`CHROM_SHARP4`,
+     * at eight active degrees, gets 5), and only the widest sets relax. What does not relax is the
+     * accuracy bar, which means at three attempts the new degree must be answered perfectly — strict,
+     * deliberately, since being wrong about the note a node exists to teach is the one thing this
+     * criterion is here to catch.
+     */
+    const val MIN_FOCUS_DEGREE_ATTEMPTS = 5
+
     /**
      * [window] should already be exactly the last (up to) 30 non-warm-up
      * attempts at the node's current axis levels — filtering that is the
@@ -35,6 +58,12 @@ object MasteryEvaluator {
         window: List<Attempt>,
         activeDegrees: Set<ScaleDegree>,
         axes: Map<DifficultyAxis, Int>,
+        /**
+         * The degree this node introduces, if it introduces one — `M11`'s chromatic nodes each add
+         * exactly one. Null for every node that widens by nothing or by more than one, in which case
+         * the criterion is reported as met and the other five decide.
+         */
+        focusDegree: ScaleDegree? = null,
     ): MasteryVerdict {
         val overallAccuracy = if (window.isEmpty()) 0.0 else window.count { it.correct }.toDouble() / window.size
 
@@ -90,6 +119,28 @@ object MasteryEvaluator {
 
         val cadenceFadeLevel = axes[DifficultyAxis.CADENCE_FADE] ?: 0
 
+        // Reported as met when the node introduces nothing, so the criterion list stays one shape for
+        // every recognition node and the progress UI does not have to special-case its absence.
+        val focusAttempts = focusDegree?.let { d -> window.count { it.targetLabel == d.canonicalLabel } }
+        val focusAccuracy =
+            focusDegree?.let { d ->
+                val forDegree = window.filter { it.targetLabel == d.canonicalLabel }
+                if (forDegree.isEmpty()) 0.0 else forDegree.count { it.correct }.toDouble() / forDegree.size
+            }
+        // The most the balance rule can deliver for one degree in this window, capped at the spec's 5.
+        val requiredFocusAttempts =
+            if (activeDegreeLabels.isEmpty()) {
+                MIN_FOCUS_DEGREE_ATTEMPTS
+            } else {
+                minOf(
+                    MIN_FOCUS_DEGREE_ATTEMPTS,
+                    (WINDOW_SIZE * BALANCE_MAX_FREQUENCY_MULTIPLE / activeDegreeLabels.size).toInt(),
+                ).coerceAtLeast(1)
+            }
+        val focusMet =
+            focusDegree == null ||
+                (focusAttempts!! >= requiredFocusAttempts && focusAccuracy!! >= MIN_DEGREE_ACCURACY)
+
         val criteria =
             listOf(
                 MasteryCriterion(
@@ -115,6 +166,13 @@ object MasteryEvaluator {
                     worstConfusionShare <= MAX_CONFUSION_PAIR_SHARE,
                     worstConfusionShare,
                     MAX_CONFUSION_PAIR_SHARE,
+                ),
+                MasteryCriterion(
+                    MasteryCriterion.Kind.FOCUS_DEGREE,
+                    focusMet,
+                    focusAccuracy ?: 1.0,
+                    MIN_DEGREE_ACCURACY,
+                    subject = focusDegree,
                 ),
                 // "Criterion 5 is the one that matters. Without it a user can 'master' a node while
                 // remaining entirely dependent on the cadence crutch." - docs/03-CURRICULUM.md §5.5.

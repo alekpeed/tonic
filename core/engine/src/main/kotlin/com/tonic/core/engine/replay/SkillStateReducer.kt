@@ -7,7 +7,6 @@ import com.tonic.core.engine.mastery.MasteryEvaluator
 import com.tonic.core.engine.scheduling.AxisScheduler
 import com.tonic.core.engine.scheduling.AxisSchedulerState
 import com.tonic.core.model.attempts.Attempt
-import com.tonic.core.model.ids.ModuleId
 import com.tonic.core.model.ids.SkillId
 import com.tonic.core.model.state.FsrsGrade
 import com.tonic.core.model.state.FsrsState
@@ -28,15 +27,22 @@ import java.time.Instant
  * (docs/09-BUILD-PLAN.md Stage 5) true by construction rather than by
  * coincidence.
  *
- * Scope: full replay (staircase + mastery + FSRS) applies only to M2 skill
- * nodes, the only ones [SkillGraph] knows about and the only ones with a
- * defined 5-criteria mastery lifecycle in this codebase — M0 is a one-time
- * diagnostic screening (docs/03-CURRICULUM.md §3) with no analogous
- * "mastered, now under FSRS review" state, and M1 isn't a separate
- * Phase-1-tracked skill at all (folded into M0's remediation path,
- * docs/01-PRODUCT-SPEC.md §3). For any non-M2 [SkillId] this falls back to
- * the only thing that's actually well-defined for it: attempt count, the
- * most recent axis-level snapshot, and the last-seen timestamp.
+ * Scope: full replay (staircase + mastery + FSRS) applies to the
+ * recognition nodes [SkillGraph] knows about — the only skills with a
+ * defined mastery lifecycle in this codebase. M0 is a one-time diagnostic
+ * screening (docs/03-CURRICULUM.md §3) with no analogous "mastered, now
+ * under FSRS review" state, and M1 isn't a separate Phase-1-tracked skill
+ * at all (folded into M0's remediation path, docs/01-PRODUCT-SPEC.md §3).
+ * For any other [SkillId] this falls back to the only thing that's actually
+ * well-defined for it: attempt count, the most recent axis-level snapshot,
+ * and the last-seen timestamp.
+ *
+ * The test used to be `moduleId != M2`, which was correct only while M2 was
+ * the only recognition module. Left alone it would have silently denied
+ * every M10 and M11 node a staircase, a mastery verdict and an FSRS
+ * schedule — the nodes would have accumulated attempts forever and never
+ * been certified, and docs/20-PHASE-2-SPEC.md §3's per-degree criterion
+ * would have existed without ever being consulted.
  */
 object SkillStateReducer : SkillStateReplayer {
     /** "A review is a probe block of 10 items on that skill at its mastered axis levels" — docs/07-ADAPTIVE-ENGINE.md §6. */
@@ -66,7 +72,7 @@ object SkillStateReducer : SkillStateReplayer {
         val totalAttempts = real.size
         val updatedAt = chronological.last().timestamp
 
-        if (skillId.moduleId != ModuleId.M2) {
+        if (!SkillGraph.isRecognitionNode(skillId)) {
             return SkillState(
                 skillId = skillId,
                 axisLevels = real.last().axisLevels,
@@ -128,7 +134,15 @@ object SkillStateReducer : SkillStateReplayer {
             masteryWindow.addLast(attempt)
             if (masteryWindow.size > MasteryEvaluator.WINDOW_SIZE) masteryWindow.removeFirst()
 
-            val verdict = MasteryEvaluator.evaluate(masteryWindow.toList(), activeDegrees, axisState.levels)
+            val verdict =
+                MasteryEvaluator.evaluate(
+                    masteryWindow.toList(),
+                    activeDegrees,
+                    axisState.levels,
+                    // docs/20-PHASE-2-SPEC.md §3's sixth criterion. Null for every node that introduces
+                    // nothing, which is all of M2 and M10 - so this changes no Phase 1 outcome.
+                    focusDegree = SkillGraph.focusDegreeFor(skillId),
+                )
             if (verdict.isMastered) {
                 masteryState = MasteryState.MASTERED
                 masteredAt = attempt.timestamp
