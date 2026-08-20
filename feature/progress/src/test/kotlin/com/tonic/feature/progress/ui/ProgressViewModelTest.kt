@@ -110,7 +110,7 @@ class ProgressViewModelTest {
             val inProgressNode = state.masteryMap.first { it.skillId == SkillIds.M2_DEG_SET_2 }
             val blocking = assertNotNull(inProgressNode.verdict?.blockingCriterion)
             assertEquals(MasteryCriterion.Kind.OVERALL_ACCURACY, blocking.kind)
-            val copy = copyFor(blocking)
+            val copy = copyFor(blocking, com.tonic.core.model.state.LabelStyle.NUMBERS)
             assertEquals(listOf(87, 90), copy.args, "87% measured, 90% required - the docs' own worked example")
 
             val lockedNode = state.masteryMap.first { it.skillId == SkillIds.M2_DEG_SET_3 }

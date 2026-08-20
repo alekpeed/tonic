@@ -2,6 +2,7 @@ package com.tonic.feature.practice.ui
 
 import com.tonic.core.model.items.AxisChange
 import com.tonic.core.model.items.Item
+import com.tonic.core.model.music.Mode
 import com.tonic.core.model.music.ScaleDegree
 import com.tonic.core.model.state.LabelStyle
 import com.tonic.core.model.state.Session
@@ -71,6 +72,16 @@ data class PracticeUiState(
      * never shown one for a module they are not practicing.
      */
     val introKind: IntroKind = IntroKind.NONE,
+    /**
+     * The mode of the item just answered, shown only after the answer — docs/20-PHASE-2-SPEC.md §5.4.
+     *
+     * Null on every node whose mode the learner already knows, and null *before* the answer at
+     * `M10.MIXED_MODE`, which is the whole point of that node. After the answer it is mandatory: "the
+     * feedback must state which mode it was, or the learner cannot learn from a mistake." A learner
+     * who picks `3` on a minor item and is told only "wrong, it was ♭3" has no way to tell whether
+     * they misheard the degree or misheard the key, which are different problems with different fixes.
+     */
+    val revealedMode: Mode? = null,
 ) {
     /** The ladder's contents. Empty for an item type that does not answer with a degree, such as `M9`. */
     val activeDegrees: List<ScaleDegree>
@@ -100,4 +111,7 @@ enum class IntroKind {
 
     /** Audiation — that the task runs backwards, that the silence is the exercise, and what to do in it. */
     M12,
+
+    /** Mixed mode — that the mode stops being announced, and why the ladder grew to ten buttons. */
+    MIXED_MODE,
 }

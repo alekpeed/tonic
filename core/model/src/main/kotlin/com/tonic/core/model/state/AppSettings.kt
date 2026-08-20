@@ -56,6 +56,13 @@ data class AppSettings(
      * silent screen without having seen it has no way to know the silence is the exercise.
      */
     val module12IntroSeen: Boolean = false,
+    /**
+     * The mixed-mode explanation has been shown once (docs/05-DATA-MODEL.md §3
+     * `mixed_mode_intro_seen`). Its own flag, not `M10`'s: having been told what `♭3` means says
+     * nothing about being told that the mode will stop being announced and the ladder has grown to ten
+     * buttons because of it.
+     */
+    val mixedModeIntroSeen: Boolean = false,
     /** Opt-in only - docs/05-DATA-MODEL.md §3: "defaults to false. Opt-in only." See docs/08-UI-SPEC.md §7. */
     val dailyReminderEnabled: Boolean = false,
     /** `"HH:mm"`, null when [dailyReminderEnabled] is false. */

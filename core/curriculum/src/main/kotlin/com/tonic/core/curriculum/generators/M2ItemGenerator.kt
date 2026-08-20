@@ -7,6 +7,7 @@ import com.tonic.core.model.ids.SkillId
 import com.tonic.core.model.items.DifficultyAxis
 import com.tonic.core.model.items.Item
 import com.tonic.core.model.items.ItemTiming
+import com.tonic.core.model.music.Mode
 import com.tonic.core.model.music.PitchClass
 import com.tonic.core.model.music.ScaleDegree
 import kotlin.random.Random
@@ -42,23 +43,52 @@ object M2ItemGenerator {
         // (docs/20-PHASE-2-SPEC.md §3), so one lookup here is the whole of what makes minor work:
         // every reference chord, every target pitch and every octave calculation below already takes
         // mode as a parameter and was simply always being handed MAJOR.
-        val mode = SkillGraph.modeFor(skill)
-        val activeDegrees = SkillGraph.activeDegreesFor(skill).sortedBy { it.degree }
-        // A caller's explicit weights win; otherwise the node's own. M11 weights the degree it
-        // introduces (see SkillGraph.degreeWeightsFor); every other node returns empty and samples
-        // uniformly exactly as it always has.
-        val effectiveWeights = degreeWeights.ifEmpty { SkillGraph.degreeWeightsFor(skill) }
-        val targetDegree = BalancedSampler.pick(activeDegrees, history.recentDegrees, random, effectiveWeights)
-
-        // An open reference group holds its key and tonic across the whole group; only the first item
-        // of a group samples fresh ones. L1 groups reuse a cadence for a few items; L6/L7 groups are
-        // the audiation blocks of docs/02-PEDAGOGY.md §3 - "key established once at block start". A
+        // An open reference group holds its key, tonic and mode across the whole group; only the first
+        // item of a group samples fresh ones. L1 groups reuse a cadence for a few items; L6/L7 groups
+        // are the audiation blocks of docs/02-PEDAGOGY.md §3 - "key established once at block start". A
         // level change always closes the group: the announcement mechanics and the block semantics both
         // start over. See [ReferenceGroup].
+        //
+        // Resolved *before* the mode and the target, which is the order M10.MIXED_MODE forces: a block
+        // whose cadence established a minor key must not then ask about a major degree, because the
+        // items after the first sound a bare note with no reference of their own. Re-rolling the mode
+        // inside a block would be asking about a key the learner was never given.
         val openGroup =
             history.referenceGroup?.takeIf {
                 it.cadenceFadeLevel == cadenceFadeLevel && it.itemsRemaining > 0
             }
+
+        // The node's own mode, except at M10.MIXED_MODE, where the mode *is* the hidden variable
+        // (docs/20-PHASE-2-SPEC.md §3). Guarded so the random stream for every other node is
+        // byte-identical to what it was - the Stage 2.0 golden corpus depends on that literally.
+        val mode =
+            when {
+                openGroup != null && SkillGraph.randomizesMode(skill) -> openGroup.mode
+                SkillGraph.randomizesMode(skill) ->
+                    BalancedSampler.pick(MODES, history.recentModes, random)
+                else -> SkillGraph.modeFor(skill)
+            }
+
+        // What the ladder shows, and what mastery is judged over. At MIXED_MODE this is all ten
+        // degrees of both modes, deliberately wider than what this item can target - see
+        // SkillGraph.targetDegreesFor.
+        val activeDegrees = SkillGraph.activeDegreesFor(skill).sortedBy { it.degree }
+        val targetCandidates = SkillGraph.targetDegreesFor(skill, mode).sortedBy { it.degree }
+        // A caller's explicit weights win; otherwise the node's own. M11 weights the degree it
+        // introduces (see SkillGraph.degreeWeightsFor); every other node returns empty and samples
+        // uniformly exactly as it always has.
+        val effectiveWeights =
+            degreeWeights.ifEmpty { SkillGraph.degreeWeightsFor(skill, mode, history.recentDegrees) }
+        val targetDegree =
+            BalancedSampler.pick(
+                targetCandidates,
+                history.recentDegrees,
+                random,
+                effectiveWeights,
+                // The history spans every degree the node can show, which at MIXED_MODE is wider than
+                // what this item may target. See BalancedSampler.pick's `universeSize`.
+                universeSize = activeDegrees.size,
+            )
 
         val keyPool = AxisParameters.keyPool(keySpreadLevel)
         val keyValue = openGroup?.keyValue ?: KeySampler.pick(keyPool, history.recentKeys, random)
@@ -162,7 +192,7 @@ object M2ItemGenerator {
                         .takeIf { it.itemsRemaining > 0 }
                 // A fresh group: this item carried the establishment, the next groupLength - 1 won't.
                 else ->
-                    ReferenceGroup(keyValue, tonicMidi, cadenceFadeLevel, groupLength, groupLength - 1)
+                    ReferenceGroup(keyValue, tonicMidi, mode, cadenceFadeLevel, groupLength, groupLength - 1)
                         .takeIf { it.itemsRemaining > 0 }
             }
         // L7 is L6 "with the silent gap lengthening across the block" - docs/02-PEDAGOGY.md §3. The
@@ -191,8 +221,11 @@ object M2ItemGenerator {
                 homeReminder = homeReminder,
             )
 
-        return M2GenerationResult(item, history.with(targetDegree, keyValue, octaveOffset, updatedGroup))
+        return M2GenerationResult(item, history.with(targetDegree, keyValue, octaveOffset, mode, updatedGroup))
     }
+
+    /** Both modes, as sampler candidates. Only `M10.MIXED_MODE` ever draws from this. */
+    private val MODES = listOf(Mode.MAJOR, Mode.MINOR)
 
     private fun level(
         axes: Map<DifficultyAxis, Int>,
@@ -259,6 +292,11 @@ data class GenerationHistory(
     val recentDegrees: List<ScaleDegree> = emptyList(),
     val recentKeys: List<Int> = emptyList(),
     val recentTriples: List<KeyDegreeOctave> = emptyList(),
+    /**
+     * Recent modes, for `M10.MIXED_MODE`'s balance. Empty for every other node, which has one mode and
+     * nothing to balance — so this costs Phase 1 nothing and is not carried into any stored state.
+     */
+    val recentModes: List<Mode> = emptyList(),
     /** Live CADENCE_FADE L1 group, if one is open — see [ReferenceGroup]. Null at every other level. */
     val referenceGroup: ReferenceGroup? = null,
 ) {
@@ -266,12 +304,19 @@ data class GenerationHistory(
         degree: ScaleDegree,
         key: Int,
         octave: Int,
+        mode: Mode,
         referenceGroup: ReferenceGroup? = null,
     ): GenerationHistory =
         GenerationHistory(
-            recentDegrees = (recentDegrees + degree).takeLast(BalancedSampler.WINDOW_SIZE),
+            // Retained to the *mastery* window, not the balance window. BalancedSampler reads only the
+            // last 19 of this regardless (see its `takeLast`), so nothing about existing sampling
+            // moves; what the extra ten buy is M10.MIXED_MODE's corrective weighting, which is aiming
+            // at coverage over the 30-item window the mastery criterion uses and was previously blind
+            // to a third of it.
+            recentDegrees = (recentDegrees + degree).takeLast(SkillGraph.MasteryWindow.SIZE),
             recentKeys = (recentKeys + key).takeLast(BalancedSampler.WINDOW_SIZE),
             recentTriples = (recentTriples + KeyDegreeOctave(key, degree, octave)).takeLast(4),
+            recentModes = (recentModes + mode).takeLast(BalancedSampler.WINDOW_SIZE),
             referenceGroup = referenceGroup,
         )
 }
@@ -293,6 +338,13 @@ data class GenerationHistory(
 data class ReferenceGroup(
     val keyValue: Int,
     val tonicMidi: Int,
+    /**
+     * The mode the group's establishment was played in. Held rather than re-rolled, because at
+     * `M10.MIXED_MODE` the items after the first sound a bare note against a key they never heard
+     * established — a mode change mid-block would make them unanswerable rather than merely hard.
+     * Constant for every other node, where the mode is the node's own.
+     */
+    val mode: Mode,
     /** The level this group was opened at. A staircase move to any other level closes the group. */
     val cadenceFadeLevel: com.tonic.core.model.items.CadenceFadeLevel,
     /** Total items in the group, establishment item included — [itemsRemaining]'s starting point + 1. */

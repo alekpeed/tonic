@@ -10,6 +10,7 @@ import com.tonic.core.data.repository.SkillStateRepository
 import com.tonic.core.data.settings.SettingsRepository
 import com.tonic.core.engine.session.DueReview
 import com.tonic.core.engine.session.SkillWorkContext
+import com.tonic.core.model.ids.SkillIds
 import com.tonic.core.model.items.AnswerAlphabet
 import com.tonic.core.model.items.Item
 import com.tonic.core.model.music.ScaleDegree
@@ -73,6 +74,13 @@ class PracticeViewModel
 
         /** The audiation counterpart, for [IntroKind.M12]'s screen. */
         private val predictionWorkedExample by lazy { M12WorkedExample.generate() }
+
+        /** The mixed-mode counterpart — deliberately a minor item, see [MixedModeWorkedExample]. */
+        private val mixedModeWorkedExample by lazy { MixedModeWorkedExample.generate() }
+
+        /** The mixed-mode example's answer, read off the real item and rendered in the learner's own style. */
+        val mixedModeExampleAnswer: String
+            get() = mixedModeWorkedExample.targetDegree.displayLabel(_uiState.value.labelStyle)
 
         /** What the `M12` example names on screen, read off the real item rather than hardcoded. */
         val predictionExampleLabel: String get() =
@@ -156,7 +164,12 @@ class PracticeViewModel
                 viewModelScope.launch { audioPlayer.play(PracticeItems.renderAudio(predictionWorkedExample)) }
                 return
             }
-            val example = if (_uiState.value.introKind == IntroKind.M10) minorWorkedExample else workedExample
+            val example =
+                when (_uiState.value.introKind) {
+                    IntroKind.M10 -> minorWorkedExample
+                    IntroKind.MIXED_MODE -> mixedModeWorkedExample
+                    else -> workedExample
+                }
             viewModelScope.launch {
                 audioPlayer.play(
                     SynthEngine.renderItem(
@@ -191,6 +204,7 @@ class PracticeViewModel
                     IntroKind.M10 -> settingsRepository.setModule10IntroSeen(true)
                     IntroKind.M11 -> settingsRepository.setModule11IntroSeen(true)
                     IntroKind.M12 -> settingsRepository.setModule12IntroSeen(true)
+                    IntroKind.MIXED_MODE -> settingsRepository.setMixedModeIntroSeen(true)
                     IntroKind.NONE -> Unit
                 }
             }
@@ -206,6 +220,8 @@ class PracticeViewModel
             settings: com.tonic.core.model.state.AppSettings,
         ): IntroKind =
             when {
+                skillId == SkillIds.M10_MIXED_MODE ->
+                    if (settings.mixedModeIntroSeen) IntroKind.NONE else IntroKind.MIXED_MODE
                 skillId in SkillGraph.m12Nodes.map { it.id } ->
                     if (settings.module12IntroSeen) IntroKind.NONE else IntroKind.M12
                 skillId in SkillGraph.m11Nodes.map { it.id } ->
@@ -333,6 +349,7 @@ class PracticeViewModel
                             correctDegree = if (itemChanged) null else it.correctDegree,
                             selectedAnswerLabel = if (itemChanged) null else it.selectedAnswerLabel,
                             correctAnswerLabel = if (itemChanged) null else it.correctAnswerLabel,
+                            revealedMode = if (itemChanged) null else it.revealedMode,
                             inputEnabled = if (itemChanged) false else it.inputEnabled,
                         )
                     }
@@ -429,7 +446,11 @@ class PracticeViewModel
                 engine.submitAnswer(degree.canonicalLabel, autoAdvance = false)
                 val feedback = engine.state.value.lastFeedback ?: return@launch
                 val correctDegree = item.activeDegrees.first { it.canonicalLabel == feedback.correctLabel }
-                _uiState.update { it.copy(correctDegree = correctDegree) }
+                // docs/20-PHASE-2-SPEC.md §5.4: at M10.MIXED_MODE the mode is withheld until here and
+                // then stated. Null everywhere else, where naming a mode the learner was already told
+                // would be noise on every single item.
+                val revealedMode = item.mode.takeIf { SkillGraph.randomizesMode(item.skill) }
+                _uiState.update { it.copy(correctDegree = correctDegree, revealedMode = revealedMode) }
                 if (_uiState.value.hapticsEnabled) _hapticEvents.tryEmit(Unit)
 
                 if (feedback.correct) {
@@ -514,7 +535,9 @@ class PracticeViewModel
             // property that matters. M11 sits last for the same reason: its declared prerequisite is
             // M2.INDEPENDENCE_CHECK, which this stand-in cannot observe, so it waits for strictly more
             // than the spec requires rather than less.
-            val chain = SkillGraph.m2Nodes + SkillGraph.m10Nodes + SkillGraph.m11Nodes + SkillGraph.m12Nodes
+            val chain =
+                SkillGraph.m2Nodes + SkillGraph.m10Nodes + listOf(SkillGraph.m10MixedModeNode) +
+                    SkillGraph.m11Nodes + SkillGraph.m12Nodes
             val currentNodeId =
                 chain.firstOrNull { states[it.id]?.masteryState != MasteryState.MASTERED }?.id
                     ?: chain.last().id

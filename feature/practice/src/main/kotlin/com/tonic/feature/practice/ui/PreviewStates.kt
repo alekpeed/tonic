@@ -1,6 +1,7 @@
 package com.tonic.feature.practice.ui
 
 import com.tonic.core.curriculum.generators.M12ItemGenerator
+import com.tonic.core.curriculum.generators.M2ItemGenerator
 import com.tonic.core.curriculum.generators.M9ItemGenerator
 import com.tonic.core.model.ids.SkillIds
 import com.tonic.core.model.items.CadenceFadeLevel
@@ -105,6 +106,35 @@ internal object PreviewStates {
             itemsPlanned = 40,
             inputEnabled = true,
             isLoading = false,
+        )
+
+    /** `M10.MIXED_MODE`: a minor item, all ten buttons, mode not yet revealed. */
+    private val mixedModeItem =
+        M2ItemGenerator
+            .generate(
+                SkillIds.M10_MIXED_MODE,
+                DifficultyAxis.RECOGNITION_AXES.associateWith { 0 },
+                seed = 20_260_822L,
+            ).item
+
+    val mixedMode =
+        PracticeUiState(
+            item = mixedModeItem,
+            labelStyle = LabelStyle.NUMBERS,
+            phase = PlaybackPhase.AWAITING_ANSWER,
+            itemsCompleted = 8,
+            itemsPlanned = 54,
+            inputEnabled = true,
+            isLoading = false,
+        )
+
+    /** The same item after an answer — docs/20-PHASE-2-SPEC.md §5.4's mandatory post-answer statement. */
+    val mixedModeAnswered =
+        mixedMode.copy(
+            selectedDegree = mixedModeItem.targetDegree,
+            correctDegree = mixedModeItem.targetDegree,
+            inputEnabled = false,
+            revealedMode = mixedModeItem.mode,
         )
 
     /** All twelve chromatic degrees — `M11.CHROM_FULL`, the widest answer set the ladder ever shows. */

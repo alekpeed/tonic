@@ -64,6 +64,13 @@ class IntroDispatchTest {
     }
 
     @Test
+    fun `the mixed-mode node gets the mixed-mode explanation`() {
+        render(IntroKind.MIXED_MODE)
+        compose.onNodeWithTag("mixed_intro_start").assertExists()
+        compose.onNodeWithTag("m2_intro_start").assertDoesNotExist()
+    }
+
+    @Test
     fun `the major node gets the major explanation`() {
         render(IntroKind.M2)
         compose.onNodeWithTag("m2_intro_start").assertExists()

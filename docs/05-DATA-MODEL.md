@@ -136,12 +136,13 @@ Settings only. No progress data.
 | `module10_intro_seen` | Boolean | `false` |
 | `module11_intro_seen` | Boolean | `false` |
 | `module12_intro_seen` | Boolean | `false` |
+| `mixed_mode_intro_seen` | Boolean | `false` |
 | `daily_reminder_enabled` | Boolean | `false` |
 | `daily_reminder_time` | String? | null |
 
 `daily_reminder_enabled` defaults to **false**. Opt-in only. See `08-UI-SPEC.md` §7.
 
-`module9_intro_seen`, `module10_intro_seen`, `module11_intro_seen` and `module12_intro_seen` are the same mechanism for Phase 2's new task shapes (`08-UI-SPEC.md` §3a). One flag per shape, deliberately: having seen the major explanation says nothing about whether a learner has been told what `♭3` means, why a note exists between `4` and `5`, or that one exercise runs backwards and its silence is the point, and marking them together would rob someone of an explanation they never received.
+`module9_intro_seen`, `module10_intro_seen`, `module11_intro_seen`, `module12_intro_seen` and `mixed_mode_intro_seen` are the same mechanism for Phase 2's new task shapes (`08-UI-SPEC.md` §3a). One flag per shape, deliberately: having seen the major explanation says nothing about whether a learner has been told what `♭3` means, why a note exists between `4` and `5`, that one exercise runs backwards and its silence is the point, or that the mode is about to stop being announced, and marking them together would rob someone of an explanation they never received.
 
 `module2_intro_seen` records that the Module 2 explanation screen and its worked example have been shown once — `11-ONBOARDING-CLARITY.md` §5: "shown automatically once, on first encounter with that exercise type," and never again automatically. It gates the automatic showing only; the screen stays reachable on demand forever, and recalling it does not depend on or change this flag.
 

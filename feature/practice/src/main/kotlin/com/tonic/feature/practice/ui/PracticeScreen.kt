@@ -41,6 +41,7 @@ import com.tonic.core.model.items.AxisChange
 import com.tonic.core.model.items.CadenceFadeLevel
 import com.tonic.core.model.items.DifficultyAxis
 import com.tonic.core.model.items.Item
+import com.tonic.core.model.music.Mode
 import com.tonic.core.model.music.ScaleDegree
 import com.tonic.core.ui.components.MinimalProgressIndicator
 import com.tonic.core.ui.components.PlaybackPhase
@@ -98,6 +99,7 @@ fun PracticeScreen(
                     matched = viewModel.predictionExampleMatched,
                     soundedWasLower = viewModel.predictionExampleWasLower,
                 ),
+            mixedModeExampleAnswer = viewModel.mixedModeExampleAnswer,
         )
         return
     }
@@ -295,6 +297,12 @@ private fun axisChangeRes(change: AxisChange): Int =
     }
 
 /** In words, every time - the phase indicator itself is deliberately non-verbal (docs/08-UI-SPEC.md §4). */
+private fun revealedModeRes(mode: Mode): Int =
+    when (mode) {
+        Mode.MAJOR -> R.string.practice_that_was_major
+        Mode.MINOR -> R.string.practice_that_was_minor
+    }
+
 private fun phaseCaptionRes(phase: PlaybackPhase): Int =
     when (phase) {
         PlaybackPhase.REFERENCE -> R.string.practice_phase_reference
@@ -334,10 +342,19 @@ internal fun IntroForKind(
     onRevealAnswer: () -> Unit,
     onStart: () -> Unit,
     predictionExample: PredictionExampleCopy = PredictionExampleCopy(),
+    mixedModeExampleAnswer: String = "",
 ) {
     when (kind) {
         IntroKind.M10 -> M10IntroContent(onPlayExample = onPlayExample, onStart = onStart)
         IntroKind.M11 -> M11IntroContent(onStart = onStart)
+        IntroKind.MIXED_MODE ->
+            MixedModeIntroContent(
+                answerLabel = mixedModeExampleAnswer,
+                answerRevealed = answerRevealed,
+                onPlayExample = onPlayExample,
+                onRevealAnswer = onRevealAnswer,
+                onStart = onStart,
+            )
         IntroKind.M12 ->
             M12IntroContent(
                 statedLabel = predictionExample.statedLabel,
@@ -458,6 +475,24 @@ internal fun PracticeContent(
         }
 
         Spacer(modifier = Modifier.height(TonicSpacing.sm))
+
+        // docs/20-PHASE-2-SPEC.md §5.4, and it sits *above* the ladder rather than below it on purpose:
+        // it appears only after an answer, on a screen whose bottom half is already showing which
+        // button was right. Put underneath, it would compete with that; put here, it reads as the
+        // caption to the feedback the learner is looking at.
+        uiState.revealedMode?.let { mode ->
+            Text(
+                text = stringResource(revealedModeRes(mode)),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary,
+                textAlign = TextAlign.Center,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = TonicSpacing.sm)
+                        .testTag("revealed_mode"),
+            )
+        }
 
         AnswerArea(
             uiState = uiState,

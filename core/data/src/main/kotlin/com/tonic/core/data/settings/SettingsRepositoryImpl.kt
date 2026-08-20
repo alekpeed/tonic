@@ -30,6 +30,7 @@ internal object SettingsKeys {
     val MODULE10_INTRO_SEEN = booleanPreferencesKey("module10_intro_seen")
     val MODULE11_INTRO_SEEN = booleanPreferencesKey("module11_intro_seen")
     val MODULE12_INTRO_SEEN = booleanPreferencesKey("module12_intro_seen")
+    val MIXED_MODE_INTRO_SEEN = booleanPreferencesKey("mixed_mode_intro_seen")
     val DAILY_REMINDER_ENABLED = booleanPreferencesKey("daily_reminder_enabled")
     val DAILY_REMINDER_TIME = stringPreferencesKey("daily_reminder_time")
 }
@@ -93,6 +94,10 @@ internal class SettingsRepositoryImpl
             dataStore.edit { it[SettingsKeys.MODULE12_INTRO_SEEN] = seen }
         }
 
+        override suspend fun setMixedModeIntroSeen(seen: Boolean) {
+            dataStore.edit { it[SettingsKeys.MIXED_MODE_INTRO_SEEN] = seen }
+        }
+
         override suspend fun setDiagnosticCompleted(completed: Boolean) {
             dataStore.edit { it[SettingsKeys.DIAGNOSTIC_COMPLETED] = completed }
         }
@@ -133,6 +138,7 @@ private fun Preferences.toAppSettings(): AppSettings {
         module10IntroSeen = this[SettingsKeys.MODULE10_INTRO_SEEN] ?: defaults.module10IntroSeen,
         module11IntroSeen = this[SettingsKeys.MODULE11_INTRO_SEEN] ?: defaults.module11IntroSeen,
         module12IntroSeen = this[SettingsKeys.MODULE12_INTRO_SEEN] ?: defaults.module12IntroSeen,
+        mixedModeIntroSeen = this[SettingsKeys.MIXED_MODE_INTRO_SEEN] ?: defaults.mixedModeIntroSeen,
         dailyReminderEnabled = this[SettingsKeys.DAILY_REMINDER_ENABLED] ?: defaults.dailyReminderEnabled,
         dailyReminderTime = this[SettingsKeys.DAILY_REMINDER_TIME],
     )

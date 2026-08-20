@@ -19,6 +19,8 @@
          happening and what to do, on every item, every time. -->
     <string name="practice_phase_reference">Setting up \"home\" — more notes than your buttons. That\'s normal.</string>
     <string name="practice_phase_target">One note, alone — this is the question.</string>
+    <string name="practice_that_was_major">That one was major.</string>
+    <string name="practice_that_was_minor">That one was minor.</string>
     <string name="practice_phase_audiation_gap">Nothing is playing. Build the note in your head and wait for it.</string>
     <string name="practice_phase_awaiting_answer">Tap where it sits, relative to home. Not sure? Guess.</string>
 
@@ -81,6 +83,19 @@
     <string name="m11_intro_where_on_ladder">On the ladder these sit alongside the note they\'re named after, slightly narrower, so you can see at a glance which is which. \u266f4 is beside 4, just above it, and below the 5 it wants to fall into.</string>
     <string name="m11_intro_one_at_a_time">You get one of these at a time, mixed in with all the notes you already know — that\'s the point. On its own a new note is just a sound. What makes it recognizable is where it sits against the ones around it.</string>
     <string name="m11_intro_start">Start practicing</string>
+    <!-- M10.MIXED_MODE first-run explanation - docs/08-UI-SPEC.md §3a. -->
+    <string name="mixed_intro_title">Something new: you won\'t be told which</string>
+    <string name="mixed_intro_no_warning">You\'ve been naming notes in major, and naming notes in minor, always knowing which one you were in. From here you won\'t be told. Each round picks one or the other, and the chords at the start are the only thing that says which.</string>
+    <string name="mixed_intro_all_ten">That\'s why there are more buttons now. All ten are on screen every round — the ones you know from major and the ones you know from minor, side by side. They don\'t change between rounds, because if they did, they\'d be giving the answer away before you\'d heard anything.</string>
+    <string name="mixed_intro_two_steps">So it\'s two things at once, in order. Listen to the chords and let the flavor land — bright or dark. Then place the note against that. Most of the work is the first step, and you\'ve already done it on its own.</string>
+    <string name="mixed_intro_example_heading">Try one</string>
+    <string name="mixed_intro_example_prompt">Play this and decide the flavor before you think about the note at all.</string>
+    <string name="mixed_intro_reveal">Which was it?</string>
+    <string name="mixed_intro_answer">That one was minor, and the note was %1$s. In major the same button position would have been a different note — which is exactly why the flavor has to come first.</string>
+    <string name="mixed_intro_told_after">After every answer you\'ll be told which flavor it was, right or wrong. That way a miss tells you something: whether you placed the note wrong, or heard the key wrong.</string>
+    <string name="mixed_intro_start">Start practicing</string>
+    <string name="mixed_intro_help">Major or minor, unannounced</string>
+
     <!-- Module 12 (prediction / audiation) - docs/20-PHASE-2-SPEC.md §2.3, §5.1, §5.3. -->
     <string name="m12_hold_this_one">Hear this one in your head</string>
     <string name="m12_answer_matched">That\'s the one</string>

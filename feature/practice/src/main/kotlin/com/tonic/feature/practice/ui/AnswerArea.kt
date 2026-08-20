@@ -22,6 +22,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
+import com.tonic.core.curriculum.graph.SkillGraph
 import com.tonic.core.model.items.AnswerAlphabet
 import com.tonic.core.model.items.Item
 import com.tonic.core.model.music.Mode
@@ -75,9 +76,13 @@ internal fun AnswerArea(
             Box(modifier = modifier) {
                 DegreeLadder(
                     activeDegrees = uiState.activeDegrees,
-                    // The item's own mode decides which degrees form the ladder's spine and which hang
-                    // beside them as alterations - see DegreeLadder's slot loop.
-                    mode = uiState.recognitionItem?.mode ?: Mode.MAJOR,
+                    // Which degrees form the spine and which hang beside them as alterations - see
+                    // DegreeLadder's slot loop. Not simply the item's mode: at M10.MIXED_MODE a spine
+                    // that followed the item would reshape the whole column per item and announce the
+                    // mode more loudly than the buttons ever could. See SkillGraph.ladderSpineMode.
+                    mode =
+                        uiState.recognitionItem?.let { SkillGraph.ladderSpineMode(it.skill, it.mode) }
+                            ?: Mode.MAJOR,
                     labelStyle = uiState.labelStyle,
                     enabled = uiState.inputEnabled,
                     selectedDegree = uiState.selectedDegree,

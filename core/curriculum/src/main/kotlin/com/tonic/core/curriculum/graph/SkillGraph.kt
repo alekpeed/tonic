@@ -142,6 +142,84 @@ object SkillGraph {
         }
 
     /**
+     * `M10.MIXED_MODE` — docs/20-PHASE-2-SPEC.md §3's interleaving node, "arguably the most valuable
+     * node in Phase 2." Degree identification with the mode randomized per item and never announced
+     * before the answer.
+     *
+     * **Its active degree set is the ten-degree union of major and minor, not the seven of whichever
+     * mode the item is in.** That is the whole node, expressed in one line. If the ladder showed only
+     * the item's own degrees, it would announce the mode before a note sounded — a `♭3` button on
+     * screen is a statement that this item is minor — and the learner would answer by reading the
+     * buttons rather than by hearing the key. The union is exactly the alphabet §2.1 already specifies
+     * for minor: `1, 2, ♭3, 3, 4, 5, ♭6, 6, ♭7, 7`.
+     *
+     * Its three gates are all real and none is implied by the others: the whole major set
+     * (`M2.FULL_DIATONIC`), natural minor (`M10.MIN_NATURAL`), and the ability to *hear* which mode is
+     * sounding (`M9.MODE_ID_CADENCE`). The third is the one that makes this node answerable at all —
+     * without it a learner is being asked to name a degree in a mode they cannot identify.
+     */
+    val m10MixedModeNode: SkillNode =
+        SkillNode(
+            SkillIds.M10_MIXED_MODE,
+            prerequisite = SkillIds.M10_MIN_NATURAL,
+            activeDegrees = ScaleDegree.ALL_DIATONIC + ScaleDegree.ALL_NATURAL_MINOR,
+            // Declared MAJOR and never read: randomizesMode sends the generator down a different path
+            // entirely. Kept honest by the test that asserts modeFor is not what decides this.
+            mode = Mode.MAJOR,
+            alsoRequires = listOf(SkillIds.M2_FULL_DIATONIC, SkillIds.M9_MODE_ID_CADENCE),
+        )
+
+    /**
+     * Whether a node draws its mode fresh per item rather than declaring one — `M10.MIXED_MODE` alone.
+     *
+     * Asked separately from [modeFor] because the two answer different questions and conflating them
+     * is how a "mode" field ends up silently meaning "the mode of the last item generated." A node
+     * either has a mode or it doesn't; this says which.
+     */
+    fun randomizesMode(skillId: SkillId): Boolean = skillId == SkillIds.M10_MIXED_MODE
+
+    /**
+     * Which mode the degree ladder should draw its *spine* from, for an item in [itemMode].
+     *
+     * The item's own mode everywhere except `M10.MIXED_MODE`, which is pinned to major — and the
+     * pinning is not cosmetic. The ladder draws a mode's own seven degrees wide, on the spine, with
+     * anything else hanging alongside them narrower (docs/20-PHASE-2-SPEC.md §8.3). If the spine
+     * followed the item, then `♮3` would be wide and `♭3` narrow on a major item and the reverse on a
+     * minor one — **the layout itself would announce the mode before a note sounded**, which is the
+     * one thing this node exists to prevent, and it would do so more loudly than a changed button set
+     * because the shape of the whole column would shift.
+     *
+     * Pinning it to major is also the honest reading of §2.1's model: an alteration is absolute
+     * relative to major, so `♭3` is the same pitch relationship in either mode and belongs beside `3`
+     * regardless of which mode is sounding.
+     */
+    fun ladderSpineMode(
+        skillId: SkillId,
+        itemMode: Mode,
+    ): Mode = if (randomizesMode(skillId)) Mode.MAJOR else itemMode
+
+    /**
+     * The degrees a *target* may be drawn from for an item in [mode] at [skillId].
+     *
+     * Identical to [activeDegreesFor] for every node except `M10.MIXED_MODE`, where they genuinely
+     * differ: the ladder shows all ten so the mode stays hidden, but a major item can only target a
+     * major degree — asking for `♭3` under a major cadence would be asking about a note the key does
+     * not contain.
+     */
+    fun targetDegreesFor(
+        skillId: SkillId,
+        mode: Mode,
+    ): Set<ScaleDegree> =
+        if (!randomizesMode(skillId)) {
+            activeDegreesFor(skillId)
+        } else {
+            when (mode) {
+                Mode.MAJOR -> ScaleDegree.ALL_DIATONIC
+                Mode.MINOR -> ScaleDegree.ALL_NATURAL_MINOR
+            }
+        }
+
+    /**
      * `M12`'s prediction nodes — docs/20-PHASE-2-SPEC.md §3. They widen the pool the *stated* degree
      * is drawn from; the interaction itself never changes shape (§8.1 decision 3).
      *
@@ -167,13 +245,13 @@ object SkillGraph {
                 prerequisite = SkillIds.M12_PREDICT_DIATONIC,
                 activeDegrees = ScaleDegree.ALL_NATURAL_MINOR,
                 mode = Mode.MINOR,
-                alsoRequires = SkillIds.M10_MIN_NATURAL,
+                alsoRequires = listOf(SkillIds.M10_MIN_NATURAL),
             ),
             SkillNode(
                 SkillIds.M12_PREDICT_CHROMATIC,
                 prerequisite = SkillIds.M12_PREDICT_DIATONIC,
                 activeDegrees = ScaleDegree.ALL_CHROMATIC,
-                alsoRequires = SkillIds.M11_CHROM_FULL,
+                alsoRequires = listOf(SkillIds.M11_CHROM_FULL),
             ),
         )
 
@@ -230,7 +308,24 @@ object SkillGraph {
      * would change long-settled generation for no benefit, and the Stage 2.0 golden corpus would
      * (correctly) reject it.
      */
-    fun degreeWeightsFor(skillId: SkillId): Map<ScaleDegree, Double> {
+    fun degreeWeightsFor(
+        skillId: SkillId,
+        mode: Mode = Mode.MAJOR,
+        recentDegrees: List<ScaleDegree> = emptyList(),
+    ): Map<ScaleDegree, Double> {
+        // MIXED_MODE first: a MEASURED correction, not a preference. Its active set is ten degrees but
+        // any single item can only target seven, so `1, 2, 4, 5` - present in both modes - get twice
+        // the exposure of `3, 6, 7, ♭3, ♭6, ♭7`, which are present in one. Sampled uniformly, a 30-item
+        // window gave the mode-specific degrees 1 or 2 attempts against docs/03-CURRICULUM.md §5.5's
+        // requirement of 3, so the node was quietly unmasterable - a failure with no symptom, since
+        // every item generated correctly and mastery simply never arrived.
+        //
+        // The weight is derived rather than tuned: a degree gets the node's mode count divided by the
+        // number of those modes it appears in, which is exactly the factor that equalizes exposure
+        // across the union. Two modes, one appearance, weight 2. Two modes, two appearances, weight 1.
+        // For every single-mode node that is 1/1 for every degree, which is why they take the empty
+        // map below and their sampling is untouched.
+        if (randomizesMode(skillId)) return mixedModeWeights(skillId, mode, recentDegrees)
         if (skillId !in m11Nodes.map { it.id }) return emptyMap()
         val focus = focusDegreeFor(skillId) ?: return emptyMap()
         return mapOf(focus to CHROMATIC_FOCUS_WEIGHT)
@@ -249,7 +344,7 @@ object SkillGraph {
         skillId == m2Nodes.last().id || skillId == m10Nodes.last().id
 
     /** Every recognition node the practice loop can run, in either mode. */
-    val recognitionNodes: List<SkillNode> = m2Nodes + m10Nodes + m11Nodes
+    val recognitionNodes: List<SkillNode> = m2Nodes + m10Nodes + listOf(m10MixedModeNode) + m11Nodes
 
     /** Every node with a degree set, a generator and a mastery lifecycle — recognition and prediction alike. */
     val allNodes: List<SkillNode> = recognitionNodes + m12Nodes
@@ -293,10 +388,79 @@ object SkillGraph {
                 in m10Nodes.map { it.id } -> m10Nodes
                 in m11Nodes.map { it.id } -> m11Nodes
                 in m12Nodes.map { it.id } -> m12Nodes
+                // MIXED_MODE is a leaf: it interleaves the chains rather than continuing either, so
+                // mastering it rolls into nothing.
+                SkillIds.M10_MIXED_MODE -> return null
                 else -> m2Nodes
             }
         val index = chain.indexOfFirst { it.id == skillId }
         return chain.getOrNull(index + 1)?.id
+    }
+
+    /**
+     * `M10.MIXED_MODE`'s sampling weights: a structural half and a corrective half, both measured.
+     *
+     * **Structural.** Its active set is ten degrees but any single item can only target the seven of
+     * its own mode, so `1, 2, 4, 5` — present in both — get twice the exposure of the six that belong
+     * to one. The base weight is the node's mode count divided by the number of those modes the degree
+     * appears in, which is exactly the factor that equalizes exposure across the union. Two modes, one
+     * appearance, weight 2. Two modes, two appearances, weight 1. Every single-mode node computes 1/1
+     * for every degree and so takes the empty map instead, leaving its sampling untouched.
+     *
+     * **Corrective.** Equal *expected* exposure is not enough here, and the difference is the whole
+     * reason this function reads history at all. docs/03-CURRICULUM.md §5.5's coverage criterion asks
+     * for `min(5, 30/n)` attempts on every active degree, which at ten degrees is three — and ten
+     * degrees at three attempts is thirty items exactly. A qualifying window has to be a *perfect
+     * partition* of the mastery window. [BalancedSampler] only enforces a ceiling, never a floor, so
+     * under weights that were merely fair in expectation a covering window took a median of roughly
+     * 440 items to arrive by luck, and on one seed did not arrive within two thousand. That is a node
+     * a learner could practice for weeks without ever being certified on, and it fails silently:
+     * every item generates correctly and mastery simply never comes.
+     *
+     * So a degree already at or above its expected share is damped and one behind it is boosted, in
+     * proportion to the deficit. This keeps the choice genuinely random — a learner can never predict
+     * the next degree — while making the flat windows the criterion needs common rather than rare.
+     * Confined to this node, so no other node's stream moves and the Stage 2.0 golden corpus holds.
+     */
+    private fun mixedModeWeights(
+        skillId: SkillId,
+        mode: Mode,
+        recentDegrees: List<ScaleDegree>,
+    ): Map<ScaleDegree, Double> {
+        val active = activeDegreesFor(skillId)
+        val window = recentDegrees.takeLast(MasteryWindow.SIZE - 1)
+        val counts = window.groupingBy { it }.eachCount()
+        val required = minOf(MAX_ATTEMPTS_PER_DEGREE, MasteryWindow.SIZE / active.size)
+        val candidates = targetDegreesFor(skillId, mode)
+        val anyBehind = active.any { (counts[it] ?: 0) < required }
+
+        return candidates.associateWith { degree ->
+            val modesContaining = Mode.entries.count { degree in targetDegreesFor(skillId, it) }
+            val structural = Mode.entries.size.toDouble() / modesContaining
+            // A degree that already has its required share steps back sharply while any degree still
+            // lacks one. Damped rather than excluded: it must stay pickable, or the sequence becomes
+            // predictable the moment a learner notices which notes have stopped appearing - and
+            // BalancedSampler's own 1.5x ceiling still sits on top, so the behind-degrees cannot clump
+            // either.
+            val satisfied = (counts[degree] ?: 0) >= required
+            structural * if (anyBehind && satisfied) SATISFIED_DAMPING else 1.0
+        }
+    }
+
+    /** How far a degree that already has its share steps back — see [mixedModeWeights]. */
+    private const val SATISFIED_DAMPING = 0.06
+
+    /** docs/03-CURRICULUM.md §5.5's documented per-degree attempt count, before window scaling. */
+    private const val MAX_ATTEMPTS_PER_DEGREE = 5
+
+    /**
+     * The mastery window `M10.MIXED_MODE`'s corrective weighting aims at — the same 30 the evaluator
+     * uses (docs/03-CURRICULUM.md §5.5). Declared here rather than depended on, because `:core:engine`
+     * depends on `:core:curriculum` and not the other way round (docs/04-ARCHITECTURE.md §2); a test in
+     * `:core:engine` pins the two together so they cannot drift.
+     */
+    object MasteryWindow {
+        const val SIZE = 30
     }
 
     private fun degrees(vararg values: Int): Set<ScaleDegree> = values.map { ScaleDegree(it) }.toSet()
@@ -316,12 +480,13 @@ data class SkillNode(
      */
     val introduces: ScaleDegree? = null,
     /**
-     * A second gate this node needs beyond [prerequisite], for the two `M12` nodes that genuinely have
-     * one: predicting in minor also requires `M10.MIN_NATURAL`, predicting chromatically also requires
-     * `M11.CHROM_FULL` (docs/20-PHASE-2-SPEC.md §3). Modeled explicitly rather than by giving those
-     * nodes a different single parent, because the chain order and the readiness gate are two different
-     * questions and collapsing them would put `M12.PREDICT_MINOR` after `M10` in the prediction chain,
-     * which it is not.
+     * Gates this node needs beyond [prerequisite]. `M12.PREDICT_MINOR` also requires
+     * `M10.MIN_NATURAL`, `M12.PREDICT_CHROMATIC` also requires `M11.CHROM_FULL`, and
+     * `M10.MIXED_MODE` requires three things at once (docs/20-PHASE-2-SPEC.md §3).
+     *
+     * Modeled explicitly rather than by giving those nodes a different single parent, because chain
+     * order and readiness are two different questions: collapsing them would put `M12.PREDICT_MINOR`
+     * after `M10` in the prediction chain, which it is not.
      */
-    val alsoRequires: SkillId? = null,
+    val alsoRequires: List<SkillId> = emptyList(),
 )

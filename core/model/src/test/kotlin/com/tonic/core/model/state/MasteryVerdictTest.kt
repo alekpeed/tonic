@@ -32,12 +32,23 @@ class MasteryVerdictTest {
 
     @Test
     fun `the five degree-based criteria are intact, and the binary-node ones are additive`() {
-        // Changed in Phase 2 Stage 2.2. Old: exactly five criterion kinds exist. New: the five that
-        // docs/03-CURRICULUM.md §5.5 defines are still exactly those five, and two more exist for
-        // binary-answer nodes (M9, M12), which have no scale degrees and so cannot use four of the
-        // original five. Reason: docs/20-PHASE-2-SPEC.md §4 forbids changing the M2 mastery structure,
-        // so BinaryMasteryEvaluator is a separate evaluator rather than a loosening of this one - the
-        // assertion is strengthened to pin the original five by name rather than merely counting them.
+        // The guard that makes adding a mastery criterion a decision rather than an accident, and it
+        // has now caught two of them - FOCUS_DEGREE in Stage 2.5 and PREDICT_GAP_MINIMUM in Stage 2.6,
+        // both of which were added without this list being updated and both of which failed here until
+        // they were named. That is the test working, so it is *extended* rather than loosened: every
+        // kind must still be accounted for by name, in one of three groups, with a reason.
+        //
+        // Group 1, docs/03-CURRICULUM.md §5.5's five: unchanged, and unchangeable -
+        // docs/20-PHASE-2-SPEC.md §4 forbids altering the M2 mastery structure, which is why every
+        // Phase 2 addition is a separate evaluator rather than a loosening of this one.
+        //
+        // Group 2, the binary-node criteria (M9, M12): those nodes have no scale degrees and so cannot
+        // use four of the original five.
+        //
+        // Group 3, the node-specific additions each spec'd for exactly one module: FOCUS_DEGREE holds
+        // M11's newly-introduced chromatic degree to its own sample (§3), and PREDICT_GAP_MINIMUM is
+        // M12's counterpart of the cadence-fade rule (§3). Both apply to their own module only and
+        // neither touches M2's.
         val degreeBased =
             listOf(
                 MasteryCriterion.Kind.OVERALL_ACCURACY,
@@ -50,14 +61,16 @@ class MasteryVerdictTest {
         assertTrue(MasteryCriterion.Kind.entries.containsAll(degreeBased))
         assertTrue(MasteryCriterion.Kind.entries.contains(MasteryCriterion.Kind.CADENCE_FADE_MINIMUM))
 
-        val binaryOnly =
-            MasteryCriterion.Kind.entries.filterNot {
-                it in degreeBased || it == MasteryCriterion.Kind.OVERALL_ACCURACY
-            }
+        val binaryNode = setOf(MasteryCriterion.Kind.WINDOW_COVERAGE, MasteryCriterion.Kind.D_PRIME)
+        val nodeSpecific =
+            setOf(MasteryCriterion.Kind.FOCUS_DEGREE, MasteryCriterion.Kind.PREDICT_GAP_MINIMUM)
+
         assertEquals(
-            setOf(MasteryCriterion.Kind.WINDOW_COVERAGE, MasteryCriterion.Kind.D_PRIME),
-            binaryOnly.toSet(),
-            "only the two binary-node criteria may be added; anything else needs its own decision",
+            degreeBased.toSet() + binaryNode + nodeSpecific,
+            MasteryCriterion.Kind.entries.toSet(),
+            "a mastery criterion exists that is not accounted for above. Adding one is a pedagogical " +
+                "decision, not a refactor: name it here, in the group it belongs to, with the section " +
+                "of the spec that asks for it.",
         )
     }
 }
