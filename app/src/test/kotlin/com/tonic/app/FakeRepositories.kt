@@ -166,6 +166,10 @@ class FakeSettingsRepository(
         settings.value = settings.value.copy(module11IntroSeen = seen)
     }
 
+    override suspend fun setModule12IntroSeen(seen: Boolean) {
+        settings.value = settings.value.copy(module12IntroSeen = seen)
+    }
+
     override suspend fun setModule9IntroSeen(seen: Boolean) {
         settings.value = settings.value.copy(module9IntroSeen = seen)
     }

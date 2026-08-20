@@ -49,6 +49,13 @@ data class AppSettings(
      * major, which is the belief `M11` has to overturn.
      */
     val module11IntroSeen: Boolean = false,
+    /**
+     * The audiation explanation screen has been shown once (docs/05-DATA-MODEL.md §3
+     * `module12_intro_seen`). The most load-bearing of these flags: docs/20-PHASE-2-SPEC.md §5.1 calls
+     * `M12`'s worked example "the only way this task is comprehensible," and a learner who reaches a
+     * silent screen without having seen it has no way to know the silence is the exercise.
+     */
+    val module12IntroSeen: Boolean = false,
     /** Opt-in only - docs/05-DATA-MODEL.md §3: "defaults to false. Opt-in only." See docs/08-UI-SPEC.md §7. */
     val dailyReminderEnabled: Boolean = false,
     /** `"HH:mm"`, null when [dailyReminderEnabled] is false. */

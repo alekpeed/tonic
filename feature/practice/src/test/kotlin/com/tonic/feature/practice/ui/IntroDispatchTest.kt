@@ -57,6 +57,13 @@ class IntroDispatchTest {
     }
 
     @Test
+    fun `the audiation node gets the audiation explanation`() {
+        render(IntroKind.M12)
+        compose.onNodeWithTag("m12_intro_start").assertExists()
+        compose.onNodeWithTag("m2_intro_start").assertDoesNotExist()
+    }
+
+    @Test
     fun `the major node gets the major explanation`() {
         render(IntroKind.M2)
         compose.onNodeWithTag("m2_intro_start").assertExists()

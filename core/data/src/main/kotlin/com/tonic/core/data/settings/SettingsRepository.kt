@@ -38,6 +38,9 @@ interface SettingsRepository {
     /** See [com.tonic.core.model.state.AppSettings.module11IntroSeen]. */
     suspend fun setModule11IntroSeen(seen: Boolean)
 
+    /** See [com.tonic.core.model.state.AppSettings.module12IntroSeen]. */
+    suspend fun setModule12IntroSeen(seen: Boolean)
+
     /** [enabled] and [time] must agree: false always pairs with a null time - docs/05-DATA-MODEL.md §3. */
     suspend fun setDailyReminder(
         enabled: Boolean,

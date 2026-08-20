@@ -3,12 +3,16 @@ package com.tonic.feature.practice.engine
 import com.tonic.core.audio.synth.PcmBuffer
 import com.tonic.core.audio.synth.SynthEngine
 import com.tonic.core.curriculum.generators.GenerationHistory
+import com.tonic.core.curriculum.generators.M12ItemGenerator
 import com.tonic.core.curriculum.generators.M2ItemGenerator
 import com.tonic.core.curriculum.generators.M9ItemGenerator
+import com.tonic.core.curriculum.graph.SkillGraph
 import com.tonic.core.model.ids.SkillId
 import com.tonic.core.model.ids.SkillIds
+import com.tonic.core.model.items.AnswerAlphabet
 import com.tonic.core.model.items.DifficultyAxis
 import com.tonic.core.model.items.Item
+import com.tonic.core.model.music.Tuning
 
 /**
  * Everything the practice loop needs to know about *which kind* of item it is holding, in one file.
@@ -25,6 +29,29 @@ import com.tonic.core.model.items.Item
  * loop). That is deliberate over an `else`: adding an item type must not silently fall into a default.
  */
 internal object PracticeItems {
+    /**
+     * Whether [response] scores as correct for [item].
+     *
+     * Equality for everything except `M12.PREDICT_TRIAD`, where either directional answer scores as
+     * "detected a mismatch" — docs/20-PHASE-2-SPEC.md §8.1 decision 3. The three buttons are on screen
+     * from the module's first item so the interaction never changes shape mid-module, but a learner
+     * who hears *that* it was wrong and cannot yet say which way is not penalized at the introductory
+     * node for a skill that belongs to `M1.HIGH_LOW`.
+     *
+     * The recorded [correctLabel] stays directional even there. Scoring and recording are different
+     * questions: the log has to keep the direction or the confusion data loses the one thing §8.1
+     * decision 3 added it for.
+     */
+    fun isCorrect(
+        item: Item,
+        response: String,
+    ): Boolean {
+        val exact = response == correctLabel(item)
+        if (item !is Item.PredictionItem || SkillGraph.scoresDirection(item.skill)) return exact
+        return AnswerAlphabet.MatchDirection.matchedVsNot(response) ==
+            AnswerAlphabet.MatchDirection.matchedVsNot(correctLabel(item))
+    }
+
     /** The label a correct answer records — what `Attempt.targetLabel` stores and answers compare against. */
     fun correctLabel(item: Item): String =
         when (item) {
@@ -58,7 +85,29 @@ internal object PracticeItems {
                     PcmBuffer.DEFAULT_SAMPLE_RATE,
                 )
 
-            is Item.PredictionItem -> error("M12 playback arrives with Stage 2.6, along with its own screen")
+            // Reference -> a breath -> the silent audiation gap -> one note. The gap is *inside* the
+            // rendered buffer rather than being a UI-only pause, because the learner has to hear
+            // nothing for exactly as long as the item says: a gap timed by the screen and a note
+            // played separately would drift apart under any scheduling hiccup, and the gap length is
+            // the PREDICT_GAP axis itself, not decoration.
+            is Item.PredictionItem -> {
+                val reference = SynthEngine.renderReferencePlan(item.referencePlan, seed = item.seed)
+                val silenceMs = item.timing.gapAfterReferenceMs + item.gapBeforeSoundedNoteMs
+                val silence = FloatArray(PcmBuffer.msToSamples(silenceMs, reference.sampleRate))
+                // By frequency, not MIDI: PREDICT_DEVIATION level 3 is a 30-cent bend of the right
+                // note, which an integer MIDI number cannot express.
+                val hz =
+                    Tuning.offsetByCents(Tuning.midiToHz(item.soundedMidi), item.soundedCentsOffset)
+                val sounded =
+                    SynthEngine.renderTone(
+                        frequencyHz = hz,
+                        timbre = item.timbre,
+                        durationMs = item.timing.targetDurationMs,
+                        sampleRate = reference.sampleRate,
+                        seed = item.seed + SOUNDED_NOTE_SEED_OFFSET,
+                    )
+                PcmBuffer(reference.samples + silence + sounded.samples, reference.sampleRate)
+            }
             else -> unsupported(item)
         }
 
@@ -122,7 +171,10 @@ internal object PracticeItems {
         seed: Long,
         history: GenerationHistory,
     ): Generated =
-        if (skill in SkillIds.M9_NODES_IN_ORDER) {
+        if (skill in SkillIds.M12_NODES_IN_ORDER) {
+            val result = M12ItemGenerator.generate(skill, axisLevels, seed, history)
+            Generated(result.item, result.updatedHistory)
+        } else if (skill in SkillIds.M9_NODES_IN_ORDER) {
             // M9 has no difficulty axes of its own - its three nodes *are* its progression, each a
             // separate skill rather than a level on a shared axis (docs/20-PHASE-2-SPEC.md §3).
             val result = M9ItemGenerator.generate(skill, seed, history)
@@ -145,4 +197,7 @@ internal object PracticeItems {
 
     /** Matches [SynthEngine.renderReferencePlan]'s own per-element seed spacing, so renders line up. */
     private const val ELEMENT_SEED_STRIDE = 1_000L
+
+    /** Mirrors [SynthEngine.renderItem]'s own target-note seed offset, so a prediction note and a recognition target of the same seed render identically. */
+    private const val SOUNDED_NOTE_SEED_OFFSET = 999_999L
 }

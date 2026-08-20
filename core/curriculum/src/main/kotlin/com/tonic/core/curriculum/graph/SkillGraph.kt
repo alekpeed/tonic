@@ -2,6 +2,7 @@ package com.tonic.core.curriculum.graph
 
 import com.tonic.core.model.ids.SkillId
 import com.tonic.core.model.ids.SkillIds
+import com.tonic.core.model.items.DifficultyAxis
 import com.tonic.core.model.music.Mode
 import com.tonic.core.model.music.ScaleDegree
 
@@ -141,6 +142,67 @@ object SkillGraph {
         }
 
     /**
+     * `M12`'s prediction nodes — docs/20-PHASE-2-SPEC.md §3. They widen the pool the *stated* degree
+     * is drawn from; the interaction itself never changes shape (§8.1 decision 3).
+     *
+     * `PREDICT_MINOR` and `PREDICT_CHROMATIC` both follow `PREDICT_DIATONIC` and neither precedes the
+     * other, so this is a fan rather than a chain. Each declares the additional prerequisite the spec
+     * names — minor prediction needs `M10.MIN_NATURAL`, chromatic prediction needs `M11.CHROM_FULL` —
+     * in [alsoRequires], because a node has one structural parent and these have two real gates.
+     */
+    val m12Nodes: List<SkillNode> =
+        listOf(
+            SkillNode(
+                SkillIds.M12_PREDICT_TRIAD,
+                prerequisite = SkillIds.M2_FULL_DIATONIC,
+                activeDegrees = ScaleDegree.TONIC_TRIAD,
+            ),
+            SkillNode(
+                SkillIds.M12_PREDICT_DIATONIC,
+                prerequisite = SkillIds.M12_PREDICT_TRIAD,
+                activeDegrees = ScaleDegree.ALL_DIATONIC,
+            ),
+            SkillNode(
+                SkillIds.M12_PREDICT_MINOR,
+                prerequisite = SkillIds.M12_PREDICT_DIATONIC,
+                activeDegrees = ScaleDegree.ALL_NATURAL_MINOR,
+                mode = Mode.MINOR,
+                alsoRequires = SkillIds.M10_MIN_NATURAL,
+            ),
+            SkillNode(
+                SkillIds.M12_PREDICT_CHROMATIC,
+                prerequisite = SkillIds.M12_PREDICT_DIATONIC,
+                activeDegrees = ScaleDegree.ALL_CHROMATIC,
+                alsoRequires = SkillIds.M11_CHROM_FULL,
+            ),
+        )
+
+    /**
+     * Which family of difficulty axes and which mastery evaluator a node belongs to.
+     *
+     * A node's *scope* is the thing that decides how it is scheduled and how it is judged, and it is
+     * asked for often enough — by the axis scheduler, the replayer, the session composer — that
+     * deriving it from a module-id spelling at each call site is how the `moduleId != M2` bug in
+     * `SkillStateReducer` happened. Answered once, here.
+     */
+    fun scopeFor(skillId: SkillId): DifficultyAxis.Scope =
+        when (skillId) {
+            in m12Nodes.map { it.id } -> DifficultyAxis.Scope.PREDICTION
+            else -> DifficultyAxis.Scope.RECOGNITION
+        }
+
+    /**
+     * Whether a prediction node scores the *direction* of a mismatch, or only that one was detected —
+     * docs/20-PHASE-2-SPEC.md §8.1 decision 3.
+     *
+     * False at `M12.PREDICT_TRIAD` only. The three-button layout is present from the module's first
+     * item so the interaction never changes shape, but naming the direction of a mismatch is
+     * `M1.HIGH_LOW`'s skill, and the introductory audiation node must not fail a learner for it.
+     * Non-prediction nodes answer true vacuously: they have no direction to collapse.
+     */
+    fun scoresDirection(skillId: SkillId): Boolean = skillId != SkillIds.M12_PREDICT_TRIAD
+
+    /**
      * The one degree a node introduces and is judged on, or null.
      *
      * Declared by the node rather than derived by differencing it against its prerequisite. Differencing
@@ -189,7 +251,10 @@ object SkillGraph {
     /** Every recognition node the practice loop can run, in either mode. */
     val recognitionNodes: List<SkillNode> = m2Nodes + m10Nodes + m11Nodes
 
-    private val byId: Map<SkillId, SkillNode> = recognitionNodes.associateBy { it.id }
+    /** Every node with a degree set, a generator and a mastery lifecycle — recognition and prediction alike. */
+    val allNodes: List<SkillNode> = recognitionNodes + m12Nodes
+
+    private val byId: Map<SkillId, SkillNode> = allNodes.associateBy { it.id }
 
     fun node(skillId: SkillId): SkillNode = byId[skillId] ?: error("Not a recognition skill node: $skillId")
 
@@ -202,7 +267,11 @@ object SkillGraph {
      * identity only happened to coincide with it while `M2` was the only recognition module. `M10` and
      * `M11` are the same shape and must replay the same way.
      */
-    fun isRecognitionNode(skillId: SkillId): Boolean = skillId in byId
+    fun isRecognitionNode(skillId: SkillId): Boolean =
+        skillId in byId && scopeFor(skillId) == DifficultyAxis.Scope.RECOGNITION
+
+    /** Whether this skill is any node this graph knows about, recognition or prediction. */
+    fun isKnownNode(skillId: SkillId): Boolean = skillId in byId
 
     /**
      * The mode a node's items are generated in. The single place that answers it, so a generator never
@@ -223,6 +292,7 @@ object SkillGraph {
             when (skillId) {
                 in m10Nodes.map { it.id } -> m10Nodes
                 in m11Nodes.map { it.id } -> m11Nodes
+                in m12Nodes.map { it.id } -> m12Nodes
                 else -> m2Nodes
             }
         val index = chain.indexOfFirst { it.id == skillId }
@@ -245,4 +315,13 @@ data class SkillNode(
      * (docs/20-PHASE-2-SPEC.md §3).
      */
     val introduces: ScaleDegree? = null,
+    /**
+     * A second gate this node needs beyond [prerequisite], for the two `M12` nodes that genuinely have
+     * one: predicting in minor also requires `M10.MIN_NATURAL`, predicting chromatically also requires
+     * `M11.CHROM_FULL` (docs/20-PHASE-2-SPEC.md §3). Modeled explicitly rather than by giving those
+     * nodes a different single parent, because the chain order and the readiness gate are two different
+     * questions and collapsing them would put `M12.PREDICT_MINOR` after `M10` in the prediction chain,
+     * which it is not.
+     */
+    val alsoRequires: SkillId? = null,
 )

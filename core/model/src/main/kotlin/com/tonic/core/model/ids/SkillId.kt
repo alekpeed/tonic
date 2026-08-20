@@ -120,6 +120,22 @@ object SkillIds {
     val M11_CHROM_FLAT2 = SkillId("M11.CHROM_FLAT2")
     val M11_CHROM_FULL = SkillId("M11.CHROM_FULL")
 
+    // M12 inverts the recognition task: the learner is told which degree is coming, holds it across a
+    // silent gap, and judges what actually sounded (docs/20-PHASE-2-SPEC.md §2.3). Its nodes widen the
+    // degree pool the stated degree is drawn from rather than adding a new interaction each time.
+    val M12_PREDICT_TRIAD = SkillId("M12.PREDICT_TRIAD")
+    val M12_PREDICT_DIATONIC = SkillId("M12.PREDICT_DIATONIC")
+    val M12_PREDICT_MINOR = SkillId("M12.PREDICT_MINOR")
+    val M12_PREDICT_CHROMATIC = SkillId("M12.PREDICT_CHROMATIC")
+
+    /**
+     * In prerequisite order. `PREDICT_MINOR` and `PREDICT_CHROMATIC` both follow `PREDICT_DIATONIC`
+     * and neither precedes the other — this list is the order they unlock in, not a claim that
+     * chromatic prediction requires minor prediction.
+     */
+    val M12_NODES_IN_ORDER =
+        listOf(M12_PREDICT_TRIAD, M12_PREDICT_DIATONIC, M12_PREDICT_MINOR, M12_PREDICT_CHROMATIC)
+
     val M8_MINOR_MODE = SkillId("M8.MINOR_MODE")
     val M8_CHROMATIC_DEGREES = SkillId("M8.CHROMATIC_DEGREES")
     val M8_MODAL = SkillId("M8.MODAL")

@@ -125,7 +125,7 @@ object AxisScheduler {
         val frozen = state.frozen + converged
         val levels = state.levels + (converged to settledLevel)
         val staircases = state.staircases + (converged to staircase.copy(level = settledLevel))
-        val next = pickNextAxis(frozen, levels)
+        val next = pickNextAxis(state.scope, frozen, levels)
         return activate(state.copy(frozen = frozen, levels = levels, staircases = staircases), next)
     }
 
@@ -146,7 +146,7 @@ object AxisScheduler {
 
     private fun ensureActiveAxis(state: AxisSchedulerState): AxisSchedulerState {
         if (state.activeAxis != null) return state
-        return activate(state, pickNextAxis(state.frozen, state.levels))
+        return activate(state, pickNextAxis(state.scope, state.frozen, state.levels))
     }
 
     private fun activate(
@@ -193,16 +193,22 @@ object AxisScheduler {
      * a single sweep." Returns null only when every axis is genuinely maxed.
      */
     private fun pickNextAxis(
+        scope: DifficultyAxis.Scope,
         frozen: Set<DifficultyAxis>,
         levels: Map<DifficultyAxis, Int>,
     ): DifficultyAxis? {
+        // The node's own family, not the recognition list. Hardcoding SCHEDULING_PRIORITY here was
+        // correct while every scheduled node was a recognition node; for an M12 node it would have
+        // picked CADENCE_FADE - an axis that prediction items do not have and whose level would have
+        // changed nothing about the item, so the staircase would have been measuring noise.
+        val priority = DifficultyAxis.schedulingPriorityFor(scope)
         val fresh =
-            DifficultyAxis.SCHEDULING_PRIORITY.firstOrNull {
+            priority.firstOrNull {
                 it !in frozen &&
                     levels.getOrDefault(it, 0) < it.maxLevel
             }
         if (fresh != null) return fresh
-        return DifficultyAxis.SCHEDULING_PRIORITY.firstOrNull { levels.getOrDefault(it, 0) < it.maxLevel }
+        return priority.firstOrNull { levels.getOrDefault(it, 0) < it.maxLevel }
     }
 }
 
@@ -216,4 +222,19 @@ data class AxisSchedulerState(
     val activeAxis: DifficultyAxis? = null,
     /** Correctness on the *active* axis only, for the 60%-over-15-items safety valve. Reset whenever the active axis changes. */
     val recentCorrectness: List<Boolean> = emptyList(),
-)
+    /**
+     * Which family of axes this node is scheduled over — docs/20-PHASE-2-SPEC.md §4. Defaults to
+     * recognition so every Phase 1 construction site is unchanged; `M12` nodes are built through
+     * [forScope].
+     */
+    val scope: DifficultyAxis.Scope = DifficultyAxis.Scope.RECOGNITION,
+) {
+    companion object {
+        /** A fresh state over [scope]'s own axes, all at level 0. */
+        fun forScope(scope: DifficultyAxis.Scope): AxisSchedulerState =
+            AxisSchedulerState(
+                levels = DifficultyAxis.axesFor(scope).associateWith { 0 },
+                scope = scope,
+            )
+    }
+}

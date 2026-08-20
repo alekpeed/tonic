@@ -71,6 +71,16 @@ data class MasteryCriterion(
         FOCUS_DEGREE,
 
         /**
+         * `PREDICT_GAP` level ≥ 2 — docs/20-PHASE-2-SPEC.md §3's mastery rule for `M12`, and the exact
+         * counterpart of [CADENCE_FADE_MINIMUM] for prediction nodes. A 1-second gap is short enough
+         * that the sounded note can be judged against a still-ringing echo of the cadence; at 3.5
+         * seconds there is nothing left to compare against except what the learner built internally,
+         * which is the entire skill. Without this a learner could master `M12` while never having
+         * audiated anything.
+         */
+        PREDICT_GAP_MINIMUM,
+
+        /**
          * d-prime ≥ 2.0 — sensitivity with response bias factored out. Only used by binary-answer
          * nodes (docs/20-PHASE-2-SPEC.md §3): on a two-choice task raw accuracy cannot tell a learner
          * who hears the distinction from one who found a lucky answering habit.

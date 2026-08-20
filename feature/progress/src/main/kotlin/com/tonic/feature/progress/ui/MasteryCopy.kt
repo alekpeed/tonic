@@ -59,6 +59,12 @@ internal fun copyFor(
                 R.string.progress_criterion_focus_degree,
                 listOf(criterion.subject?.displayLabel(labelStyle) ?: ""),
             )
+        // The prediction counterpart of the cadence-fade sentence, and phrased the same way: what is
+        // missing is not a number the learner can chase but a condition they have not yet practiced
+        // under. Naming the gap in seconds would invite them to treat it as a timer, which §5.3 spends
+        // a paragraph ruling out.
+        MasteryCriterion.Kind.PREDICT_GAP_MINIMUM ->
+            MasteryCopy(R.string.progress_criterion_predict_gap, emptyList())
         // Never phrased as "your d-prime is low": the statistic is the app's business, and naming it
         // would be jargon a learner cannot act on. The sentence says what it actually measures -
         // being right for the right reason rather than by a lucky answering habit.

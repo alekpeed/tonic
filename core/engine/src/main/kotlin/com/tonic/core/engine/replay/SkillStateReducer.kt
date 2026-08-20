@@ -4,10 +4,12 @@ import com.tonic.core.curriculum.graph.SkillGraph
 import com.tonic.core.engine.fsrs.FsrsScheduler
 import com.tonic.core.engine.mastery.IndependenceCheck
 import com.tonic.core.engine.mastery.MasteryEvaluator
+import com.tonic.core.engine.mastery.PredictionMasteryEvaluator
 import com.tonic.core.engine.scheduling.AxisScheduler
 import com.tonic.core.engine.scheduling.AxisSchedulerState
 import com.tonic.core.model.attempts.Attempt
 import com.tonic.core.model.ids.SkillId
+import com.tonic.core.model.items.DifficultyAxis
 import com.tonic.core.model.state.FsrsGrade
 import com.tonic.core.model.state.FsrsState
 import com.tonic.core.model.state.MasteryState
@@ -71,6 +73,10 @@ object SkillStateReducer : SkillStateReplayer {
 
         val totalAttempts = real.size
         val updatedAt = chronological.last().timestamp
+
+        if (SkillGraph.scopeFor(skillId) == DifficultyAxis.Scope.PREDICTION && SkillGraph.isKnownNode(skillId)) {
+            return replayPrediction(skillId, real, chronological, totalAttempts, updatedAt)
+        }
 
         if (!SkillGraph.isRecognitionNode(skillId)) {
             return SkillState(
@@ -148,6 +154,71 @@ object SkillStateReducer : SkillStateReplayer {
                 masteredAt = attempt.timestamp
                 // Reaching mastery doubles as the first FSRS review - a fresh block starts counting
                 // from the next attempt.
+                fsrs = FsrsScheduler.initial(FsrsGrade.GOOD, attempt.timestamp)
+            }
+        }
+
+        return SkillState(
+            skillId = skillId,
+            axisLevels = axisState.levels,
+            staircaseStates = axisState.staircases,
+            activeAxis = axisState.activeAxis,
+            masteryState = masteryState,
+            masteredAt = masteredAt,
+            fsrs = fsrs,
+            totalAttempts = totalAttempts,
+            updatedAt = updatedAt,
+        )
+    }
+
+    /**
+     * The `M12` reduction — docs/20-PHASE-2-SPEC.md §3/§4.
+     *
+     * Structurally the same fold as the recognition path and deliberately not shared with it: the
+     * staircase runs over the *prediction* axes, and mastery is
+     * [PredictionMasteryEvaluator]'s four criteria rather than [MasteryEvaluator]'s six. Four of those
+     * six are about scale degrees, which a three-button match judgment does not have; forcing one
+     * object to serve both would have meant weakening criteria `M2` depends on, which
+     * docs/20-PHASE-2-SPEC.md §4 forbids ("the mastery evaluator's five criteria: unchanged").
+     *
+     * There is no independence check here. That check asks whether a learner can hold a key without
+     * the cadence propping it up, and every `M12` item plays the full cadence by design — the question
+     * it answers is already answered by the `M2` chain, which is `M12.PREDICT_TRIAD`'s prerequisite.
+     */
+    private fun replayPrediction(
+        skillId: SkillId,
+        real: List<Attempt>,
+        chronological: List<Attempt>,
+        totalAttempts: Int,
+        updatedAt: Instant,
+    ): SkillState {
+        var axisState = AxisSchedulerState.forScope(DifficultyAxis.Scope.PREDICTION)
+        val masteryWindow = ArrayDeque<Attempt>()
+        var masteryState = MasteryState.IN_PROGRESS
+        var masteredAt: Instant? = null
+        var fsrs = FsrsState(stability = 0.0, difficulty = 0.0, lastReview = null, due = null)
+        var reviewBlock = mutableListOf<Attempt>()
+
+        for (attempt in chronological) {
+            if (masteryState == MasteryState.MASTERED) {
+                reviewBlock.add(attempt)
+                if (reviewBlock.size >= REVIEW_BLOCK_SIZE) {
+                    val accuracy = reviewBlock.count { it.correct }.toDouble() / reviewBlock.size
+                    fsrs =
+                        FsrsScheduler.review(fsrs, FsrsGrade.fromBlockAccuracy(accuracy), reviewBlock.last().timestamp)
+                    reviewBlock = mutableListOf()
+                }
+                continue
+            }
+            if (attempt.isWarmup) continue
+
+            axisState = AxisScheduler.update(axisState, attempt.correct)
+            masteryWindow.addLast(attempt)
+            if (masteryWindow.size > PredictionMasteryEvaluator.WINDOW_SIZE) masteryWindow.removeFirst()
+
+            if (PredictionMasteryEvaluator.evaluate(masteryWindow.toList(), axisState.levels).isMastered) {
+                masteryState = MasteryState.MASTERED
+                masteredAt = attempt.timestamp
                 fsrs = FsrsScheduler.initial(FsrsGrade.GOOD, attempt.timestamp)
             }
         }

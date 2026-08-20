@@ -353,7 +353,10 @@ class PracticeLoopEngine
         ) = loopMutex.withLock {
             val current = pending ?: return@withLock
             val correctLabel = PracticeItems.correctLabel(current.item)
-            val correct = responseLabel == correctLabel
+            // Not `responseLabel == correctLabel`: M12.PREDICT_TRIAD scores a mismatch without
+            // requiring its direction (docs/20-PHASE-2-SPEC.md §8.1 decision 3). Identical to equality
+            // for every other node and item type.
+            val correct = PracticeItems.isCorrect(current.item, responseLabel)
             val attempt = buildAttempt(current, responseLabel, correct, isAbandoned = false, latencyMs)
 
             // docs/04-ARCHITECTURE.md §5: "Persist attempts asynchronously and do not block the loop on

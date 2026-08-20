@@ -1,7 +1,10 @@
 package com.tonic.feature.practice.ui
 
+import com.tonic.core.curriculum.generators.M12ItemGenerator
+import com.tonic.core.curriculum.generators.M9ItemGenerator
 import com.tonic.core.model.ids.SkillIds
 import com.tonic.core.model.items.CadenceFadeLevel
+import com.tonic.core.model.items.DifficultyAxis
 import com.tonic.core.model.items.Item
 import com.tonic.core.model.items.ItemTiming
 import com.tonic.core.model.items.ReferenceElement
@@ -12,8 +15,13 @@ import com.tonic.core.model.music.ScaleDegree
 import com.tonic.core.model.music.TimbreId
 import com.tonic.core.model.state.LabelStyle
 import com.tonic.core.ui.components.PlaybackPhase
+import com.tonic.core.ui.labels.displayLabel
 
-/** Sample [PracticeUiState]s for `@Preview`s only - never referenced by production code. */
+/**
+ * Sample [PracticeUiState]s for `@Preview`s and layout/dispatch tests. Never referenced by production
+ * code — but deliberately built from the *real* generators rather than hand-assembled, so a preview and
+ * a test both see what a learner would.
+ */
 internal object PreviewStates {
     private fun item(
         activeDegrees: List<Int>,
@@ -62,6 +70,41 @@ internal object PreviewStates {
             selectedDegree = ScaleDegree(1),
             correctDegree = ScaleDegree(3),
             inputEnabled = false,
+        )
+
+    /** `M9`: mode identification, two buttons and no ladder. */
+    val modeIdentification =
+        PracticeUiState(
+            item = M9ItemGenerator.generate(SkillIds.M9_MODE_ID_CADENCE, seed = 4_242L).item,
+            labelStyle = LabelStyle.NUMBERS,
+            phase = PlaybackPhase.AWAITING_ANSWER,
+            itemsCompleted = 3,
+            itemsPlanned = 40,
+            inputEnabled = true,
+            isLoading = false,
+        )
+
+    /** `M12`: audiation. A real generated item, so the preview and the tests see what a learner sees. */
+    private val predictionItem =
+        M12ItemGenerator
+            .generate(
+                SkillIds.M12_PREDICT_DIATONIC,
+                DifficultyAxis.PREDICTION_AXES.associateWith { 0 },
+                seed = 8_080L,
+            ).item
+
+    /** The label [prediction] puts on screen — read off the item so a test can exclude it by name. */
+    val predictionStatedLabel: String = predictionItem.statedDegree.displayLabel(LabelStyle.NUMBERS)
+
+    val prediction =
+        PracticeUiState(
+            item = predictionItem,
+            labelStyle = LabelStyle.NUMBERS,
+            phase = PlaybackPhase.AWAITING_ANSWER,
+            itemsCompleted = 6,
+            itemsPlanned = 40,
+            inputEnabled = true,
+            isLoading = false,
         )
 
     /** All twelve chromatic degrees — `M11.CHROM_FULL`, the widest answer set the ladder ever shows. */

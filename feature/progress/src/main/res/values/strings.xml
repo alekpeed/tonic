@@ -38,5 +38,6 @@
          sentence describes what it measures instead of labeling it. -->
     <string name="progress_criterion_window_coverage">You\'re %1$d answers into this one — it takes %2$d before there\'s enough to go on.</string>
     <string name="progress_criterion_focus_degree">The new note, %1$s, isn\'t solid on its own yet. It needs more turns and a higher hit rate before this step counts as learned.</string>
+    <string name="progress_criterion_predict_gap">The pause before the note is still short. It needs to get longer, so what you\'re comparing against is the note you built rather than one still ringing in your ears.</string>
     <string name="progress_criterion_d_prime">Your right answers still look a lot like your lucky ones. This needs to be right for the right reason, consistently, both ways round.</string>
 </resources>

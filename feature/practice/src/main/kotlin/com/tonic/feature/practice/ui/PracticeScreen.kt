@@ -41,13 +41,11 @@ import com.tonic.core.model.items.AxisChange
 import com.tonic.core.model.items.CadenceFadeLevel
 import com.tonic.core.model.items.DifficultyAxis
 import com.tonic.core.model.items.Item
-import com.tonic.core.model.music.Mode
 import com.tonic.core.model.music.ScaleDegree
 import com.tonic.core.ui.components.MinimalProgressIndicator
 import com.tonic.core.ui.components.PlaybackPhase
 import com.tonic.core.ui.components.PlaybackPhaseIndicator
 import com.tonic.core.ui.components.StageHeader
-import com.tonic.core.ui.ladder.DegreeLadder
 import com.tonic.core.ui.theme.TonicSpacing
 import com.tonic.core.ui.theme.TonicTheme
 import com.tonic.feature.practice.R
@@ -94,6 +92,12 @@ fun PracticeScreen(
             onPlayExample = viewModel::onPlayWorkedExample,
             onRevealAnswer = viewModel::onRevealWorkedExampleAnswer,
             onStart = viewModel::onIntroDismissed,
+            predictionExample =
+                PredictionExampleCopy(
+                    statedLabel = viewModel.predictionExampleLabel,
+                    matched = viewModel.predictionExampleMatched,
+                    soundedWasLower = viewModel.predictionExampleWasLower,
+                ),
         )
         return
     }
@@ -122,6 +126,7 @@ fun PracticeScreen(
         onDegreeSelected = viewModel::onDegreeSelected,
         onReplay = viewModel::onReplay,
         onSkip = viewModel::onSkip,
+        onLabelSelected = viewModel::onLabelSelected,
         onOpenIntro = viewModel::onOpenIntro,
         onExit = { viewModel.onExitSession(onExitToHome) },
     )
@@ -295,12 +300,20 @@ private fun phaseCaptionRes(phase: PlaybackPhase): Int =
         PlaybackPhase.REFERENCE -> R.string.practice_phase_reference
         PlaybackPhase.TARGET -> R.string.practice_phase_target
         PlaybackPhase.AWAITING_ANSWER -> R.string.practice_phase_awaiting_answer
+        PlaybackPhase.AUDIATION_GAP -> R.string.practice_phase_audiation_gap
     }
 
 // `internal`, not private: docs/09-BUILD-PLAN.md Stage 7's "ladder fits ... on a 5-inch screen" is a
 // claim about this composable's layout, and it went unverified through all of Phase 1 because nothing
 // could reach it. PracticeScreenLayoutTest measures it directly. Still module-private - no widening of
 // the feature's public API (docs/04-ARCHITECTURE.md §4).
+
+/** What [M12IntroContent]'s reveal has to say, read off the real worked example rather than hardcoded. */
+internal data class PredictionExampleCopy(
+    val statedLabel: String = "",
+    val matched: Boolean = false,
+    val soundedWasLower: Boolean = false,
+)
 
 /**
  * The one place that maps a resolved [IntroKind] to the screen that explains it.
@@ -320,10 +333,21 @@ internal fun IntroForKind(
     onPlayExample: () -> Unit,
     onRevealAnswer: () -> Unit,
     onStart: () -> Unit,
+    predictionExample: PredictionExampleCopy = PredictionExampleCopy(),
 ) {
     when (kind) {
         IntroKind.M10 -> M10IntroContent(onPlayExample = onPlayExample, onStart = onStart)
         IntroKind.M11 -> M11IntroContent(onStart = onStart)
+        IntroKind.M12 ->
+            M12IntroContent(
+                statedLabel = predictionExample.statedLabel,
+                matched = predictionExample.matched,
+                soundedWasLower = predictionExample.soundedWasLower,
+                answerRevealed = answerRevealed,
+                onPlayExample = onPlayExample,
+                onRevealAnswer = onRevealAnswer,
+                onStart = onStart,
+            )
         // NONE reaches here only through onOpenIntro's recall on a node with no explanation of its
         // own, where the major screen is the right thing to show: it is the one that explains the task
         // shape every recognition node shares.
@@ -344,6 +368,8 @@ internal fun PracticeContent(
     onDegreeSelected: (ScaleDegree) -> Unit,
     onReplay: () -> Unit,
     onSkip: () -> Unit,
+    /** A non-degree answer — `M9`'s major/minor, `M12`'s matched/too-low/too-high. */
+    onLabelSelected: (String) -> Unit = {},
     onOpenIntro: () -> Unit = {},
     onExit: () -> Unit = {},
 ) {
@@ -433,20 +459,12 @@ internal fun PracticeContent(
 
         Spacer(modifier = Modifier.height(TonicSpacing.sm))
 
-        Box(modifier = Modifier.weight(1f)) {
-            DegreeLadder(
-                activeDegrees = uiState.activeDegrees,
-                // The item's own mode decides which degrees form the ladder's spine and which hang
-                // beside them as alterations - see DegreeLadder's slot loop.
-                mode = uiState.recognitionItem?.mode ?: Mode.MAJOR,
-                labelStyle = uiState.labelStyle,
-                enabled = uiState.inputEnabled,
-                selectedDegree = uiState.selectedDegree,
-                correctDegree = uiState.correctDegree,
-                reduceMotion = uiState.reduceMotion,
-                onDegreeSelected = onDegreeSelected,
-            )
-        }
+        AnswerArea(
+            uiState = uiState,
+            onDegreeSelected = onDegreeSelected,
+            onLabelSelected = onLabelSelected,
+            modifier = Modifier.weight(1f),
+        )
 
         Spacer(modifier = Modifier.height(TonicSpacing.sm))
 

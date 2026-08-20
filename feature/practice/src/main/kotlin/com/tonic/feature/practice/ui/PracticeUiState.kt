@@ -58,9 +58,13 @@ data class PracticeUiState(
      * the session is bounded by minutes, and the bar shows exactly that.
      */
     val timeFraction: Float = 0f,
-    /** `M9` answers: which mode the user picked, and which was right once revealed. Null on other item types. */
-    val selectedModeLabel: String? = null,
-    val correctModeLabel: String? = null,
+    /**
+     * The chosen and correct labels for an item answered with buttons rather than the ladder — `M9`'s
+     * major/minor and `M12`'s matched/too-low/too-high. Null on a recognition item, which uses
+     * [selectedDegree]/[correctDegree] instead.
+     */
+    val selectedAnswerLabel: String? = null,
+    val correctAnswerLabel: String? = null,
     /**
      * Which first-run explanation to show, if any — docs/08-UI-SPEC.md §3a. Chosen from the module the
      * session actually resolved to, so a learner meets each new task shape's explanation once and is
@@ -93,4 +97,7 @@ enum class IntroKind {
 
     /** Chromatic degrees — what a note *between* the familiar ones is, and why it borrows their number. */
     M11,
+
+    /** Audiation — that the task runs backwards, that the silence is the exercise, and what to do in it. */
+    M12,
 }

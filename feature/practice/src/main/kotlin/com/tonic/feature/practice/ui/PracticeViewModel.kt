@@ -10,11 +10,14 @@ import com.tonic.core.data.repository.SkillStateRepository
 import com.tonic.core.data.settings.SettingsRepository
 import com.tonic.core.engine.session.DueReview
 import com.tonic.core.engine.session.SkillWorkContext
+import com.tonic.core.model.items.AnswerAlphabet
 import com.tonic.core.model.items.Item
 import com.tonic.core.model.music.ScaleDegree
 import com.tonic.core.model.state.MasteryState
 import com.tonic.core.model.time.Clock
 import com.tonic.core.ui.components.PlaybackPhase
+import com.tonic.core.ui.labels.displayLabel
+import com.tonic.feature.practice.engine.PracticeItems
 import com.tonic.feature.practice.engine.PracticeLoopEngine
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
@@ -67,6 +70,21 @@ class PracticeViewModel
 
         /** The minor counterpart, for [IntroKind.M10]'s screen. */
         private val minorWorkedExample by lazy { WorkedExample.generateMinor() }
+
+        /** The audiation counterpart, for [IntroKind.M12]'s screen. */
+        private val predictionWorkedExample by lazy { M12WorkedExample.generate() }
+
+        /** What the `M12` example names on screen, read off the real item rather than hardcoded. */
+        val predictionExampleLabel: String get() =
+            predictionWorkedExample.statedDegree.displayLabel(
+                _uiState.value.labelStyle,
+            )
+
+        /** Whether the `M12` example's sounded note was the one named, and if not, which way it went. */
+        val predictionExampleMatched: Boolean get() = predictionWorkedExample.matches
+
+        val predictionExampleWasLower: Boolean
+            get() = predictionWorkedExample.correctLabel == AnswerAlphabet.MatchDirection.TOO_LOW
 
         /** What the worked example's correct answer is, for the reveal - read off the real item, never hardcoded. */
         val workedExampleAnswer: String get() = workedExample.targetDegree.canonicalLabel
@@ -130,6 +148,14 @@ class PracticeViewModel
         fun onPlayWorkedExample() {
             // Whichever shape is being explained - playing the major example on the minor screen would
             // demonstrate the wrong thing at exactly the moment the learner is forming their idea of it.
+            // M12's example is a prediction item, which renders through a different path entirely -
+            // its silent gap is *inside* the buffer. Routing it through the same PracticeItems
+            // renderer the live loop uses means the example is audibly the exercise, gap and all,
+            // rather than a reconstruction of it that could drift.
+            if (_uiState.value.introKind == IntroKind.M12) {
+                viewModelScope.launch { audioPlayer.play(PracticeItems.renderAudio(predictionWorkedExample)) }
+                return
+            }
             val example = if (_uiState.value.introKind == IntroKind.M10) minorWorkedExample else workedExample
             viewModelScope.launch {
                 audioPlayer.play(
@@ -164,6 +190,7 @@ class PracticeViewModel
                     IntroKind.M2 -> settingsRepository.setModule2IntroSeen(true)
                     IntroKind.M10 -> settingsRepository.setModule10IntroSeen(true)
                     IntroKind.M11 -> settingsRepository.setModule11IntroSeen(true)
+                    IntroKind.M12 -> settingsRepository.setModule12IntroSeen(true)
                     IntroKind.NONE -> Unit
                 }
             }
@@ -179,6 +206,8 @@ class PracticeViewModel
             settings: com.tonic.core.model.state.AppSettings,
         ): IntroKind =
             when {
+                skillId in SkillGraph.m12Nodes.map { it.id } ->
+                    if (settings.module12IntroSeen) IntroKind.NONE else IntroKind.M12
                 skillId in SkillGraph.m11Nodes.map { it.id } ->
                     if (settings.module11IntroSeen) IntroKind.NONE else IntroKind.M11
                 skillId in SkillGraph.m10Nodes.map { it.id } ->
@@ -302,8 +331,8 @@ class PracticeViewModel
                             isLoading = false,
                             selectedDegree = if (itemChanged) null else it.selectedDegree,
                             correctDegree = if (itemChanged) null else it.correctDegree,
-                            selectedModeLabel = if (itemChanged) null else it.selectedModeLabel,
-                            correctModeLabel = if (itemChanged) null else it.correctModeLabel,
+                            selectedAnswerLabel = if (itemChanged) null else it.selectedAnswerLabel,
+                            correctAnswerLabel = if (itemChanged) null else it.correctAnswerLabel,
                             inputEnabled = if (itemChanged) false else it.inputEnabled,
                         )
                     }
@@ -327,6 +356,7 @@ class PracticeViewModel
             when (item) {
                 is Item.FunctionalRecognitionItem -> runRecognitionPhaseTimer(item)
                 is Item.ModeIdentificationItem -> runModePhaseTimer(item)
+                is Item.PredictionItem -> runPredictionPhaseTimer(item)
                 else -> Unit
             }
         }
@@ -337,6 +367,30 @@ class PracticeViewModel
                 viewModelScope.launch {
                     _uiState.update { it.copy(phase = PlaybackPhase.REFERENCE, inputEnabled = false) }
                     delay(item.timing.referenceDurationMs)
+                    _uiState.update { it.copy(phase = PlaybackPhase.AWAITING_ANSWER, inputEnabled = true) }
+                }
+        }
+
+        /**
+         * `M12`'s four phases — docs/20-PHASE-2-SPEC.md §2.3: cadence, then the named degree over
+         * silence, then the note, then the answer.
+         *
+         * The gap gets its own [PlaybackPhase.AUDIATION_GAP] rather than being folded into the
+         * reference phase, and that is the whole point of the screen: several seconds of silence with
+         * "setting the key" still on screen would read as the app having stalled, which is exactly how
+         * a learner ends up tapping past the part they were supposed to be doing. What the phase shows
+         * is a calm indicator and an instruction, never a countdown (§5.3, docs/02-PEDAGOGY.md §6).
+         */
+        private fun runPredictionPhaseTimer(item: Item.PredictionItem) {
+            phaseJob?.cancel()
+            phaseJob =
+                viewModelScope.launch {
+                    _uiState.update { it.copy(phase = PlaybackPhase.REFERENCE, inputEnabled = false) }
+                    delay(item.referencePlan.sequentialDurationMs + item.timing.gapAfterReferenceMs)
+                    _uiState.update { it.copy(phase = PlaybackPhase.AUDIATION_GAP) }
+                    delay(item.gapBeforeSoundedNoteMs)
+                    _uiState.update { it.copy(phase = PlaybackPhase.TARGET) }
+                    delay(item.timing.targetDurationMs)
                     _uiState.update { it.copy(phase = PlaybackPhase.AWAITING_ANSWER, inputEnabled = true) }
                 }
         }
@@ -392,18 +446,22 @@ class PracticeViewModel
         }
 
         /**
-         * An `M9` answer — major or minor. Deliberately not routed through [onDegreeSelected]: there is
-         * no degree to select, no ladder button to flash, and docs/02-PEDAGOGY.md §6's contrast sequence
-         * has nothing to contrast, so the incorrect-answer path is a plain pause rather than audio.
+         * A non-degree answer — `M9`'s major/minor, `M12`'s matched/too-low/too-high.
+         *
+         * Deliberately not routed through [onDegreeSelected]: there is no degree to select, no ladder
+         * button to flash, and docs/02-PEDAGOGY.md §6's contrast sequence has nothing to contrast — a
+         * mode judgment has no "note you picked", and a prediction item's contrast is between the note
+         * the learner *held* and the one that sounded, neither of which is a chosen button. So the
+         * incorrect-answer path here is a plain pause rather than audio.
          */
-        fun onModeSelected(label: String) {
+        fun onLabelSelected(label: String) {
             if (!_uiState.value.inputEnabled) return
-            _uiState.update { it.copy(selectedModeLabel = label, inputEnabled = false) }
+            _uiState.update { it.copy(selectedAnswerLabel = label, inputEnabled = false) }
 
             viewModelScope.launch {
                 engine.submitAnswer(label, autoAdvance = false)
                 val feedback = engine.state.value.lastFeedback ?: return@launch
-                _uiState.update { it.copy(correctModeLabel = feedback.correctLabel) }
+                _uiState.update { it.copy(correctAnswerLabel = feedback.correctLabel) }
                 if (_uiState.value.hapticsEnabled) _hapticEvents.tryEmit(Unit)
 
                 delay(if (feedback.correct) CORRECT_FEEDBACK_MS else INCORRECT_MODE_SETTLE_MS)
@@ -456,7 +514,7 @@ class PracticeViewModel
             // property that matters. M11 sits last for the same reason: its declared prerequisite is
             // M2.INDEPENDENCE_CHECK, which this stand-in cannot observe, so it waits for strictly more
             // than the spec requires rather than less.
-            val chain = SkillGraph.m2Nodes + SkillGraph.m10Nodes + SkillGraph.m11Nodes
+            val chain = SkillGraph.m2Nodes + SkillGraph.m10Nodes + SkillGraph.m11Nodes + SkillGraph.m12Nodes
             val currentNodeId =
                 chain.firstOrNull { states[it.id]?.masteryState != MasteryState.MASTERED }?.id
                     ?: chain.last().id
