@@ -138,6 +138,11 @@ Do not, without explicit chat approval:
 - Direct and technical. No filler, no praise, no restating the request back.
 - American English spelling and grammar throughout — code, comments, docs, and UI strings.
 - Report what you built, what you verified, and what you did not verify. State uncertainty explicitly.
+- **The build is verifiable in CI, so verify it there.** `.github/workflows/verify.yml` runs
+  `scripts/verify.sh` on every push and pull request, on a runner that has the Android SDK. Development
+  sandboxes for this project generally do not, so "I could not run the build" is not a reason to leave a
+  change unverified — push the branch and read the run. Never report green without a source for it:
+  either a local `verify.sh` exit code or a passing CI run.
 - When you finish a phase, produce a short delta report: files added, decisions made, deviations from spec (with reasons), open questions.
 - Do not claim something works if you have not run it.
 

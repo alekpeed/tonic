@@ -1,0 +1,70 @@
+# The verification gate, run on GitHub's hardware.
+#
+# This exists because the sandboxed environments this project is developed in
+# have no Android SDK, so `./gradlew build` could not be run there at all and
+# every "green" claim had to be qualified or taken on trust. A hosted runner
+# has the SDK, so the claim becomes checkable.
+#
+# It runs scripts/verify.sh rather than gradle directly, deliberately. That
+# script exists because a piped gradle invocation reports the exit code of the
+# last command in the pipe rather than gradle's own, and two real failures once
+# shipped behind a `| tail` that always succeeded. Calling the script here keeps
+# CI and local verification on exactly one definition of "green".
+name: verify
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+# A branch only needs its newest commit verified; supersede in-flight runs.
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    # kapt (Room + Hilt) plus a cold Gradle cache is slow on first run. Generous
+    # rather than tight — a timeout kill looks like a failure and is not one.
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # JDK 21 rather than 17: the project targets JVM 17 as bytecode output
+      # (every module sets jvmTarget explicitly), but that is independent of the
+      # JDK running Gradle, and 21 is what the development environment uses.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      # compileSdk is pinned at 35 (CLAUDE.md §1, and see the README on why the
+      # newest androidx releases are deliberately not taken). Runner images carry
+      # several platforms but the set changes over time, so install explicitly
+      # rather than assuming.
+      - name: Install the pinned Android platform
+        run: |
+          set -euo pipefail
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+            "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Verify
+        run: ./scripts/verify.sh
+
+      # verify.sh tails 40 lines on failure, which is often not enough to see
+      # which module broke. Keep the whole log either way.
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verify-log
+          path: build/verify.log
+          if-no-files-found: warn
+          retention-days: 14

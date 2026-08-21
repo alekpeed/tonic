@@ -67,15 +67,31 @@ Two decisions worth knowing about if you touch the build:
   through the cmdline-tools version available in the build environment —
   hence the deliberately-older pins rather than bumping `compileSdk`.
 
+## Continuous verification
+
+`.github/workflows/verify.yml` runs `scripts/verify.sh` on every push and pull
+request, on a GitHub-hosted runner with the Android SDK installed. That is the
+authoritative green/red signal: the full build, ktlint, every JVM and
+Robolectric test, then both golden corpora re-derived under `--rerun-tasks` so
+a generator change cannot pass by never having been run. The complete build log
+is uploaded as an artifact on every run, pass or fail.
+
 ## Known verification gap: no device or emulator
 
-This project was built in a sandboxed environment with no physical Android
-device, no emulator (`/dev/kvm` is unavailable, so the AVD can't boot), and
-no display. Everything that can be verified without one has been — JVM unit
-tests, property-based tests, simulation tests, Robolectric-backed
-Android-dependent tests, ktlint, `assembleDebug`/`assembleRelease` (R8)
-builds. Anything the spec calls a **manual, on-device** gate (the Stage 1.2
-audio listening pass, real-device performance/frame-drop checks, TalkBack
-navigation, physical-interruption handling) has *not* been verified and is
-called out explicitly wherever it applies. Run those before trusting this
-build fully.
+The development sandboxes for this project have no physical Android device, no
+emulator (`/dev/kvm` is unavailable, so the AVD can't boot), and no display.
+Everything that can be verified without one is verified in CI — JVM unit tests,
+property-based tests, simulation tests, Robolectric-backed Android-dependent
+tests, ktlint, `assembleDebug`/`assembleRelease` (R8) builds.
+
+What still requires a human with hardware:
+
+- **Stage 1.2's audio listening pass — done.** Signed off 2026-08-21, along with
+  a listening pass over Phase 2's audio. See `docs/09-BUILD-PLAN.md`.
+- **Still outstanding:** real-device performance and frame-drop checks, TalkBack
+  navigation, physical-interruption handling, and the task-viability questions in
+  `docs/21-HANDOFF.md` §4 — whether a learner can actually *perform* Phase 2's
+  exercises, which hearing them does not establish.
+- **Phase 3 raises this sharply.** Microphone input cannot be tested on the JVM
+  at all, so `docs/30-PHASE-3-SPEC.md` Stage 3.0 shifts the verification burden
+  onto a device for the whole phase, not just at its gate.

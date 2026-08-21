@@ -103,7 +103,22 @@ The sung version closes that hole: **sing the degree during the gap, before the 
 
 This is the strongest argument for building Phase 3 at all, and it should be prioritized within the phase accordingly.
 
-⚠️ Open: whether the sung prediction replaces the `MATCHED`/`DIDN'T MATCH` judgment or supplements it. Supplementing gives richer data; replacing is simpler. Decide before Stage 3.4.
+**Decided 2026-08-21: the sung prediction supplements the judgment, it does not replace it.**
+
+The learner sings during the gap, then still answers with the three-button control
+(`MATCHED` / `TOO LOW` / `TOO HIGH`, per `20-PHASE-2-SPEC.md` §8.1 decision 3). Both are recorded; the
+button answer is what scores.
+
+The reason is §2's invariant, not richness of data. If singing replaced the judgment, the sung and
+tapped versions of `M12` would stop being the same skill — one would be "produce the pitch," the other
+"recognize the mismatch" — and a node cannot have two different mastery meanings depending on which
+input the learner chose. That would violate "sung and tapped attempts are not separate skill states"
+directly, and it would make a tap-only user's `M12` mastery mean something weaker than a singer's,
+which §2 forbids in as many words.
+
+Supplementing also keeps the sung signal honest as *evidence about* the judgment rather than a
+substitute for it: a learner who sings the right pitch and then misreports the direction has a
+specific, diagnosable problem, and collapsing the two would hide it. Decide before Stage 3.4.
 
 ## 6. UI and UX
 
@@ -174,7 +189,7 @@ Same discipline throughout: STOP gate per stage, delta report with production-wi
 
 1. **`AudioRecord` vs. Oboe/NDK** (§5.1) — decide with measurements, not assumption.
 2. **Ambiguity-band handling** (§5.2) — re-prompt or confirm; silent rounding is not acceptable.
-3. **Sung prediction: replace or supplement the binary judgment** (§5.4).
+3. ~~**Sung prediction: replace or supplement the binary judgment** (§5.4).~~ **Decided 2026-08-21: supplement.** See §5.4.
 4. **Chromatic tolerance** (§5.3) — whether 12-degree resolution is viable for sung input at all, or whether singing should be limited to diatonic contexts.
 
 ⚠️ All four benefit from Phase 1/2 evidence. Answer them at the start of Phase 3, not now.
