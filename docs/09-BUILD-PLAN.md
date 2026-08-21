@@ -24,14 +24,18 @@ from which stages have headings.
 
 Two things that "built and green" does not mean, and which are tracked nowhere else:
 
-- **Stage 1.2's manual on-device gate has never been signed off.** Every automated criterion in that
-  stage passes, but the last one is a human listening to all four timbres across MIDI 40/55/69/84/96
-  and confirming pitch is unambiguous, loudness is matched, and there are no clicks. The build
-  environment has no device (`21-HANDOFF.md` §6), so it was never performed. `PLUCK` in particular
-  carries an unresolved deviation waiting on exactly this check — `06-AUDIO-ENGINE.md` §3.
-- **Phase 3 is gated twice.** Rule 3 below forbids starting it without an explicit instruction, and
-  `30-PHASE-3-SPEC.md` §5 additionally requires Phase 2 to be stable first. Writing the spec was not
-  the instruction.
+- **Stage 1.2's manual on-device gate: signed off by the maintainer, 2026-08-21.** The listening pass
+  was performed and passed. Subjective findings were not recorded in writing, which the stage asks
+  for — if `PLUCK` is ever revisited against the Karplus-Strong question left open in
+  `06-AUDIO-ENGINE.md` §3, that verdict wants capturing here rather than reconstructing.
+- **Phase 2's audio was also accepted by ear** (same date). What that does *not* cover is task
+  viability — whether a learner can hold a degree across `M12`'s silent gap, whether the ladder leaks
+  the mode at `M10.MIXED_MODE`, whether twelve positions are tappable, and whether the leading-tone-free
+  `i–iv–v–i` minor cadence establishes a key at every fade level (`20-PHASE-2-SPEC.md` §8.1 decision 4,
+  which asks for that check explicitly). Those need the exercises performed, not heard.
+- **Phase 3 was started on explicit instruction, 2026-08-21.** Both gates in `30-PHASE-3-SPEC.md` §5
+  and rule 3 below are therefore cleared. Its §9 defines answering four open questions as the first
+  action of the phase, not a precondition to it.
 
 ## Stage numbering
 
