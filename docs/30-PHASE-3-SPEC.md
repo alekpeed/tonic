@@ -82,7 +82,19 @@ Key properties:
 
 - **Scooping is tolerated** by ignoring the onset. Untrained singers slide into pitch; penalizing that tests technique, not hearing.
 - **"Unclear" is not "wrong."** A mumble, a cough, silence, or background noise produces a retry prompt, never a recorded incorrect attempt. This matters enormously — a false "wrong" corrupts the staircase and the confusion matrix.
-- ⚠️ **Ambiguity band:** when a sung pitch falls near-equidistant between two adjacent degrees, it must not be silently rounded. Options: treat as unclear and re-prompt, or present the two candidates for confirmation. Decide before Stage 3.2; silent rounding in the ambiguity band is the single most likely way this feature produces bad data.
+- **Ambiguity band — decided 2026-08-21: treat as unclear and re-prompt.** Presenting the two candidates
+  for confirmation was rejected: handing back a shortlist that contains the answer is a materially easier
+  question than the one the exercise asked, and it would arrive at precisely the moment the learner knew
+  least — converting a recall task into a recognition task exactly where the distinction matters most.
+  Silent rounding stays ruled out for the reason given when this was first written.
+
+  **Calibration: 10 cents of margin** (`DegreeResolver.AMBIGUITY_MARGIN_CENTS`), meaning the sung pitch
+  must land within five cents of the exact midpoint between two neighbors to be refused. Tightened from a
+  first attempt at 20 during Stage 3.1. Adjacent degrees sit 100 cents apart, so their midpoint is 50
+  cents from each, and a 20-cent margin therefore refuses everyone whose nearest degree is 40–50 cents
+  away. A singer 40 cents flat of the tonic is not a coin-flip — the runner-up is half again as far — and
+  flat is exactly how untrained singers miss, which is the case §3 mitigation 1 exists to protect. A band
+  that wide would have been the defect §3 warns about, wearing caution as a disguise.
 
 ### 5.3 Where singing applies
 
@@ -188,7 +200,7 @@ Same discipline throughout: STOP gate per stage, delta report with production-wi
 ## 9. Open questions before Stage 3.0
 
 1. **`AudioRecord` vs. Oboe/NDK** (§5.1) — decide with measurements, not assumption.
-2. **Ambiguity-band handling** (§5.2) — re-prompt or confirm; silent rounding is not acceptable.
+2. ~~**Ambiguity-band handling** (§5.2) — re-prompt or confirm.~~ **Decided 2026-08-21: re-prompt, at a 10-cent margin.** See §5.2.
 3. ~~**Sung prediction: replace or supplement the binary judgment** (§5.4).~~ **Decided 2026-08-21: supplement.** See §5.4.
 4. **Chromatic tolerance** (§5.3) — whether 12-degree resolution is viable for sung input at all, or whether singing should be limited to diatonic contexts.
 
