@@ -30,7 +30,13 @@ A desktop (Ubuntu) build is a **future** consideration. It is not in scope now, 
 
 The build is phased. The current phase is defined in `docs/09-BUILD-PLAN.md`.
 
-**Phase 1 scope is Module 0 (Diagnostic) and Module 2 (Diatonic Functional Recognition) only.**
+Phases 1 and 2 are built. Phase 1 shipped Module 0 (Diagnostic) and Module 2 (Diatonic Functional
+Recognition); Phase 2 added M9 mode identification, M10 minor, M11 chromatic degrees, M12 audiation
+and data export. **Phase 3 is specified in `docs/30-PHASE-3-SPEC.md` and has not been started** — rule
+3 below governs that, and writing a spec is not the instruction rule 3 requires.
+
+See `docs/09-BUILD-PLAN.md` "Where the build actually is" for per-phase state, including what
+"built and green" does not cover.
 
 Rules:
 
@@ -38,7 +44,7 @@ Rules:
 2. At every checkpoint marked **STOP** in `09-BUILD-PLAN.md`, halt, report what was built, report what was verified, and wait for explicit approval before continuing.
 3. Do not start a new phase without an explicit affirmative instruction in chat.
 4. If a spec is ambiguous or a decision is required that is not covered by these documents, **stop and ask**. Do not guess and proceed.
-5. Reserved identifiers for future modules (M1, M3–M8) exist in `docs/03-CURRICULUM.md`. Define the enum/ID constants so the schema is stable, but leave the implementations unbuilt.
+5. Reserved identifiers for unbuilt modules (M3–M6, M8) exist in `docs/03-CURRICULUM.md` §6. Define the enum/ID constants so the schema is stable, but leave the implementations unbuilt. Two of them — `M8.MINOR_MODE` and `M8.CHROMATIC_DEGREES` — are dead rather than pending, since Phase 2 shipped that work as M10 and M11; they are kept unreused, never repointed. M7 does not exist and its number is retired (`docs/02-PEDAGOGY.md` §9).
 
 ---
 
@@ -57,6 +63,10 @@ Rules:
 | `docs/08-UI-SPEC.md` | Screens, widgets, states, accessibility |
 | `docs/09-BUILD-PLAN.md` | Phase order, acceptance criteria, STOP gates |
 | `docs/10-TESTING.md` | Test strategy and determinism requirements |
+| `docs/11-ONBOARDING-CLARITY.md` | In-app explanation standard. Wins over `08` on any explanation detail |
+| `docs/20-PHASE-2-SPEC.md` | Phase 2: minor, chromatic, audiation, export. §3 defines M9–M12; §8 records decisions and per-stage findings |
+| `docs/21-HANDOFF.md` | Working notes, not authority. A dated snapshot — check its claims against the repo before relying on them |
+| `docs/30-PHASE-3-SPEC.md` | Phase 3: optional sung response. Specified, unbuilt |
 
 If you change behavior that a document describes, update that document in the same commit. Documents that disagree with the code are worse than no documents.
 

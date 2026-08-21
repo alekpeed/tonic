@@ -53,7 +53,24 @@ The explanation is shown automatically once, on first encounter with that exerci
 
 ## 6. Answer-button labeling: reconsider the bare numbers
 
-`08-UI-SPEC.md` §3 currently specifies numbers (1, 3, 5, ...) as the default label on the degree ladder, with solfège as an alternate. That default is now in question, not settled.
+**Resolved 2026-08-20, and not yet built.** The decision is recorded in `20-PHASE-2-SPEC.md` §8.1,
+decision 2: the numeral stays the canonical label, and each button carries a small persistent subtitle
+for the first N sessions after its degree set is unlocked, then drops it. Relationship phrases ("Home,"
+"Up a bit") were rejected because no honest phrasing separates `♯4` from `4` and `5`, so they collapse
+at exactly the point Phase 2 needed them; solfège-as-default was rejected because chromatic solfège
+(`di, ri, fi, se, le, te`) is *more* foreign to a beginner than `♭6`, not less.
+
+**Implementation status: none.** The ladder still renders one bare label per button. The only trace in
+the codebase is a note in `ScaleDegree`'s KDoc saying that fading semantic subtitles belong in
+`:core:ui` — where nothing implements them. This is a binding decision with no code behind it, and
+Phase 2 shipped the twelve-position ladder that §8.1 argued makes bare numerals worst.
+
+The original framing of the question is kept below, because the reasoning is what makes the decision
+legible.
+
+---
+
+`08-UI-SPEC.md` §3 specifies numbers (1, 3, 5, ...) as the default label on the degree ladder, with solfège as an alternate. That default was put in question, not settled, by the following.
 
 The problem observed directly in real use: even with a full explanation, bare numerals on buttons carry no inherent meaning to a first-time user until they've internalized what those numbers refer to — and that internalization is exactly the thing not yet built on first contact. Bare numerals may be the *right* label once the mapping is second nature, while being actively counterproductive on the first several sessions.
 
@@ -63,7 +80,7 @@ The problem observed directly in real use: even with a full explanation, bare nu
 - A persistent small subtitle under each numeral for the first N sessions of a newly-unlocked degree set, then removed.
 - Solfège as the earlier default rather than numbers, since "do" carries an inherent "home" connotation that "1" does not, for a user without a lifetime of counting-based musical habit.
 
-This is flagged as an open design decision, to be resolved in its own pass, because it changes a settled part of `08-UI-SPEC.md` and deserves its own consideration rather than being bundled into another fix silently.
+This was flagged as an open design decision, to be resolved in its own pass, because it changes a settled part of `08-UI-SPEC.md` and deserves its own consideration rather than being bundled into another fix silently. It was resolved that way — see the header above.
 
 ## 7. What "shippable" actually implies for this spec
 
@@ -74,6 +91,12 @@ Concretely, holding the app to a real shipping standard means:
 - "The user can technically figure it out with effort" is not the bar. The bar is: a reasonably attentive user gets it from the explanation and the one worked example, without needing to ask anyone anything.
 
 ## 8. Immediate required fixes, in priority order
+
+**All five were completed during Phase 1 and this section is discharged.** It is kept as the record of
+what was wrong and in what order it had to be fixed, because the ordering argument — that copy layered
+on an unanswerable question does not make the question answerable — is the reusable part. The standing
+requirements those fixes were built to satisfy live in §1–§7 and §9, which remain in force for every
+future module.
 
 Found through direct use, not theoretical review. Fix in this order — later items assume earlier ones are done, and building copy/UI on top of an unfixed lower-numbered item wastes the work:
 

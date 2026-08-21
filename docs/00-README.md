@@ -6,9 +6,11 @@ Specification set for **Tonic**, an Android ear training app built from absolute
 
 ```
 <repo-root>/
-├── CLAUDE.md          <- move to repo root
+├── CLAUDE.md          <- repository root, so Claude Code picks it up automatically
 └── docs/
     ├── 00-README.md   <- this file
+    │
+    │   00-10: the original specification set. Phase-independent unless stated.
     ├── 01-PRODUCT-SPEC.md
     ├── 02-PEDAGOGY.md
     ├── 03-CURRICULUM.md
@@ -18,14 +20,29 @@ Specification set for **Tonic**, an Android ear training app built from absolute
     ├── 07-ADAPTIVE-ENGINE.md
     ├── 08-UI-SPEC.md
     ├── 09-BUILD-PLAN.md
-    └── 10-TESTING.md
+    ├── 10-TESTING.md
+    │
+    │   11: written after Phase 1 shipped, from direct use.
+    ├── 11-ONBOARDING-CLARITY.md
+    │
+    │   20+: one document per phase beyond the first, numbered by phase.
+    ├── 20-PHASE-2-SPEC.md
+    ├── 21-HANDOFF.md
+    └── 30-PHASE-3-SPEC.md
 ```
 
-`CLAUDE.md` belongs at the repository root so Claude Code picks it up automatically.
+`11-ONBOARDING-CLARITY.md` is not optional reading. It was written after a real first-contact failure
+and it wins over `08-UI-SPEC.md` on any explanation detail.
+
+`21-HANDOFF.md` is working notes, not authority — a dated snapshot whose claims should be checked
+against the repo before being relied on.
 
 ## Reading order
 
-**First session, read in full:** `CLAUDE.md`, `01`, `02`, `09`.
+**First session, read in full:** `CLAUDE.md`, `01`, `02`, `09`, `11`.
+
+`09-BUILD-PLAN.md` opens with "Where the build actually is" — read that before assuming anything about
+what is or is not built.
 
 `02-PEDAGOGY.md` is the document to internalize. It is the reason the app exists and the source of every constraint that will look arbitrary from inside the code.
 

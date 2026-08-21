@@ -11,6 +11,28 @@ At a STOP gate:
 
 Do not batch stages. Do not "get ahead." A stage that is 90% done and blocked is a better report than three stages half-built.
 
+## Where the build actually is
+
+`CLAUDE.md` §2 defers to this document for the current phase, so it is stated here rather than inferred
+from which stages have headings.
+
+| Phase | Stages | State |
+|---|---|---|
+| 1 — M0 diagnostic, M2 major diatonic | 1.0–1.10 | Built. Green under `scripts/verify.sh` |
+| 2 — minor, chromatic, audiation, export | 2.0–2.8 (`20-PHASE-2-SPEC.md` §7) | Built. Green |
+| 3 — optional sung response | 3.0–3.6 (`30-PHASE-3-SPEC.md` §8) | **Specified only. Not started** |
+
+Two things that "built and green" does not mean, and which are tracked nowhere else:
+
+- **Stage 1.2's manual on-device gate has never been signed off.** Every automated criterion in that
+  stage passes, but the last one is a human listening to all four timbres across MIDI 40/55/69/84/96
+  and confirming pitch is unambiguous, loudness is matched, and there are no clicks. The build
+  environment has no device (`21-HANDOFF.md` §6), so it was never performed. `PLUCK` in particular
+  carries an unresolved deviation waiting on exactly this check — `06-AUDIO-ENGINE.md` §3.
+- **Phase 3 is gated twice.** Rule 3 below forbids starting it without an explicit instruction, and
+  `30-PHASE-3-SPEC.md` §5 additionally requires Phase 2 to be stable first. Writing the spec was not
+  the instruction.
+
 ## Stage numbering
 
 Every stage number in this project carries its phase: `1.0`–`1.10` here, `2.0`–`2.8` in `20-PHASE-2-SPEC.md` §7, `3.0`–`3.6` in `30-PHASE-3-SPEC.md` §8.
@@ -194,10 +216,11 @@ Acceptance: all Phase 1 success criteria in `01-PRODUCT-SPEC.md` §5 demonstrabl
 
 ## Later phases (do not start without instruction)
 
+Phases 2 and 3 have left this table — 2 is built (`20-PHASE-2-SPEC.md`) and 3 is specified
+(`30-PHASE-3-SPEC.md`). What remains below has no spec yet, only a name and a reason.
+
 | Phase | Content | Notes |
 |---|---|---|
-| 2 | Minor mode, chromatic degrees, prediction/audiation items, data export | |
-| 3 | Optional sung response | Mic permission, pitch detection, real-time feedback. Never a gate |
 | 4 | Rhythm (M3) | **Requires revisiting the audio backend** — low-latency input likely means Oboe/NDK, plus round-trip latency calibration |
 | 5 | Melodic dictation (M4) | |
 | 6 | Harmony and harmonic dictation (M5, M6) | Bass-line first |
