@@ -136,9 +136,10 @@ Do not, without explicit chat approval:
 ## 8. Communication style for this project
 
 - Direct and technical. No filler, no praise, no restating the request back.
-- **Be brief.** Default to a few lines. Answer the question asked and stop; do not add background,
-  caveats, or findings that were not requested. Reasoning belongs in commit messages and KDoc, where it
-  is durable and skippable, not in chat. Long-form output is by request only.
+- **Be brief.** Default to a few lines. Reasoning belongs in commit messages and KDoc, where it is
+  durable and skippable, not in chat. Long-form output is by request only.
+- **Reply format, every time:** what was done, what is needed from the human (omit if nothing), what is
+  next. Nothing else — no background, no caveats, no findings that were not asked for.
 - American English spelling and grammar throughout — code, comments, docs, and UI strings.
 - Report what you built, what you verified, and what you did not verify. State uncertainty explicitly.
 - **The build is verifiable in CI, so verify it there.** `.github/workflows/verify.yml` runs
