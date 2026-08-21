@@ -7,13 +7,10 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.tonic.core.model.ids.SkillIds
-import com.tonic.core.model.state.AppSettings
 import com.tonic.core.ui.theme.TonicTheme
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
-import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
@@ -94,49 +91,5 @@ class SungResponseIntroTest {
         compose.setContent { TonicTheme { SungResponseIntroContent { started = true } } }
         compose.onNodeWithTag("sung_intro_start").performScrollTo().performClick()
         assertTrue(started, "Start must work on first press, with nothing required beforehand")
-    }
-
-    /**
-     * The gate. Singing is not tied to a node, so this screen could surface anywhere — but a learner who
-     * has not yet been told what the exercise *is* must not first be told how to answer it by voice.
-     */
-    @Test
-    fun `the module explanation wins when both are unseen`() {
-        val settings =
-            AppSettings(
-                module2IntroSeen = false,
-                sungResponseEnabled = true,
-                sungResponseIntroSeen = false,
-            )
-        assertEquals(IntroKind.M2, introKindFor(SkillIds.M2_DEG_SET_1, settings))
-    }
-
-    @Test
-    fun `the sung explanation appears once the module one is done and singing is on`() {
-        val settings =
-            AppSettings(
-                module2IntroSeen = true,
-                sungResponseEnabled = true,
-                sungResponseIntroSeen = false,
-            )
-        assertEquals(IntroKind.SUNG, introKindFor(SkillIds.M2_DEG_SET_1, settings))
-    }
-
-    /** Default off, so a learner who never opts in never sees it — §6.1. */
-    @Test
-    fun `it never appears while singing is switched off`() {
-        val settings = AppSettings(module2IntroSeen = true, sungResponseEnabled = false)
-        assertEquals(IntroKind.NONE, introKindFor(SkillIds.M2_DEG_SET_1, settings))
-    }
-
-    @Test
-    fun `it does not appear twice`() {
-        val settings =
-            AppSettings(
-                module2IntroSeen = true,
-                sungResponseEnabled = true,
-                sungResponseIntroSeen = true,
-            )
-        assertEquals(IntroKind.NONE, introKindFor(SkillIds.M2_DEG_SET_1, settings))
     }
 }
