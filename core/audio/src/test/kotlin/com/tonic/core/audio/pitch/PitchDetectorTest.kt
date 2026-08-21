@@ -98,7 +98,10 @@ class PitchDetectorTest {
                 "x ${registerMidi.size} register points:",
         )
         print(report)
-        println("  worst: ${"%.2f".format(worstCents)} cents ($worstDescription); requirement is 100.0")
+        println(
+            "[measure] PitchDetector worst error: ${"%.2f".format(worstCents)} cents " +
+                "($worstDescription); Stage 3.0 requires under 100.0",
+        )
     }
 
     /**

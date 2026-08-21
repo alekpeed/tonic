@@ -59,3 +59,17 @@ if [ "$GOLDEN" -ne 0 ]; then
 fi
 
 echo "verify: OK — build green, both golden baselines byte-identical"
+
+# Surface the measurements. docs/10-TESTING.md §5 asks for simulation and measurement output to be
+# treated as a report rather than a pass/fail, and until now it was neither read nor readable: the
+# gradle redirect above sends all test output into $LOG, so even with testLogging enabled the numbers
+# only ever reached the uploaded artifact, which someone has to go and download. Tests mark the lines
+# worth surfacing with a [measure] prefix; full detail stays in the log.
+#
+# This runs after gradle has exited and its status is already captured, so it cannot affect the exit
+# code - which is the one property this script exists to protect.
+if grep -qF "[measure]" "$LOG" 2>/dev/null; then
+  echo
+  echo "verify: measurements"
+  grep -F "[measure]" "$LOG" | sed "s/^[[:space:]]*/  /"
+fi

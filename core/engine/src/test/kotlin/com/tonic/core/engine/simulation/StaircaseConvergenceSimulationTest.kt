@@ -60,8 +60,8 @@ class StaircaseConvergenceSimulationTest {
         // every green run the number the spec asks for was computed and thrown away. Printing it makes
         // the report real; the assertion keeps its message for the failing case, where it is also wanted.
         println(
-            "Staircase convergence: measured=%.2f true=%.1f error=%.2f over %d trials, overall accuracy=%.3f"
-                .format(measuredThreshold, trueThreshold, error, trials, correctCount.toDouble() / trials),
+            "[measure] Staircase convergence: measured=%.2f true=%.1f error=%.2f over %d trials"
+                .format(measuredThreshold, trueThreshold, error, trials),
         )
 
         assertTrue(
@@ -87,6 +87,17 @@ class StaircaseConvergenceSimulationTest {
             state = Staircase.update(state, correct, bounds)
         }
         val tailAccuracy = postConvergenceCorrect.toDouble() / postConvergenceTrials
+
+        // The same invisible-on-success problem as the convergence figure above, and this is the more
+        // important of the two: Stage 1.4's acceptance is that the staircase converges to ~70.7%, and
+        // this is the only number in the project that measures it. The whole-run accuracy printed above
+        // is expected to sit near 90% because the run starts far below threshold and climbs, so quoting
+        // that as "the convergence point" would be wrong in a way that looks fine.
+        println(
+            "[measure] Staircase equilibrium accuracy: %.3f over %d post-convergence trials (target ~0.707)"
+                .format(tailAccuracy, postConvergenceTrials),
+        )
+
         assertTrue(
             tailAccuracy in 0.55..0.85,
             "post-convergence accuracy $tailAccuracy should be in the neighborhood of 70.7%",
