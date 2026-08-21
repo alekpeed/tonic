@@ -215,8 +215,9 @@ class PracticeViewModel
          * Which explanation a node needs, or none. Recalling one on demand ([onOpenIntro]) deliberately
          * does not consult this — docs/11-ONBOARDING-CLARITY.md §5: recall neither depends on nor
          * changes the seen-once flag.
+         *
+         * `internal` rather than private so the gate can be asserted directly - see SungResponseIntroTest.
          */
-        /** `internal` rather than private so the gate can be asserted directly - see SungResponseIntroTest. */
         internal fun introKindFor(
             skillId: com.tonic.core.model.ids.SkillId,
             settings: com.tonic.core.model.state.AppSettings,
