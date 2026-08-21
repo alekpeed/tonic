@@ -11,7 +11,7 @@ import org.junit.runner.RunWith
 /**
  * The wiring between "which explanation does this node need" and "which explanation is on screen."
  *
- * This existed as two correct halves and one wrong line. [PracticeViewModel.introKindFor] resolved the
+ * This existed as two correct halves and one wrong line. [introKindFor] resolved the
  * kind properly and had tests; [M10IntroContent] and [M9IntroContent] were written, previewed and
  * tested as composables. `PracticeScreen` then called `M2IntroContent` unconditionally, so a learner
  * reaching minor was shown the major explanation — the one screen docs/08-UI-SPEC.md §3a exists to

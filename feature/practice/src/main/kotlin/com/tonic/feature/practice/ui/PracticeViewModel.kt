@@ -212,43 +212,6 @@ class PracticeViewModel
         }
 
         /**
-         * Which explanation a node needs, or none. Recalling one on demand ([onOpenIntro]) deliberately
-         * does not consult this — docs/11-ONBOARDING-CLARITY.md §5: recall neither depends on nor
-         * changes the seen-once flag.
-         *
-         * `internal` rather than private so the gate can be asserted directly - see SungResponseIntroTest.
-         */
-        internal fun introKindFor(
-            skillId: com.tonic.core.model.ids.SkillId,
-            settings: com.tonic.core.model.state.AppSettings,
-        ): IntroKind {
-            val moduleIntro =
-                when {
-                    skillId == SkillIds.M10_MIXED_MODE ->
-                        if (settings.mixedModeIntroSeen) IntroKind.NONE else IntroKind.MIXED_MODE
-                    skillId in SkillGraph.m12Nodes.map { it.id } ->
-                        if (settings.module12IntroSeen) IntroKind.NONE else IntroKind.M12
-                    skillId in SkillGraph.m11Nodes.map { it.id } ->
-                        if (settings.module11IntroSeen) IntroKind.NONE else IntroKind.M11
-                    skillId in SkillGraph.m10Nodes.map { it.id } ->
-                        if (settings.module10IntroSeen) IntroKind.NONE else IntroKind.M10
-                    settings.module2IntroSeen -> IntroKind.NONE
-                    else -> IntroKind.M2
-                }
-            if (moduleIntro != IntroKind.NONE) return moduleIntro
-
-            // Checked after the module intros, and deliberately so. Singing is not tied to a node, so it
-            // could surface anywhere - but a learner who has not yet been told what the *exercise* is
-            // should not first be told how to answer it by voice. The module explanation wins; the sung
-            // one arrives at the next opportunity.
-            return if (settings.sungResponseEnabled && !settings.sungResponseIntroSeen) {
-                IntroKind.SUNG
-            } else {
-                IntroKind.NONE
-            }
-        }
-
-        /**
          * The help affordance - docs/11-ONBOARDING-CLARITY.md §5: "always reachable on demand... the
          * exact same explanation and worked example, not an abbreviated version."
          */
@@ -591,3 +554,42 @@ class PracticeViewModel
             const val TIME_TICK_MS = 1_000L
         }
     }
+
+/**
+ * Which explanation a node needs, or none. Recalling one on demand ([onOpenIntro]) deliberately
+ * does not consult this — docs/11-ONBOARDING-CLARITY.md §5: recall neither depends on nor
+ * changes the seen-once flag.
+ *
+ * Top-level rather than a member: it reads nothing from the view model, only its two arguments, and
+ * lifting it out is what lets the gate be asserted directly rather than through a constructed view
+ * model and a fake repository - see SungResponseIntroTest.
+ */
+internal fun introKindFor(
+    skillId: com.tonic.core.model.ids.SkillId,
+    settings: com.tonic.core.model.state.AppSettings,
+): IntroKind {
+    val moduleIntro =
+        when {
+            skillId == SkillIds.M10_MIXED_MODE ->
+                if (settings.mixedModeIntroSeen) IntroKind.NONE else IntroKind.MIXED_MODE
+            skillId in SkillGraph.m12Nodes.map { it.id } ->
+                if (settings.module12IntroSeen) IntroKind.NONE else IntroKind.M12
+            skillId in SkillGraph.m11Nodes.map { it.id } ->
+                if (settings.module11IntroSeen) IntroKind.NONE else IntroKind.M11
+            skillId in SkillGraph.m10Nodes.map { it.id } ->
+                if (settings.module10IntroSeen) IntroKind.NONE else IntroKind.M10
+            settings.module2IntroSeen -> IntroKind.NONE
+            else -> IntroKind.M2
+        }
+    if (moduleIntro != IntroKind.NONE) return moduleIntro
+
+    // Checked after the module intros, and deliberately so. Singing is not tied to a node, so it
+    // could surface anywhere - but a learner who has not yet been told what the *exercise* is
+    // should not first be told how to answer it by voice. The module explanation wins; the sung
+    // one arrives at the next opportunity.
+    return if (settings.sungResponseEnabled && !settings.sungResponseIntroSeen) {
+        IntroKind.SUNG
+    } else {
+        IntroKind.NONE
+    }
+}
