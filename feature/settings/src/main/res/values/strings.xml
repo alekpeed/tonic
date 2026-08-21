@@ -43,4 +43,11 @@
     <string name="settings_export_saved">Saved.</string>
     <string name="settings_export_cancelled">Export cancelled. Nothing was saved and nothing changed.</string>
     <string name="settings_export_failed">Couldn\'t write the file. Your data is untouched — try somewhere else, or free up some space.</string>
+
+    <!-- Debug-only "jump to node" tool - never present in a release build (BuildConfig.DEBUG gates
+         the whole section in SettingsScreen). Seeds real, synthetic attempts through the same mastery
+         path genuine play uses, so a tester can reach any node without grinding every one before it. -->
+    <string name="settings_debug_heading">Developer options (debug build only)</string>
+    <string name="settings_debug_jump_body">Jump to a node for testing. This records synthetic attempts through the real mastery path — nothing about how mastery is judged is bypassed, only how it was earned.</string>
+    <string name="settings_debug_jump_result">Seeded %1$d node(s). Now on %2$s.</string>
 </resources>

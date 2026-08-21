@@ -2,12 +2,15 @@ package com.tonic.feature.settings.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.tonic.core.curriculum.graph.SkillGraph
 import com.tonic.core.data.export.DataExportRepository
 import com.tonic.core.data.repository.SessionRepository
 import com.tonic.core.data.settings.SettingsRepository
+import com.tonic.core.model.ids.SkillId
 import com.tonic.core.model.state.LabelStyle
 import com.tonic.core.model.state.ThemeMode
 import com.tonic.core.model.time.Clock
+import com.tonic.feature.settings.debug.DebugSkillJumper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -34,9 +37,13 @@ class SettingsViewModel
         private val settingsRepository: SettingsRepository,
         private val sessionRepository: SessionRepository,
         private val dataExportRepository: DataExportRepository,
+        private val debugSkillJumper: DebugSkillJumper,
         private val clock: Clock,
     ) : ViewModel() {
-        private val _uiState = MutableStateFlow(SettingsUiState())
+        private val _uiState =
+            MutableStateFlow(
+                SettingsUiState(debugJumpTargets = SkillGraph.practiceChain.map { it.id }),
+            )
         val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
         init {
@@ -44,6 +51,18 @@ class SettingsViewModel
                 settingsRepository.settings.collect { settings ->
                     _uiState.update { it.copy(settings = settings, isLoading = false) }
                 }
+            }
+        }
+
+        /**
+         * Seeds whatever still blocks [target] so the practice loop lands there next — the fix for "I
+         * can't debug it if I can't get through the level." `BuildConfig.DEBUG`-only; see
+         * [DebugSkillJumper]'s KDoc for why this does not compromise mastery's meaning for real play.
+         */
+        fun onDebugJumpRequested(target: SkillId) {
+            viewModelScope.launch {
+                val seeded = debugSkillJumper.jumpTo(target)
+                _uiState.update { it.copy(debugJumpResult = DebugJumpResult(target, seeded.size)) }
             }
         }
 

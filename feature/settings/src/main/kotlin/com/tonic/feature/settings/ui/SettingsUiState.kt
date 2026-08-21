@@ -1,5 +1,6 @@
 package com.tonic.feature.settings.ui
 
+import com.tonic.core.model.ids.SkillId
 import com.tonic.core.model.state.AppSettings
 
 /** A thin read model wrapping [AppSettings] with the one thing it lacks: whether the initial DataStore read has completed yet. */
@@ -16,6 +17,20 @@ data class SettingsUiState(
      */
     val pendingExport: PendingExport? = null,
     val exportResult: ExportResult? = null,
+    /**
+     * Every node in [com.tonic.core.curriculum.graph.SkillGraph.practiceChain], for the debug-only
+     * "jump to node" tool (`BuildConfig.DEBUG` only — see `SettingsScreen`'s debug section). Populated
+     * unconditionally; it is the screen that decides whether to render it, since a `BuildConfig` check
+     * belongs at the Android edge, not in a ViewModel this module's own JVM tests exercise.
+     */
+    val debugJumpTargets: List<SkillId> = emptyList(),
+    val debugJumpResult: DebugJumpResult? = null,
+)
+
+/** Outcome of a debug "jump to node" press — how many nodes it had to seed to get there. */
+data class DebugJumpResult(
+    val target: SkillId,
+    val seededCount: Int,
 )
 
 /** What "Discard saved session" found - the confirmation copy differs (docs/08-UI-SPEC.md §2a). */

@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -28,11 +29,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.tonic.core.model.ids.SkillId
 import com.tonic.core.model.state.AppSettings
 import com.tonic.core.model.state.LabelStyle
 import com.tonic.core.model.state.ThemeMode
 import com.tonic.core.ui.theme.TonicSpacing
 import com.tonic.core.ui.theme.TonicTheme
+import com.tonic.feature.settings.BuildConfig
 import com.tonic.feature.settings.R
 
 @Composable
@@ -80,6 +83,9 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
             onDiscardSavedSession = viewModel::onDiscardSavedSession,
             exportResult = uiState.exportResult,
             onExportDataRequested = viewModel::onExportDataRequested,
+            debugJumpTargets = uiState.debugJumpTargets,
+            debugJumpResult = uiState.debugJumpResult,
+            onDebugJumpRequested = viewModel::onDebugJumpRequested,
         )
     }
 }
@@ -99,6 +105,9 @@ private fun SettingsContent(
     onDiscardSavedSession: () -> Unit = {},
     exportResult: ExportResult? = null,
     onExportDataRequested: () -> Unit = {},
+    debugJumpTargets: List<SkillId> = emptyList(),
+    debugJumpResult: DebugJumpResult? = null,
+    onDebugJumpRequested: (SkillId) -> Unit = {},
 ) {
     LazyColumn(modifier = Modifier.fillMaxSize().padding(TonicSpacing.md)) {
         item {
@@ -253,6 +262,58 @@ private fun SettingsContent(
                     )
                 }
             }
+        }
+
+        // BuildConfig.DEBUG only - see DebugSkillJumper's KDoc. This whole section, and the tool
+        // behind it, is compiled out of a release build; there is no way to reach it in one.
+        if (BuildConfig.DEBUG) {
+            item {
+                DebugJumpSection(
+                    targets = debugJumpTargets,
+                    result = debugJumpResult,
+                    onJumpRequested = onDebugJumpRequested,
+                )
+            }
+        }
+    }
+}
+
+/**
+ * "I can't debug it if I can't get through the level" — a tester's escape hatch out of grinding every
+ * mastery gate by hand to reach the Phase 2 content they're actually trying to exercise. See
+ * [com.tonic.feature.settings.debug.DebugSkillJumper]'s KDoc for what pressing one of these buttons
+ * actually does under the hood.
+ */
+@Composable
+private fun DebugJumpSection(
+    targets: List<SkillId>,
+    result: DebugJumpResult?,
+    onJumpRequested: (SkillId) -> Unit,
+) {
+    SettingsSection(stringResource(R.string.settings_debug_heading)) {
+        Text(
+            text = stringResource(R.string.settings_debug_jump_body),
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Spacer(modifier = Modifier.height(TonicSpacing.sm))
+        Column(verticalArrangement = Arrangement.spacedBy(TonicSpacing.xs)) {
+            for (target in targets) {
+                OutlinedButton(
+                    onClick = { onJumpRequested(target) },
+                    modifier = Modifier.fillMaxWidth().testTag("settings_debug_jump_${target.raw}"),
+                ) {
+                    Text(target.raw)
+                }
+            }
+        }
+        result?.let {
+            Spacer(modifier = Modifier.height(TonicSpacing.sm))
+            Text(
+                text = stringResource(R.string.settings_debug_jump_result, it.seededCount, it.target.raw),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.testTag("settings_debug_jump_result"),
+            )
         }
     }
 }

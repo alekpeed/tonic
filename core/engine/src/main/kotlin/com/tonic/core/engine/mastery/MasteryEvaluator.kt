@@ -127,14 +127,28 @@ object MasteryEvaluator {
                 val forDegree = window.filter { it.targetLabel == d.canonicalLabel }
                 if (forDegree.isEmpty()) 0.0 else forDegree.count { it.correct }.toDouble() / forDegree.size
             }
-        // The most the balance rule can deliver for one degree in this window, capped at the spec's 5.
+        // The most the balance rule can deliver for one degree in this window, capped at the spec's 5 -
+        // and additionally capped at whatever is left of the window once every OTHER active degree has
+        // taken its own DEGREE_COVERAGE floor. Without that third bound, the two criteria can demand
+        // more attempts than a 30-item window holds: at exactly ten active degrees (`M11.CHROM_FLAT6`),
+        // the uncapped formula asks for 4 - but DEGREE_COVERAGE already requires 3 from each of the
+        // other nine, and 9*3 + 4 = 31 > WINDOW_SIZE. No distribution of 30 attempts across ten degrees
+        // can satisfy both at once, so the node was mastery-*unmasterable* for every learner, real or
+        // synthetic - a bug this criterion's own math hides, since nothing about a single window looks
+        // wrong in isolation. Found by DebugMasterySeederTest, which is the first thing that ever tried
+        // to drive every node in the graph to genuine mastery rather than to a handful of items. The
+        // extra bound only ever tightens this exact wall: every other active-degree count already had
+        // slack (confirmed in MasteryEvaluatorTest), so nothing but CHROM_FLAT6 changes value.
         val requiredFocusAttempts =
             if (activeDegreeLabels.isEmpty()) {
                 MIN_FOCUS_DEGREE_ATTEMPTS
             } else {
+                val othersBudget = activeDegreeLabels.size - 1
+                val remainingAfterOthers = WINDOW_SIZE - othersBudget * requiredAttemptsPerDegree
                 minOf(
                     MIN_FOCUS_DEGREE_ATTEMPTS,
                     (WINDOW_SIZE * BALANCE_MAX_FREQUENCY_MULTIPLE / activeDegreeLabels.size).toInt(),
+                    remainingAfterOthers,
                 ).coerceAtLeast(1)
             }
         val focusMet =

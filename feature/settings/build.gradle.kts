@@ -48,6 +48,9 @@ android {
 
     buildFeatures {
         compose = true
+        // BuildConfig.DEBUG gates the debug-only "jump to node" tool in SettingsScreen - see
+        // DebugSkillJumper's KDoc. Never compiled into a release build.
+        buildConfig = true
     }
 
     compileOptions {

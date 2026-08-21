@@ -4,6 +4,9 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.tonic.core.model.state.LabelStyle
 import com.tonic.core.model.state.ThemeMode
 import com.tonic.core.model.time.Clock
+import com.tonic.feature.settings.debug.DebugSkillJumper
+import com.tonic.feature.settings.debug.FakeAttemptRepository
+import com.tonic.feature.settings.debug.FakeSkillStateRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -41,7 +44,23 @@ class SettingsViewModelTest {
         repository: FakeSettingsRepository = FakeSettingsRepository(),
         sessionRepository: FakeSessionRepository = FakeSessionRepository(),
         exportRepository: FakeDataExportRepository = FakeDataExportRepository(),
-    ) = SettingsViewModel(repository, sessionRepository, exportRepository, Clock { Instant.EPOCH }) to repository
+    ) = SettingsViewModel(
+        repository,
+        sessionRepository,
+        exportRepository,
+        debugSkillJumper(sessionRepository),
+        Clock { Instant.EPOCH },
+    ) to repository
+
+    /**
+     * A real [DebugSkillJumper] over in-memory repositories, sharing [sessionRepository] with
+     * whichever [SettingsViewModel] this feeds - the two depend on the same one in production too.
+     */
+    private fun debugSkillJumper(sessionRepository: FakeSessionRepository): DebugSkillJumper {
+        val attemptRepository = FakeAttemptRepository()
+        val skillStateRepository = FakeSkillStateRepository(attemptRepository)
+        return DebugSkillJumper(attemptRepository, skillStateRepository, sessionRepository, Clock { Instant.EPOCH })
+    }
 
     @Test
     fun `the initial DataStore read is reflected once loading completes`() =
@@ -161,6 +180,7 @@ class SettingsViewModelTest {
                     settingsRepo,
                     sessions,
                     FakeDataExportRepository(),
+                    debugSkillJumper(sessions),
                     Clock { Instant.EPOCH },
                 ).also { vm ->
                     vm.uiState.first { !it.isLoading }
