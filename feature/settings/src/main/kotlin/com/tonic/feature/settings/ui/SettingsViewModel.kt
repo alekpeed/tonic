@@ -75,8 +75,22 @@ class SettingsViewModel
                             onSuccess = { DebugJumpResult(target, it.size, failure = null) },
                             onFailure = { DebugJumpResult(target, seededCount = 0, failure = it.message ?: "failed") },
                         )
-                _uiState.update { it.copy(debugJumpInProgress = false, debugJumpResult = result) }
+                _uiState.update {
+                    it.copy(
+                        debugJumpInProgress = false,
+                        debugJumpResult = result,
+                        debugJumpNavigateTo = target.takeIf { _ -> result.failure == null },
+                    )
+                }
             }
+        }
+
+        /**
+         * Clears the result once the screen has navigated on it, so returning to Settings does not
+         * immediately bounce back out on a stale success.
+         */
+        fun onDebugJumpNavigationHandled() {
+            _uiState.update { it.copy(debugJumpNavigateTo = null) }
         }
 
         /**

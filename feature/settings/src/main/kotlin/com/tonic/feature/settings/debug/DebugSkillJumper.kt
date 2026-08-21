@@ -2,8 +2,8 @@ package com.tonic.feature.settings.debug
 
 import com.tonic.core.curriculum.graph.SkillGraph
 import com.tonic.core.data.repository.DebugProgressRepository
-import com.tonic.core.data.repository.SessionRepository
 import com.tonic.core.data.repository.SkillStateRepository
+import com.tonic.core.data.settings.SettingsRepository
 import com.tonic.core.engine.debug.DebugMasterySeeder
 import com.tonic.core.model.ids.SkillId
 import com.tonic.core.model.time.Clock
@@ -15,27 +15,30 @@ import javax.inject.Inject
  * The orchestration behind `:feature:settings`' debug-only "jump to node" tool
  * (`BuildConfig.DEBUG` only — see [com.tonic.feature.settings.ui.SettingsScreen]).
  *
- * [DebugMasterySeeder] (`:core:engine`) knows how to fabricate one node's mastering attempt log; this
- * walks [SkillGraph.practiceChain] the same way [SkillGraph.currentNodeFor]'s own reachability test
- * does, seeding and persisting one node at a time so the *next* node's gates see a real, freshly-rebuilt
- * [com.tonic.core.model.state.SkillState] rather than an assumption about chain order — exactly the
- * sequence a learner would clear in play, just synthesized.
+ * Walks [SkillGraph.practiceChain] the same way [SkillGraph.currentNodeFor] does, stamping each node
+ * before the target as mastered ([DebugMasterySeeder.masteredStateFor]) so the next node's gates see
+ * real persisted state rather than an assumption about chain order.
  *
- * **A jump is absolute, not incremental: it resets all progress first, then seeds up to [jumpTo]'s
- * target.** The first version did not, and only ever moved *forward* from wherever the learner already
- * was. Asking it for a node at or behind the current one was therefore unsatisfiable: the walk could
- * never reach the target, ran to its step ceiling and threw — which, inside a `viewModelScope.launch`,
- * crashed the app. Found the way it should have been found before shipping, by a tester pressing the
- * buttons in the order a person actually presses them rather than the order the walk assumed. Resetting
- * first makes every button work from every state, in any order, and makes the same press always mean
- * the same thing.
+ * Two properties, both learned the hard way across three broken builds:
+ *
+ * **A jump is absolute, not incremental.** It resets progress first, then seeds up to the target. The
+ * first version only moved *forward* from wherever the learner already was, so a target at or behind
+ * the current node was unsatisfiable: the walk ran to its step ceiling and threw, which inside a
+ * `viewModelScope.launch` crashed the app. Every button now works from every state, in any order.
+ *
+ * **It stamps state instead of replaying a fabricated history.** The original went through the real
+ * mastery pipeline — 655 synthetic attempts across 25 nodes — because that felt more honest. On a
+ * phone it was seconds of SQLite writes behind a button that looked dead, with a large surface for
+ * failures nobody in this loop can attach a debugger to. Principle lost to reliability, correctly:
+ * this is a debug affordance, and the invariant that every node is masterable *by real play* is worth
+ * proving in a test (`DebugMasterySeederTest` still does) rather than at the cost of every press.
  */
 class DebugSkillJumper
     @Inject
     constructor(
         private val debugProgressRepository: DebugProgressRepository,
         private val skillStateRepository: SkillStateRepository,
-        private val sessionRepository: SessionRepository,
+        private val settingsRepository: SettingsRepository,
         private val clock: Clock,
     ) {
         /**
@@ -60,14 +63,13 @@ class DebugSkillJumper
                 }
 
                 debugProgressRepository.resetProgress()
+                // The diagnostic is placement, not progress, and resetProgress does not touch it - but a
+                // fresh install starts before it and there is no way to skip it by hand. A tester who
+                // reinstalls to escape a bad state should not be made to sit through it again.
+                settingsRepository.setOnboardingCompleted(true)
+                settingsRepository.setDiagnosticCompleted(true)
 
-                val startedAt = clock.now()
-                // Created after the reset so it survives it. Deliberately never completed: the streak
-                // counts completed sessions by day, and a debug jump is not a day of practice.
-                val session =
-                    sessionRepository.create(rootSeed = DEBUG_ROOT_SEED, plannedItemCount = 0, startedAt = startedAt)
-                val sessionId = requireNotNull(session.id) { "a freshly created session must have an id" }
-
+                val now = clock.now()
                 val mastered = mutableSetOf<SkillId>()
                 val seeded = mutableListOf<SkillId>()
                 while (true) {
@@ -77,25 +79,10 @@ class DebugSkillJumper
                         "walked the whole chain without reaching ${target.raw} - the graph's gates and " +
                             "its chain order disagree"
                     }
-                    val attempts =
-                        DebugMasterySeeder.attemptsToMaster(
-                            next,
-                            sessionId,
-                            startedAt.plusSeconds(seeded.size * NODE_TIME_BUDGET_SECONDS),
-                        )
-                    debugProgressRepository.recordAttempts(attempts)
-                    skillStateRepository.rebuildFromAttempts(next)
+                    skillStateRepository.update(DebugMasterySeeder.masteredStateFor(next, now))
                     mastered += next
                     seeded += next
                 }
                 seeded
             }
-
-        private companion object {
-            /** Arbitrary but fixed — this tool has no real seed to thread through. */
-            const val DEBUG_ROOT_SEED = 20_260_821L
-
-            /** Generous headroom so consecutive nodes' synthetic timestamps never overlap. */
-            const val NODE_TIME_BUDGET_SECONDS = 3_600L
-        }
     }

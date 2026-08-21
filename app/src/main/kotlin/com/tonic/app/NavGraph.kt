@@ -130,6 +130,17 @@ fun TonicNavGraph(navController: NavHostController = rememberNavController()) {
             )
         }
         composable(TonicRoute.Progress.route) { ProgressScreen() }
-        composable(TonicRoute.Settings.route) { SettingsScreen() }
+        composable(TonicRoute.Settings.route) {
+            SettingsScreen(
+                // Debug-only, and a no-op in a release build because the section that fires it is
+                // compiled out. Straight into practice on the seeded node - that is what a "jump to
+                // node" button means, and what the first version conspicuously did not do.
+                onDebugJumpFinished = {
+                    navController.navigate(TonicRoute.Practice.route) {
+                        popUpTo(TonicRoute.Home.route)
+                    }
+                },
+            )
+        }
     }
 }

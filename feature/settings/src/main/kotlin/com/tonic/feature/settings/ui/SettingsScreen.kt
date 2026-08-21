@@ -39,7 +39,16 @@ import com.tonic.feature.settings.BuildConfig
 import com.tonic.feature.settings.R
 
 @Composable
-fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
+fun SettingsScreen(
+    viewModel: SettingsViewModel = hiltViewModel(),
+    /**
+     * Debug-only. A "jump to node" button that seeds progress and then leaves you sitting on Settings
+     * is not a jump — reaching the node still meant backing out and starting a session by hand, which
+     * is exactly how the first version read as doing nothing at all. Supplied by `:app`, which owns
+     * navigation; defaulted so this screen stays previewable and testable on its own.
+     */
+    onDebugJumpFinished: () -> Unit = {},
+) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val pending = uiState.pendingExport
@@ -68,6 +77,15 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
         pending?.let { createDocument.launch(it.suggestedFileName) }
     }
 
+    // Navigate once, on a successful jump only - a failure stays on screen so it can be read.
+    val navigateTo = uiState.debugJumpNavigateTo
+    LaunchedEffect(navigateTo) {
+        if (navigateTo != null) {
+            viewModel.onDebugJumpNavigationHandled()
+            onDebugJumpFinished()
+        }
+    }
+
     if (!uiState.isLoading) {
         SettingsContent(
             settings = uiState.settings,
@@ -85,6 +103,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
             onExportDataRequested = viewModel::onExportDataRequested,
             debugJumpTargets = uiState.debugJumpTargets,
             debugJumpResult = uiState.debugJumpResult,
+            debugJumpInProgress = uiState.debugJumpInProgress,
             onDebugJumpRequested = viewModel::onDebugJumpRequested,
         )
     }
@@ -110,7 +129,11 @@ private fun SettingsContent(
     debugJumpInProgress: Boolean = false,
     onDebugJumpRequested: (SkillId) -> Unit = {},
 ) {
-    LazyColumn(modifier = Modifier.fillMaxSize().padding(TonicSpacing.md)) {
+    // Tagged so a test can scroll it: a LazyColumn only composes what is visible, so anything below
+    // the fold - the debug section included - is simply absent from the semantics tree until scrolled
+    // to. Without a handle on the list itself, a test asserting on those rows finds nothing and cannot
+    // tell "not rendered" from "not yet composed."
+    LazyColumn(modifier = Modifier.fillMaxSize().padding(TonicSpacing.md).testTag("settings_list")) {
         item {
             Text(text = stringResource(R.string.settings_title), style = MaterialTheme.typography.headlineMedium)
             Spacer(modifier = Modifier.height(TonicSpacing.lg))

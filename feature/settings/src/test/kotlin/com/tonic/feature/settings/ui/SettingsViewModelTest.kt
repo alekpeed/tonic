@@ -23,7 +23,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import com.tonic.feature.settings.debug.FakeSessionRepository as DebugFakeSessionRepository
 
 /**
  * docs/09-BUILD-PLAN.md Stage 9 acceptance: "settings changes take effect immediately (label style
@@ -66,7 +65,7 @@ class SettingsViewModelTest {
         return DebugSkillJumper(
             FakeDebugProgressRepository(attemptRepository, skillStateRepository),
             skillStateRepository,
-            DebugFakeSessionRepository(),
+            FakeSettingsRepository(),
             Clock { Instant.EPOCH },
         )
     }

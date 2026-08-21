@@ -106,6 +106,11 @@ dependencies {
     testImplementation(libs.androidx.test.ext.junit)
     testRuntimeOnly(libs.junit.vintage.engine)
 
+    // Renders this module's screen in a JVM test, the way :feature:practice has since Stage 7. Absent
+    // until the debug section shipped a crash three times with every other layer under test.
+    testImplementation(libs.compose.ui.test.junit4)
+    testImplementation(libs.compose.ui.test.manifest)
+
     androidTestImplementation(platform(libs.compose.bom))
     androidTestImplementation(libs.compose.ui.test.junit4)
     debugImplementation(libs.compose.ui.test.manifest)

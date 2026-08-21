@@ -1,6 +1,7 @@
 package com.tonic.core.engine.debug
 
 import com.tonic.core.curriculum.graph.SkillGraph
+import com.tonic.core.engine.fsrs.FsrsScheduler
 import com.tonic.core.engine.mastery.BinaryMasteryEvaluator
 import com.tonic.core.engine.mastery.MasteryEvaluator
 import com.tonic.core.engine.mastery.PredictionMasteryEvaluator
@@ -9,8 +10,12 @@ import com.tonic.core.engine.scheduling.AxisSchedulerState
 import com.tonic.core.model.attempts.Attempt
 import com.tonic.core.model.ids.SkillId
 import com.tonic.core.model.items.AnswerAlphabet
+import com.tonic.core.model.items.CadenceFadeLevel
 import com.tonic.core.model.items.DifficultyAxis
 import com.tonic.core.model.music.ScaleDegree
+import com.tonic.core.model.state.FsrsGrade
+import com.tonic.core.model.state.MasteryState
+import com.tonic.core.model.state.SkillState
 import java.time.Instant
 
 /**
@@ -40,8 +45,67 @@ public object DebugMasterySeeder {
     private const val ATTEMPT_SPACING_SECONDS = 6L
 
     /**
+     * A mastered [SkillState] for [skillId], written straight to the repository — **what the debug jump
+     * tool actually uses.**
+     *
+     * [attemptsToMaster] below fabricates a full attempt log and replays it through the real evaluator,
+     * which is the more principled construction and was the tool's first implementation. It was the
+     * wrong call for a debug affordance: reaching the end of the chain meant 655 attempts across 25
+     * nodes, seconds of SQLite writes on a phone, and a Room invalidation storm behind every one of
+     * them — a button that looks dead while it works, and a large surface for things to go wrong on a
+     * device nobody in this loop can attach a debugger to. Stamping ~25 rows is instant and has almost
+     * nothing in it to fail.
+     *
+     * The axis levels are set to what mastery actually requires rather than to the maximum, so a
+     * jumped-to node behaves like one genuinely just cleared: `CADENCE_FADE` at
+     * [CadenceFadeLevel.MASTERY_MINIMUM] for a recognition node, `PREDICT_GAP` at
+     * [PredictionMasteryEvaluator.MIN_GAP_LEVEL] for a prediction one. `M9` has no axes at all.
+     */
+    public fun masteredStateFor(
+        skillId: SkillId,
+        now: Instant,
+    ): SkillState {
+        val scope = SkillGraph.scopeFor(skillId)
+        val axisLevels =
+            when (scope) {
+                DifficultyAxis.Scope.RECOGNITION ->
+                    DifficultyAxis.RECOGNITION_AXES.associateWith { axis ->
+                        if (axis == DifficultyAxis.CADENCE_FADE) CadenceFadeLevel.MASTERY_MINIMUM.level else 0
+                    }
+
+                DifficultyAxis.Scope.PREDICTION ->
+                    DifficultyAxis.PREDICTION_AXES.associateWith { axis ->
+                        if (axis == DifficultyAxis.PREDICT_GAP) PredictionMasteryEvaluator.MIN_GAP_LEVEL else 0
+                    }
+
+                // Deliberately empty, matching SkillStateReducer.replayModeId - not an empty map
+                // standing in for unknown levels.
+                DifficultyAxis.Scope.MODE_ID -> emptyMap()
+            }
+
+        return SkillState(
+            skillId = skillId,
+            axisLevels = axisLevels,
+            staircaseStates = emptyMap(),
+            activeAxis = null,
+            masteryState = MasteryState.MASTERED,
+            masteredAt = now,
+            // Mastery doubles as the first FSRS review everywhere else in this codebase; matching that
+            // keeps a jumped-to node from looking permanently overdue on the progress screen.
+            fsrs = FsrsScheduler.initial(FsrsGrade.GOOD, now),
+            totalAttempts = 0,
+            updatedAt = now,
+        )
+    }
+
+    /**
      * A fully-correct attempt log that mastery-clears [skillId] when replayed, for a synthetic
      * [sessionId] starting at [startAt].
+     *
+     * No longer used by the jump tool (see [masteredStateFor]). Kept because
+     * `DebugMasterySeederTest` drives it through the real [MasteryEvaluator] for every node in the
+     * graph, which is a genuine curriculum invariant — "every node can actually be mastered by playing
+     * it" — and is what caught `M11.CHROM_FLAT6` being mathematically unmasterable.
      */
     public fun attemptsToMaster(
         skillId: SkillId,

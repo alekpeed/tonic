@@ -25,14 +25,16 @@ class DebugSkillJumperTest {
     ) {
         val attemptRepository = FakeAttemptRepository()
         val skillStateRepository = FakeSkillStateRepository(attemptRepository)
-        val sessionRepository = FakeSessionRepository()
+        val settingsRepository =
+            com.tonic.feature.settings.ui
+                .FakeSettingsRepository()
         val debugProgressRepository =
             FakeDebugProgressRepository(attemptRepository, skillStateRepository)
         val jumper =
             DebugSkillJumper(
                 debugProgressRepository,
                 skillStateRepository,
-                sessionRepository,
+                settingsRepository,
                 Clock { now },
             )
 
@@ -87,15 +89,14 @@ class DebugSkillJumperTest {
             val target = SkillIds.M10_MIXED_MODE
 
             val first = fixture.jumper.jumpTo(target)
-            val attemptsAfterFirst = fixture.attemptRepository.all.size
             val second = fixture.jumper.jumpTo(target)
 
             assertEquals(first, second)
             assertEquals(target, fixture.currentNode())
             assertEquals(
-                attemptsAfterFirst,
-                fixture.attemptRepository.all.size,
-                "attempts accumulated across jumps - the reset is not actually clearing the log",
+                first.toSet(),
+                fixture.masteredNodes(),
+                "state accumulated across jumps - the reset is not actually clearing it",
             )
         }
     }
@@ -110,7 +111,6 @@ class DebugSkillJumperTest {
 
             assertEquals(emptyList(), seeded)
             assertTrue(fixture.masteredNodes().isEmpty())
-            assertTrue(fixture.attemptRepository.all.isEmpty())
         }
     }
 

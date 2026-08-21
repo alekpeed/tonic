@@ -27,6 +27,13 @@ data class SettingsUiState(
     val debugJumpResult: DebugJumpResult? = null,
     /** A jump is seconds of work, not instant — without this the press looks like nothing happened. */
     val debugJumpInProgress: Boolean = false,
+    /**
+     * One-shot navigation signal, deliberately separate from [debugJumpResult]. Folding the two
+     * together meant consuming the navigation also erased the outcome line, so the press reported
+     * nothing — the very symptom the result line exists to prevent, reintroduced by the fix for it.
+     * Caught by `SettingsDebugSectionTest`, which is the point of having it.
+     */
+    val debugJumpNavigateTo: SkillId? = null,
 )
 
 /** Outcome of a debug "jump to node" press — how many nodes it had to seed, or why it couldn't. */
