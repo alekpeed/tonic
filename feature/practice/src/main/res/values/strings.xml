@@ -160,4 +160,16 @@
     <string name="practice_paused_title">Paused.</string>
     <string name="practice_paused_body">That note wasn\'t scored. Continue whenever you\'re ready.</string>
     <string name="practice_paused_continue">Continue</string>
+    <!-- Sung response explanation - docs/30-PHASE-3-SPEC.md §6.2. Plain words only: every term is
+         one the learner already has, and the reassurance about not being judged is stated outright
+         rather than implied, per docs/11-ONBOARDING-CLARITY.md §9.4. -->
+    <string name="sung_intro_title">Answering by singing</string>
+    <string name="sung_intro_what_happens">You can sing your answer instead of tapping it. Everything else stays the same: you hear the setup, then the note, then you answer.</string>
+    <string name="sung_intro_any_octave">Sing it high or low, whichever is comfortable for your voice. It counts either way.</string>
+    <string name="sung_intro_example_heading">For example</string>
+    <string name="sung_intro_example">Say the answer is 3, and you sing it slightly flat. That still counts as 3. The app works out which note you were going for, and close is close enough.</string>
+    <string name="sung_intro_not_judged">How well you sing is not part of this. Nothing here scores your voice.</string>
+    <string name="sung_intro_unclear">If the app cannot make out what you sang, it simply asks again. That is never counted as a wrong answer.</string>
+    <string name="sung_intro_tap_always">The buttons are always there too. You can tap any question instead, at any time.</string>
+    <string name="sung_intro_start">Got it</string>
 </resources>

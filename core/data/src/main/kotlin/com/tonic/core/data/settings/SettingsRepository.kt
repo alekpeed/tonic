@@ -44,6 +44,15 @@ interface SettingsRepository {
     /** See [com.tonic.core.model.state.AppSettings.mixedModeIntroSeen]. */
     suspend fun setMixedModeIntroSeen(seen: Boolean)
 
+    /** See [com.tonic.core.model.state.AppSettings.sungResponseEnabled]. */
+    suspend fun setSungResponseEnabled(enabled: Boolean)
+
+    /** See [com.tonic.core.model.state.AppSettings.sungOctaveAgnostic]. */
+    suspend fun setSungOctaveAgnostic(enabled: Boolean)
+
+    /** See [com.tonic.core.model.state.AppSettings.sungResponseIntroSeen]. */
+    suspend fun setSungResponseIntroSeen(seen: Boolean)
+
     /** [enabled] and [time] must agree: false always pairs with a null time - docs/05-DATA-MODEL.md §3. */
     suspend fun setDailyReminder(
         enabled: Boolean,

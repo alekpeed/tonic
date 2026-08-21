@@ -347,6 +347,7 @@ internal fun IntroForKind(
     when (kind) {
         IntroKind.M10 -> M10IntroContent(onPlayExample = onPlayExample, onStart = onStart)
         IntroKind.M11 -> M11IntroContent(onStart = onStart)
+        IntroKind.SUNG -> SungResponseIntroContent(onStart = onStart)
         IntroKind.MIXED_MODE ->
             MixedModeIntroContent(
                 answerLabel = mixedModeExampleAnswer,

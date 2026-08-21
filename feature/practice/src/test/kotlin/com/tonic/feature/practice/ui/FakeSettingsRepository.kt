@@ -64,6 +64,18 @@ class FakeSettingsRepository(
         settings.value = settings.value.copy(mixedModeIntroSeen = seen)
     }
 
+    override suspend fun setSungResponseEnabled(enabled: Boolean) {
+        settings.value = settings.value.copy(sungResponseEnabled = enabled)
+    }
+
+    override suspend fun setSungOctaveAgnostic(enabled: Boolean) {
+        settings.value = settings.value.copy(sungOctaveAgnostic = enabled)
+    }
+
+    override suspend fun setSungResponseIntroSeen(seen: Boolean) {
+        settings.value = settings.value.copy(sungResponseIntroSeen = seen)
+    }
+
     override suspend fun setModule2IntroSeen(seen: Boolean) {
         state.value = state.value.copy(module2IntroSeen = seen)
     }

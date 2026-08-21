@@ -100,6 +100,13 @@ data class PracticeUiState(
 enum class IntroKind {
     NONE,
 
+    /**
+     * Answering by singing — docs/30-PHASE-3-SPEC.md §6.2. Unlike every other kind here this one is not
+     * tied to a skill node: the question being asked is unchanged, only the way it is answered, so it
+     * can surface on any node once the learner opts in.
+     */
+    SUNG,
+
     /** Degree identification in major. */
     M2,
 

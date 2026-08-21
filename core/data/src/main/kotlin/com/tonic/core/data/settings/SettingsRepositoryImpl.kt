@@ -31,6 +31,9 @@ internal object SettingsKeys {
     val MODULE11_INTRO_SEEN = booleanPreferencesKey("module11_intro_seen")
     val MODULE12_INTRO_SEEN = booleanPreferencesKey("module12_intro_seen")
     val MIXED_MODE_INTRO_SEEN = booleanPreferencesKey("mixed_mode_intro_seen")
+    val SUNG_RESPONSE_ENABLED = booleanPreferencesKey("sung_response_enabled")
+    val SUNG_OCTAVE_AGNOSTIC = booleanPreferencesKey("sung_octave_agnostic")
+    val SUNG_RESPONSE_INTRO_SEEN = booleanPreferencesKey("sung_response_intro_seen")
     val DAILY_REMINDER_ENABLED = booleanPreferencesKey("daily_reminder_enabled")
     val DAILY_REMINDER_TIME = stringPreferencesKey("daily_reminder_time")
 }
@@ -94,6 +97,18 @@ internal class SettingsRepositoryImpl
             dataStore.edit { it[SettingsKeys.MODULE12_INTRO_SEEN] = seen }
         }
 
+        override suspend fun setSungResponseEnabled(enabled: Boolean) {
+            dataStore.edit { it[SettingsKeys.SUNG_RESPONSE_ENABLED] = enabled }
+        }
+
+        override suspend fun setSungOctaveAgnostic(enabled: Boolean) {
+            dataStore.edit { it[SettingsKeys.SUNG_OCTAVE_AGNOSTIC] = enabled }
+        }
+
+        override suspend fun setSungResponseIntroSeen(seen: Boolean) {
+            dataStore.edit { it[SettingsKeys.SUNG_RESPONSE_INTRO_SEEN] = seen }
+        }
+
         override suspend fun setMixedModeIntroSeen(seen: Boolean) {
             dataStore.edit { it[SettingsKeys.MIXED_MODE_INTRO_SEEN] = seen }
         }
@@ -139,6 +154,10 @@ private fun Preferences.toAppSettings(): AppSettings {
         module11IntroSeen = this[SettingsKeys.MODULE11_INTRO_SEEN] ?: defaults.module11IntroSeen,
         module12IntroSeen = this[SettingsKeys.MODULE12_INTRO_SEEN] ?: defaults.module12IntroSeen,
         mixedModeIntroSeen = this[SettingsKeys.MIXED_MODE_INTRO_SEEN] ?: defaults.mixedModeIntroSeen,
+        sungResponseEnabled = this[SettingsKeys.SUNG_RESPONSE_ENABLED] ?: defaults.sungResponseEnabled,
+        sungOctaveAgnostic = this[SettingsKeys.SUNG_OCTAVE_AGNOSTIC] ?: defaults.sungOctaveAgnostic,
+        sungResponseIntroSeen =
+            this[SettingsKeys.SUNG_RESPONSE_INTRO_SEEN] ?: defaults.sungResponseIntroSeen,
         dailyReminderEnabled = this[SettingsKeys.DAILY_REMINDER_ENABLED] ?: defaults.dailyReminderEnabled,
         dailyReminderTime = this[SettingsKeys.DAILY_REMINDER_TIME],
     )

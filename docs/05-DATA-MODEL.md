@@ -137,10 +137,20 @@ Settings only. No progress data.
 | `module11_intro_seen` | Boolean | `false` |
 | `module12_intro_seen` | Boolean | `false` |
 | `mixed_mode_intro_seen` | Boolean | `false` |
+| `sung_response_enabled` | Boolean | `false` |
+| `sung_octave_agnostic` | Boolean | `true` |
+| `sung_response_intro_seen` | Boolean | `false` |
 | `daily_reminder_enabled` | Boolean | `false` |
 | `daily_reminder_time` | String? | null |
 
 `daily_reminder_enabled` defaults to **false**. Opt-in only. See `08-UI-SPEC.md` §7.
+
+The three `sung_*` keys are Phase 3's (`30-PHASE-3-SPEC.md` §7). `sung_response_enabled` defaults false
+because §6.1 forbids requesting the microphone from anyone who has not actively opted into singing, and
+a default of true would do exactly that. `sung_octave_agnostic` defaults **true** because §3 mitigation 3
+makes octave-agnosticism a mitigation against the phase's central risk rather than a preference: forcing
+a register tests vocal range, not hearing. `sung_response_intro_seen` is `08-UI-SPEC.md` §3a's per-shape
+flag applied to singing, which is its own task shape — same question, different answer control.
 
 `module9_intro_seen`, `module10_intro_seen`, `module11_intro_seen`, `module12_intro_seen` and `mixed_mode_intro_seen` are the same mechanism for Phase 2's new task shapes (`08-UI-SPEC.md` §3a). One flag per shape, deliberately: having seen the major explanation says nothing about whether a learner has been told what `♭3` means, why a note exists between `4` and `5`, that one exercise runs backwards and its silence is the point, or that the mode is about to stop being announced, and marking them together would rob someone of an explanation they never received.
 

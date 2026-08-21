@@ -63,6 +63,31 @@ data class AppSettings(
      * buttons because of it.
      */
     val mixedModeIntroSeen: Boolean = false,
+    /**
+     * Whether the learner has opted into answering by singing — docs/30-PHASE-3-SPEC.md §7,
+     * `sung_response_enabled`, default false.
+     *
+     * Default false is not merely a conservative starting value: §2 makes singing permanently optional,
+     * and §6.1 requires the microphone permission to be requested only when the learner actively opts
+     * in, never at install or first launch. A default of true would request the microphone from someone
+     * who never asked to sing, which is the behavior that rule exists to forbid.
+     */
+    val sungResponseEnabled: Boolean = false,
+    /**
+     * Whether a sung degree counts in any octave — docs/30-PHASE-3-SPEC.md §7, `sung_octave_agnostic`,
+     * default **true**.
+     *
+     * True by default because §3 mitigation 3 makes octave-agnosticism a mitigation against the phase's
+     * central risk, not a convenience: forcing a specific octave tests vocal range rather than hearing,
+     * and vocal range varies enormously between learners. Turning it off is the unusual choice.
+     */
+    val sungOctaveAgnostic: Boolean = true,
+    /**
+     * Whether the sung-response explanation has been shown once — docs/08-UI-SPEC.md §3a's per-shape
+     * flag, applied to singing. Answering by voice is a different answer control and a different thing
+     * to do, so it is its own task shape and gets its own flag rather than riding on any module's.
+     */
+    val sungResponseIntroSeen: Boolean = false,
     /** Opt-in only - docs/05-DATA-MODEL.md §3: "defaults to false. Opt-in only." See docs/08-UI-SPEC.md §7. */
     val dailyReminderEnabled: Boolean = false,
     /** `"HH:mm"`, null when [dailyReminderEnabled] is false. */
