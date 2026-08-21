@@ -5,6 +5,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.tonic.core.model.ids.SkillIds
 import com.tonic.core.model.state.AppSettings
@@ -78,12 +79,20 @@ class SungResponseIntroTest {
             ).assertIsDisplayed()
     }
 
-    /** §1's "not a tutorial mode the user must complete correctly": start is live immediately. */
+    /**
+     * §1's "not a tutorial mode the user must complete correctly": start is live immediately, with no
+     * example to play and nothing to acknowledge first.
+     *
+     * The scroll is required, not incidental. This screen is longer than the default test viewport, so
+     * the button sits below the fold - and a `performClick` on a node outside the viewport does not
+     * throw, it simply never reaches the button, which would leave this test asserting on a click that
+     * never happened. IntroDispatchTest records the same hazard for the major screen.
+     */
     @Test
     fun `start is available without any interaction first`() {
         var started = false
         compose.setContent { TonicTheme { SungResponseIntroContent { started = true } } }
-        compose.onNodeWithTag("sung_intro_start").performClick()
+        compose.onNodeWithTag("sung_intro_start").performScrollTo().performClick()
         assertTrue(started, "Start must work on first press, with nothing required beforehand")
     }
 
