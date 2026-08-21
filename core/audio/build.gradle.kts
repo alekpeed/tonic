@@ -81,4 +81,8 @@ dependencies {
 tasks.withType<Test> {
     useJUnitPlatform()
     failOnNoDiscoveredTests = false
+    // Passthrough for the listenable-sample export (AudioSampleExportTest). Gradle does not forward
+    // -D to the test JVM on its own, and an opt-in switch is useless if it cannot be reached from the
+    // command line - the same reasoning as the golden-corpus switch in :core:curriculum.
+    System.getProperty("tonic.audio.export")?.let { systemProperty("tonic.audio.export", it) }
 }
