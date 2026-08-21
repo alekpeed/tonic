@@ -146,8 +146,8 @@ so they encoded the same assumptions as the thing they were checking. *A fake ca
 
 The tooling to have caught this was already in the repo and was simply never pointed at the feature:
 
-- `:core:data` has had Robolectric-hosted **real Room** since Stage 5 (9 test files use it).
-- `:feature:practice` has had Robolectric-hosted **real Compose screens** since Stage 7 (7 test files).
+- `:core:data` has had Robolectric-hosted **real Room** since Stage 1.5 (9 test files use it).
+- `:feature:practice` has had Robolectric-hosted **real Compose screens** since Stage 1.7 (7 test files).
 
 Pointing both at the debug feature found things immediately: the real-SQLite test disproved the leading
 theory about where the crash was, and the screen test reproduced the reported symptom ("the press

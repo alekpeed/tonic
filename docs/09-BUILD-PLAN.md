@@ -11,9 +11,15 @@ At a STOP gate:
 
 Do not batch stages. Do not "get ahead." A stage that is 90% done and blocked is a better report than three stages half-built.
 
+## Stage numbering
+
+Every stage number in this project carries its phase: `1.0`–`1.10` here, `2.0`–`2.8` in `20-PHASE-2-SPEC.md` §7, `3.0`–`3.6` in `30-PHASE-3-SPEC.md` §8.
+
+Phase 1's stages were originally written as bare integers, `Stage 0` through `Stage 10`, when Phase 1 was the only phase that existed. That collided as soon as it wasn't: "Stage 2" meant the audio engine here and the whole of Phase 2 elsewhere, "Stage 3" meant curriculum-and-generators here and the start of Phase 3 elsewhere — one finished, one not started, one decimal point apart. **Renumbered 2026-08-21. `Stage N` in any older text means `Stage 1.N`**, which is the mapping to apply to source comments that still cite the old form.
+
 ---
 
-## Stage 0 — Skeleton
+## Stage 1.0 — Skeleton
 
 Build:
 - Gradle project, version catalog, all modules from `04-ARCHITECTURE.md` §2, empty but wired.
@@ -31,7 +37,7 @@ Acceptance:
 
 ---
 
-## Stage 1 — Domain model
+## Stage 1.1 — Domain model
 
 Build `:core:model` in full: all types listed in `04-ARCHITECTURE.md` §3, tuning math (`06-AUDIO-ENGINE.md` §6), `Clock` abstraction, serializable state classes with `schemaVersion`.
 
@@ -45,7 +51,7 @@ Acceptance:
 
 ---
 
-## Stage 2 — Audio engine
+## Stage 1.2 — Audio engine
 
 Build `:core:audio` per `06-AUDIO-ENGINE.md`: four timbres, ADSR, mixing, limiter, reference-plan rendering, `AudioTrack` player, focus handling.
 
@@ -62,7 +68,7 @@ Acceptance (all automated except the last):
 
 ---
 
-## Stage 3 — Curriculum and generators
+## Stage 1.3 — Curriculum and generators
 
 Build `:core:curriculum`: skill graph, `M0` and `M2` item generators, `ReferencePlanBuilder`, `BalancedSampler`.
 
@@ -78,7 +84,7 @@ Acceptance:
 
 ---
 
-## Stage 4 — Adaptive engine
+## Stage 1.4 — Adaptive engine
 
 Build `:core:engine` per `07-ADAPTIVE-ENGINE.md`: staircase, d-prime, axis scheduler, confusion tracker, mastery evaluator, FSRS scheduler, session composer.
 
@@ -98,7 +104,7 @@ Acceptance:
 
 ---
 
-## Stage 5 — Persistence
+## Stage 1.5 — Persistence
 
 Build `:core:data` per `05-DATA-MODEL.md`: entities, DAOs, repositories, DataStore, schema export.
 
@@ -112,7 +118,7 @@ Acceptance:
 
 ---
 
-## Stage 6 — Practice loop (headless)
+## Stage 1.6 — Practice loop (headless)
 
 Wire the loop end to end with no real UI: a test harness or debug screen that runs generation → render → play → answer → record → adapt.
 
@@ -126,7 +132,7 @@ Acceptance:
 
 ---
 
-## Stage 7 — Practice UI
+## Stage 1.7 — Practice UI
 
 Build `:core:ui` and `:feature:practice` per `08-UI-SPEC.md`. The degree ladder is the centerpiece — build it carefully.
 
@@ -142,7 +148,7 @@ Acceptance:
 
 ---
 
-## Stage 8 — Diagnostic UI
+## Stage 1.8 — Diagnostic UI
 
 Build `:feature:diagnostic`. All four M0 sub-tests, adaptive termination, placement output.
 
@@ -156,7 +162,7 @@ Acceptance:
 
 ---
 
-## Stage 9 — Home, summary, progress, settings
+## Stage 1.9 — Home, summary, progress, settings
 
 Build the remaining features.
 
@@ -171,7 +177,7 @@ Acceptance:
 
 ---
 
-## Stage 10 — Hardening
+## Stage 1.10 — Hardening
 
 - Full-app pass: rotation, process death, low memory, airplane mode, storage pressure.
 - Verify no network permission in the manifest at all.

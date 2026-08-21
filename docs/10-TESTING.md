@@ -78,7 +78,7 @@ All render-path tests run on the JVM against `FloatArray` output.
 
 Implement a small FFT in the test source set rather than adding a production dependency.
 
-**What cannot be automated:** whether a timbre sounds like a musical note with an unambiguous pitch, and whether loudness matching is perceptually convincing. That requires listening on a real device. It is a required manual gate at Stage 2 (`09-BUILD-PLAN.md`).
+**What cannot be automated:** whether a timbre sounds like a musical note with an unambiguous pitch, and whether loudness matching is perceptually convincing. That requires listening on a real device. It is a required manual gate at Stage 1.2 (`09-BUILD-PLAN.md`).
 
 ## 7. Persistence testing
 

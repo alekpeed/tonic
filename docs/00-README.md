@@ -62,4 +62,4 @@ If the conflict is not resolvable that way, stop and ask.
 
 ## Handoff note
 
-These documents specify a design. They do not contain code. The estimates of what is hard are: the audio engine's perceptual quality (loudness matching across timbres, unambiguous pitch across register) and the adaptive engine's stability under real user behavior. Budget accordingly, and take the Stage 2 and Stage 4 gates seriously — those two are where this project either works or quietly does not.
+These documents specify a design. They do not contain code. The estimates of what is hard are: the audio engine's perceptual quality (loudness matching across timbres, unambiguous pitch across register) and the adaptive engine's stability under real user behavior. Budget accordingly, and take the Stage 1.2 and Stage 1.4 gates seriously — those two are where this project either works or quietly does not.

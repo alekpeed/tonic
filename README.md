@@ -74,7 +74,7 @@ device, no emulator (`/dev/kvm` is unavailable, so the AVD can't boot), and
 no display. Everything that can be verified without one has been — JVM unit
 tests, property-based tests, simulation tests, Robolectric-backed
 Android-dependent tests, ktlint, `assembleDebug`/`assembleRelease` (R8)
-builds. Anything the spec calls a **manual, on-device** gate (the Stage 2
+builds. Anything the spec calls a **manual, on-device** gate (the Stage 1.2
 audio listening pass, real-device performance/frame-drop checks, TalkBack
 navigation, physical-interruption handling) has *not* been verified and is
 called out explicitly wherever it applies. Run those before trusting this
