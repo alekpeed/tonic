@@ -143,6 +143,8 @@ Do not, without explicit chat approval:
 - Ask questions through the interactive question prompt, not as prose in the reply.
 - American English spelling and grammar throughout — code, comments, docs, and UI strings.
 - Report what you built, what you verified, and what you did not verify. State uncertainty explicitly.
+- **Lint locally before pushing: `scripts/ktlint.sh`.** It needs no Android SDK and takes seconds, and
+  its ktlint version is pinned to match CI's. Style violations otherwise cost a full CI round each.
 - **The build is verifiable in CI, so verify it there.** `.github/workflows/verify.yml` runs
   `scripts/verify.sh` on every push and pull request, on a runner that has the Android SDK. Development
   sandboxes for this project generally do not, so "I could not run the build" is not a reason to leave a

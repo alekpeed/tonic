@@ -54,24 +54,28 @@ class SungResponseIntroTest {
     fun `it states plainly that the voice is not scored, any octave counts, and tapping remains`() {
         compose.setContent { TonicTheme { SungResponseIntroContent {} } }
 
-        compose.onNodeWithText("How well you sing is not part of this. Nothing here scores your voice.")
+        compose
+            .onNodeWithText("How well you sing is not part of this. Nothing here scores your voice.")
             .assertIsDisplayed()
-        compose.onNodeWithText(
-            "Sing it high or low, whichever is comfortable for your voice. It counts either way.",
-        ).assertIsDisplayed()
-        compose.onNodeWithText(
-            "The buttons are always there too. You can tap any question instead, at any time.",
-        ).assertIsDisplayed()
+        compose
+            .onNodeWithText(
+                "Sing it high or low, whichever is comfortable for your voice. It counts either way.",
+            ).assertIsDisplayed()
+        compose
+            .onNodeWithText(
+                "The buttons are always there too. You can tap any question instead, at any time.",
+            ).assertIsDisplayed()
     }
 
     /** §5.2's rule, stated to the learner rather than only implemented: unclear is not wrong. */
     @Test
     fun `it tells the learner that an unreadable answer is not counted wrong`() {
         compose.setContent { TonicTheme { SungResponseIntroContent {} } }
-        compose.onNodeWithText(
-            "If the app cannot make out what you sang, it simply asks again. " +
-                "That is never counted as a wrong answer.",
-        ).assertIsDisplayed()
+        compose
+            .onNodeWithText(
+                "If the app cannot make out what you sang, it simply asks again. " +
+                    "That is never counted as a wrong answer.",
+            ).assertIsDisplayed()
     }
 
     /** §1's "not a tutorial mode the user must complete correctly": start is live immediately. */

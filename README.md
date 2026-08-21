@@ -44,6 +44,17 @@ To auto-fix formatting instead of just checking it:
 ./gradlew ktlintFormat
 ```
 
+Both of those need the Android SDK. To check style without it — useful in a
+sandbox that has no SDK, and much faster than waiting for CI:
+
+```
+scripts/ktlint.sh            # check
+scripts/ktlint.sh --format   # fix what can be fixed
+```
+
+It downloads a standalone ktlint once, pinned to the version CI enforces, and
+reads the project's own `.editorconfig`.
+
 ## Toolchain notes (as of this build)
 
 The Android/Kotlin ecosystem moved considerably between this spec being
