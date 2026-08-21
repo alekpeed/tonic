@@ -140,6 +140,7 @@ Do not, without explicit chat approval:
   durable and skippable, not in chat. Long-form output is by request only.
 - **Reply format, every time:** what was done, what is needed from the human (omit if nothing), what is
   next. Nothing else — no background, no caveats, no findings that were not asked for.
+- Ask questions through the interactive question prompt, not as prose in the reply.
 - American English spelling and grammar throughout — code, comments, docs, and UI strings.
 - Report what you built, what you verified, and what you did not verify. State uncertainty explicitly.
 - **The build is verifiable in CI, so verify it there.** `.github/workflows/verify.yml` runs
