@@ -41,7 +41,7 @@ This supersedes and expands `08-UI-SPEC.md` §3a with concrete required copy con
 
 ## 4. Every future module gets the same treatment before it ships
 
-This is not a one-time patch for Module 2. Before any future module (rhythm, dictation, harmony, real-music) plays its first exercise for a first-time user, it must have gone through the same three-step standard in §1, with content specific to that module's mechanic. This requirement is now permanent and belongs in `09-BUILD-PLAN.md`'s acceptance criteria for every future-phase stage that introduces a new exercise type — no stage introducing a new task shape is complete without its explanation screen and worked example.
+This is not a one-time patch for Module 2. Before any future module (rhythm, dictation, harmony) plays its first exercise for a first-time user, it must have gone through the same three-step standard in §1, with content specific to that module's mechanic. This requirement is now permanent and belongs in `09-BUILD-PLAN.md`'s acceptance criteria for every future-phase stage that introduces a new exercise type — no stage introducing a new task shape is complete without its explanation screen and worked example.
 
 ## 5. Recall, not repetition
 

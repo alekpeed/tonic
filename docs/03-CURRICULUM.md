@@ -25,8 +25,7 @@ Identifiers are permanent. Once shipped, a `SkillId` string is never reused for 
 | M4 | Melodic Dictation | 5 | Reserve only |
 | M5 | Harmony | 6 | Reserve only |
 | M6 | Harmonic Dictation and Polyphony | 6 | Reserve only |
-| M7 | Real Music Bridge | 7 | Reserve only |
-| M8 | Advanced / Chromatic / Modal | 8 | Reserve only |
+| M8 | Advanced / Chromatic / Modal | 8 | Reserve only — but see the note below |
 
 ---
 
@@ -203,7 +202,6 @@ M4.FRAG_2, M4.FRAG_3, M4.PHRASE_SHORT, M4.PHRASE_FULL, M4.RHYTHM_FIRST
 M5.QUALITY_MAJ_MIN, M5.QUALITY_EXT, M5.BASS_DEGREE, M5.FUNCTION_IVV,
 M5.FUNCTION_DIATONIC, M5.INVERSIONS, M5.VOICE_LEADING
 M6.BASS_SOPRANO, M6.TWO_VOICE, M6.FOUR_VOICE
-M7.REAL_MELODY, M7.REAL_HARMONY
 M8.MINOR_MODE, M8.CHROMATIC_DEGREES, M8.MODAL, M8.EXTENDED_HARMONY
 ```
 

@@ -195,5 +195,6 @@ Acceptance: all Phase 1 success criteria in `01-PRODUCT-SPEC.md` §5 demonstrabl
 | 4 | Rhythm (M3) | **Requires revisiting the audio backend** — low-latency input likely means Oboe/NDK, plus round-trip latency calibration |
 | 5 | Melodic dictation (M4) | |
 | 6 | Harmony and harmonic dictation (M5, M6) | Bass-line first |
-| 7 | Real-music bridge (M7) | Blocked on owned/licensed audio. See `02-PEDAGOGY.md` §9 |
 | 8 | Advanced/modal (M8), desktop build | |
+
+**Phase 7 is retired and its number is not reused.** It was the real-music bridge; the module was dropped from the product and its identifiers removed from the code (`02-PEDAGOGY.md` §9). The gap stays a gap for the same reason `03-CURRICULUM.md` §1 forbids recycling a shipped `SkillId`: a number that once meant something specific is worse than useless when it silently starts meaning something else. Deprecate, do not recycle — that rule is about identifiers, and a phase number is an identifier.

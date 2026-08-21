@@ -37,7 +37,7 @@ Module 1 (pitch primitives) is folded into Module 0's remediation path in Phase 
 | Rhythm module | Independent track; requires low-latency input and latency calibration, the hardest engineering problem in the project. Phase 4. |
 | Melodic dictation | Depends on mastered functional recognition. Phase 5. |
 | Harmony / chord identification | Phase 6. |
-| Real-music excerpts | Phase 7, and constrained by licensing. See `02-PEDAGOGY.md` §9. |
+| Real-music excerpts | Not in the product at all. Clearing a commercial recording means clearing two separate copyrights per track, for material the synthesis engine already covers. Closed decision — see `02-PEDAGOGY.md` §9. |
 | Absolute pitch training | Out of scope permanently for the core product. Adult acquisition evidence exists but is small-sample and pre-selected; it is not required for musicianship and wastes beginner effort. |
 | Staff notation | Optional display far later. Never a prerequisite. |
 | Accounts, cloud sync, social features, leaderboards | Local-only. No network. |
