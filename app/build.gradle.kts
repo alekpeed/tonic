@@ -39,6 +39,9 @@ android {
 
     buildFeatures {
         compose = true
+        // Gates the debug-only intake skip in NavGraph. The skip has to live here rather than in
+        // :feature:diagnostic, because :app is what decides navigation and what knows the build type.
+        buildConfig = true
     }
 
     compileOptions {

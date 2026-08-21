@@ -48,4 +48,9 @@
     <string name="diagnostic_result_fundamentals_title">Calibration finished.</string>
     <string name="diagnostic_result_fundamentals_body">That\'s the setup done — no more calibration questions. Practice starts next, beginning with the fundamentals and building up one step at a time.</string>
     <string name="diagnostic_continue">Continue</string>
+
+    <!-- Debug builds only - :app passes null for this in release, so the control does not exist there.
+         The diagnostic is the one screen a fresh install cannot get past, which made it a trap for a
+         tester reinstalling to escape a bad state. -->
+    <string name="diagnostic_debug_skip">Skip intake (debug build only)</string>
 </resources>

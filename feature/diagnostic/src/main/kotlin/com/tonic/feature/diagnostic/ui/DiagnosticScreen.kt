@@ -35,11 +35,18 @@ import com.tonic.feature.diagnostic.engine.M0SubTest
 fun DiagnosticScreen(
     onContinue: () -> Unit,
     viewModel: DiagnosticViewModel = hiltViewModel(),
+    /**
+     * Debug builds only, supplied by `:app` — null in a release build, so the control is absent rather
+     * than merely hidden. The diagnostic is the one screen a fresh install cannot get past, and a
+     * tester who reinstalls to escape a bad state should not have to sit through it again to reach the
+     * debug tools that would have fixed it.
+     */
+    onDebugSkip: (() -> Unit)? = null,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     when {
-        !uiState.hasStarted -> IntroState(onBegin = viewModel::begin)
+        !uiState.hasStarted -> IntroState(onBegin = viewModel::begin, onDebugSkip = onDebugSkip)
         uiState.isFinished -> ResultState(outcome = uiState.outcome, onContinue = onContinue)
         else ->
             RunningState(
@@ -51,7 +58,13 @@ fun DiagnosticScreen(
 }
 
 @Composable
-private fun IntroState(onBegin: () -> Unit) {
+// internal, not private: DiagnosticDebugSkipTest renders this directly to prove the debug skip is
+// reachable from inside the flow it exists to escape. Building a fake DiagnosticViewModel to get at it
+// through DiagnosticScreen would test the fake's wiring, not this composable's.
+internal fun IntroState(
+    onBegin: () -> Unit,
+    onDebugSkip: (() -> Unit)? = null,
+) {
     Column(
         modifier = Modifier.fillMaxSize().padding(TonicSpacing.lg),
         verticalArrangement = Arrangement.Center,
@@ -72,6 +85,12 @@ private fun IntroState(onBegin: () -> Unit) {
         Spacer(modifier = Modifier.height(TonicSpacing.xl))
         Button(onClick = onBegin, modifier = Modifier.testTag("diagnostic_begin")) {
             Text(stringResource(R.string.diagnostic_begin))
+        }
+        onDebugSkip?.let { skip ->
+            Spacer(modifier = Modifier.height(TonicSpacing.lg))
+            TextButton(onClick = skip, modifier = Modifier.testTag("diagnostic_debug_skip")) {
+                Text(stringResource(R.string.diagnostic_debug_skip))
+            }
         }
     }
 }
