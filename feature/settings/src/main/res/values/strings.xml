@@ -48,6 +48,8 @@
          the whole section in SettingsScreen). Seeds real, synthetic attempts through the same mastery
          path genuine play uses, so a tester can reach any node without grinding every one before it. -->
     <string name="settings_debug_heading">Developer options (debug build only)</string>
-    <string name="settings_debug_jump_body">Jump to a node for testing. This records synthetic attempts through the real mastery path — nothing about how mastery is judged is bypassed, only how it was earned.</string>
+    <string name="settings_debug_jump_body">Jump to a node for testing. This ERASES all progress, then records synthetic attempts through the real mastery path up to the node you pick. Nothing about how mastery is judged is bypassed — only how it was earned.</string>
     <string name="settings_debug_jump_result">Seeded %1$d node(s). Now on %2$s.</string>
+    <string name="settings_debug_jump_working">Seeding…</string>
+    <string name="settings_debug_jump_failed">Jump failed: %1$s</string>
 </resources>

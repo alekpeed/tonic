@@ -107,6 +107,7 @@ private fun SettingsContent(
     onExportDataRequested: () -> Unit = {},
     debugJumpTargets: List<SkillId> = emptyList(),
     debugJumpResult: DebugJumpResult? = null,
+    debugJumpInProgress: Boolean = false,
     onDebugJumpRequested: (SkillId) -> Unit = {},
 ) {
     LazyColumn(modifier = Modifier.fillMaxSize().padding(TonicSpacing.md)) {
@@ -271,6 +272,7 @@ private fun SettingsContent(
                 DebugJumpSection(
                     targets = debugJumpTargets,
                     result = debugJumpResult,
+                    inProgress = debugJumpInProgress,
                     onJumpRequested = onDebugJumpRequested,
                 )
             }
@@ -288,6 +290,7 @@ private fun SettingsContent(
 private fun DebugJumpSection(
     targets: List<SkillId>,
     result: DebugJumpResult?,
+    inProgress: Boolean,
     onJumpRequested: (SkillId) -> Unit,
 ) {
     SettingsSection(stringResource(R.string.settings_debug_heading)) {
@@ -296,24 +299,49 @@ private fun DebugJumpSection(
             style = MaterialTheme.typography.bodyMedium,
         )
         Spacer(modifier = Modifier.height(TonicSpacing.sm))
+
+        // The outcome sits ABOVE the button list, not below it. Below, it was off the bottom of a
+        // 23-button column - the press had in fact reported itself and the report was simply never
+        // on screen.
+        if (inProgress) {
+            Text(
+                text = stringResource(R.string.settings_debug_jump_working),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.testTag("settings_debug_jump_working"),
+            )
+            Spacer(modifier = Modifier.height(TonicSpacing.sm))
+        }
+        result?.let {
+            Text(
+                text =
+                    if (it.failure != null) {
+                        stringResource(R.string.settings_debug_jump_failed, it.failure)
+                    } else {
+                        stringResource(R.string.settings_debug_jump_result, it.seededCount, it.target.raw)
+                    },
+                style = MaterialTheme.typography.bodyMedium,
+                color =
+                    if (it.failure != null) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.primary
+                    },
+                modifier = Modifier.testTag("settings_debug_jump_result"),
+            )
+            Spacer(modifier = Modifier.height(TonicSpacing.sm))
+        }
+
         Column(verticalArrangement = Arrangement.spacedBy(TonicSpacing.xs)) {
             for (target in targets) {
                 OutlinedButton(
                     onClick = { onJumpRequested(target) },
+                    enabled = !inProgress,
                     modifier = Modifier.fillMaxWidth().testTag("settings_debug_jump_${target.raw}"),
                 ) {
                     Text(target.raw)
                 }
             }
-        }
-        result?.let {
-            Spacer(modifier = Modifier.height(TonicSpacing.sm))
-            Text(
-                text = stringResource(R.string.settings_debug_jump_result, it.seededCount, it.target.raw),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.testTag("settings_debug_jump_result"),
-            )
         }
     }
 }

@@ -6,6 +6,8 @@ import com.tonic.core.data.repository.AttemptRepository
 import com.tonic.core.data.repository.AttemptRepositoryImpl
 import com.tonic.core.data.repository.ConfusionRepository
 import com.tonic.core.data.repository.ConfusionRepositoryImpl
+import com.tonic.core.data.repository.DebugProgressRepository
+import com.tonic.core.data.repository.DebugProgressRepositoryImpl
 import com.tonic.core.data.repository.DiagnosticRepository
 import com.tonic.core.data.repository.DiagnosticRepositoryImpl
 import com.tonic.core.data.repository.SessionRepository
@@ -49,4 +51,9 @@ internal abstract class RepositoryModule {
 
     @Binds
     abstract fun bindDataExportRepository(impl: DataExportRepositoryImpl): DataExportRepository
+
+    /** Debug tooling only — see [DebugProgressRepository]. Bound unconditionally; only a
+     * `BuildConfig.DEBUG`-gated screen ever injects it. */
+    @Binds
+    abstract fun bindDebugProgressRepository(impl: DebugProgressRepositoryImpl): DebugProgressRepository
 }

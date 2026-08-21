@@ -25,12 +25,16 @@ data class SettingsUiState(
      */
     val debugJumpTargets: List<SkillId> = emptyList(),
     val debugJumpResult: DebugJumpResult? = null,
+    /** A jump is seconds of work, not instant — without this the press looks like nothing happened. */
+    val debugJumpInProgress: Boolean = false,
 )
 
-/** Outcome of a debug "jump to node" press — how many nodes it had to seed to get there. */
+/** Outcome of a debug "jump to node" press — how many nodes it had to seed, or why it couldn't. */
 data class DebugJumpResult(
     val target: SkillId,
     val seededCount: Int,
+    /** Null on success. Surfaced verbatim: a debug tool's failure is information, not noise. */
+    val failure: String? = null,
 )
 
 /** What "Discard saved session" found - the confirmation copy differs (docs/08-UI-SPEC.md §2a). */

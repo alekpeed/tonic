@@ -21,6 +21,10 @@ internal interface SkillStateDao {
     @Query("SELECT skillId FROM skill_states WHERE fsrsDue IS NOT NULL AND fsrsDue <= :now")
     suspend fun dueForReview(now: Long): List<String>
 
+    /** Debug tooling only — see `DebugProgressRepository`. Never called by the practice loop. */
+    @Query("DELETE FROM skill_states")
+    suspend fun deleteAll()
+
     /** Every skill state. Export only — see [AttemptDao.allAttempts]. */
     @Query("SELECT * FROM skill_states ORDER BY skillId ASC")
     suspend fun allSkillStates(): List<SkillStateEntity>

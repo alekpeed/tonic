@@ -26,8 +26,24 @@ class DebugSkillJumperTest {
         val attemptRepository = FakeAttemptRepository()
         val skillStateRepository = FakeSkillStateRepository(attemptRepository)
         val sessionRepository = FakeSessionRepository()
+        val debugProgressRepository =
+            FakeDebugProgressRepository(attemptRepository, skillStateRepository)
         val jumper =
-            DebugSkillJumper(attemptRepository, skillStateRepository, sessionRepository, Clock { now })
+            DebugSkillJumper(
+                debugProgressRepository,
+                skillStateRepository,
+                sessionRepository,
+                Clock { now },
+            )
+
+        suspend fun masteredNodes() =
+            skillStateRepository
+                .observeAll()
+                .first()
+                .filterValues { it.masteryState == MasteryState.MASTERED }
+                .keys
+
+        suspend fun currentNode() = masteredNodes().let { done -> SkillGraph.currentNodeFor { it in done } }
     }
 
     @Test
@@ -40,62 +56,74 @@ class DebugSkillJumperTest {
 
             val expectedBefore = SkillGraph.practiceChain.map { it.id }.takeWhile { it != target }
             assertEquals(expectedBefore, seeded, "seeded the wrong nodes, or in the wrong order")
-
-            val states = fixture.skillStateRepository.observeAll().first()
-            for (id in expectedBefore) {
-                assertEquals(
-                    MasteryState.MASTERED,
-                    states[id]?.masteryState,
-                    "${id.raw} was seeded but never actually mastered",
-                )
-            }
-            assertTrue(
-                target !in states || states.getValue(target).masteryState != MasteryState.MASTERED,
-                "the target itself must be left unmastered - the tester practices it for real",
-            )
-
-            assertEquals(
-                target,
-                SkillGraph.currentNodeFor {
-                    it in states.keys &&
-                        states.getValue(it).masteryState == MasteryState.MASTERED
-                },
-            )
+            assertEquals(expectedBefore.toSet(), fixture.masteredNodes(), "seeded but not actually mastered")
+            assertEquals(target, fixture.currentNode())
         }
     }
 
     @Test
-    fun `jumping to the current node is a no-op`() {
+    fun `pressing an earlier node after a later one works instead of throwing`() {
+        // A REAL BUG, and the one a tester hit within a minute of opening the screen. The first
+        // version walked forward from wherever the learner already was, so a target at or behind the
+        // current node was unsatisfiable: the walk ran to its step ceiling and threw, which inside
+        // viewModelScope.launch crashed the app. Resetting first makes the operation absolute, so the
+        // buttons work in the order a person actually presses them.
         runBlocking {
             val fixture = Fixture()
-            val current = SkillGraph.currentNodeFor { false }
+            fixture.jumper.jumpTo(SkillIds.M11_CHROM_FLAT2)
 
-            val seeded = fixture.jumper.jumpTo(current)
+            val seeded = fixture.jumper.jumpTo(SkillIds.M2_DEG_SET_2)
 
-            assertEquals(emptyList(), seeded)
-            assertTrue(
-                fixture.skillStateRepository
-                    .observeAll()
-                    .first()
-                    .isEmpty(),
+            assertEquals(listOf(SkillIds.M2_DEG_SET_1), seeded)
+            assertEquals(SkillIds.M2_DEG_SET_2, fixture.currentNode())
+            assertEquals(setOf(SkillIds.M2_DEG_SET_1), fixture.masteredNodes(), "the later nodes must be gone")
+        }
+    }
+
+    @Test
+    fun `the same jump twice leaves the same state - it is absolute, not cumulative`() {
+        runBlocking {
+            val fixture = Fixture()
+            val target = SkillIds.M10_MIXED_MODE
+
+            val first = fixture.jumper.jumpTo(target)
+            val attemptsAfterFirst = fixture.attemptRepository.all.size
+            val second = fixture.jumper.jumpTo(target)
+
+            assertEquals(first, second)
+            assertEquals(target, fixture.currentNode())
+            assertEquals(
+                attemptsAfterFirst,
+                fixture.attemptRepository.all.size,
+                "attempts accumulated across jumps - the reset is not actually clearing the log",
             )
         }
     }
 
     @Test
-    fun `jumping twice in the same session reaches a later target from where the first jump left off`() {
+    fun `jumping to the chain's first node seeds nothing and wipes what was there`() {
         runBlocking {
             val fixture = Fixture()
             fixture.jumper.jumpTo(SkillIds.M9_MODE_ID_CADENCE)
-            val secondSeeded = fixture.jumper.jumpTo(SkillIds.M10_MIXED_MODE)
 
-            // Nothing already mastered by the first jump should be re-seeded by the second.
-            assertTrue(SkillIds.M2_DEG_SET_1 !in secondSeeded)
-            val states = fixture.skillStateRepository.observeAll().first()
-            assertEquals(
-                SkillIds.M10_MIXED_MODE,
-                SkillGraph.currentNodeFor { states[it]?.masteryState == MasteryState.MASTERED },
-            )
+            val seeded = fixture.jumper.jumpTo(SkillGraph.practiceChain.first().id)
+
+            assertEquals(emptyList(), seeded)
+            assertTrue(fixture.masteredNodes().isEmpty())
+            assertTrue(fixture.attemptRepository.all.isEmpty())
+        }
+    }
+
+    @Test
+    fun `every node in the chain is reachable by one press, from a state that is not fresh`() {
+        // The claim the whole tool rests on, checked for every node rather than a chosen few - and
+        // checked from dirty state each time, since that is the only state a tester's device is ever in.
+        runBlocking {
+            val fixture = Fixture()
+            for (node in SkillGraph.practiceChain) {
+                fixture.jumper.jumpTo(node.id)
+                assertEquals(node.id, fixture.currentNode(), "${node.id.raw} was not reachable in one press")
+            }
         }
     }
 }

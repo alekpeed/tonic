@@ -12,6 +12,18 @@ internal interface AttemptDao {
     suspend fun insert(entity: AttemptEntity): Long
 
     /**
+     * One transaction for many attempts. The practice loop never needs this — it records one answer at
+     * a time as it happens — but the debug jump tool writes hundreds at once, and per-row transactions
+     * there are the difference between instant and an ANR.
+     */
+    @Insert
+    suspend fun insertAll(entities: List<AttemptEntity>)
+
+    /** Debug tooling only — see `DebugProgressRepository`. Never called by the practice loop. */
+    @Query("DELETE FROM attempts")
+    suspend fun deleteAll()
+
+    /**
      * The most recent [limit] attempts for [skillId], in chronological (oldest-first) order - matching
      * how `:core:engine` consumes a mastery window (`window.last()` is the most recent attempt). The
      * inner query does the DESC-then-LIMIT selection; the outer ORDER BY restores ascending order.

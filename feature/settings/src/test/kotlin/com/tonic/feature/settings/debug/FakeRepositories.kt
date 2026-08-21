@@ -1,6 +1,7 @@
 package com.tonic.feature.settings.debug
 
 import com.tonic.core.data.repository.AttemptRepository
+import com.tonic.core.data.repository.DebugProgressRepository
 import com.tonic.core.data.repository.SessionRepository
 import com.tonic.core.data.repository.SkillStateRepository
 import com.tonic.core.engine.replay.SkillStateReducer
@@ -33,6 +34,12 @@ class FakeAttemptRepository : AttemptRepository {
     override suspend fun record(attempt: Attempt) {
         attempts += attempt.copy(id = nextId++)
         flow.value = attempts.toList()
+    }
+
+    /** Stands in for `AttemptDao.deleteAll` — see [FakeDebugProgressRepository]. */
+    fun clear() {
+        attempts.clear()
+        flow.value = emptyList()
     }
 
     override fun recentAttempts(
@@ -76,6 +83,30 @@ class FakeSkillStateRepository(
         val attempts = attemptRepository.attemptsFor(skillId)
         states[skillId] = SkillStateReducer.replay(skillId, attempts)
         flow.value = states.toMap()
+    }
+
+    /** Stands in for `SkillStateDao.deleteAll` — see [FakeDebugProgressRepository]. */
+    fun clear() {
+        states.clear()
+        flow.value = emptyMap()
+    }
+}
+
+/**
+ * The in-memory counterpart of `DebugProgressRepositoryImpl`, over the same two fakes the jumper
+ * writes through — so a test sees the reset exactly as Room would apply it.
+ */
+class FakeDebugProgressRepository(
+    private val attemptRepository: FakeAttemptRepository,
+    private val skillStateRepository: FakeSkillStateRepository,
+) : DebugProgressRepository {
+    override suspend fun resetProgress() {
+        skillStateRepository.clear()
+        attemptRepository.clear()
+    }
+
+    override suspend fun recordAttempts(attempts: List<Attempt>) {
+        for (attempt in attempts) attemptRepository.record(attempt)
     }
 }
 

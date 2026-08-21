@@ -60,9 +60,22 @@ class SettingsViewModel
          * [DebugSkillJumper]'s KDoc for why this does not compromise mastery's meaning for real play.
          */
         fun onDebugJumpRequested(target: SkillId) {
+            // A jump takes real time (hundreds of attempts, a mastery replay per node), so the press
+            // has to say so immediately or it reads as a dead button - which is exactly how the first
+            // version came across.
+            if (_uiState.value.debugJumpInProgress) return
+            _uiState.update { it.copy(debugJumpInProgress = true, debugJumpResult = null) }
             viewModelScope.launch {
-                val seeded = debugSkillJumper.jumpTo(target)
-                _uiState.update { it.copy(debugJumpResult = DebugJumpResult(target, seeded.size)) }
+                // Never let this crash the app. The first version had no catch at all, so the
+                // unsatisfiable-target bug surfaced to a tester as a hard crash with nothing said
+                // about why. A debug tool that fails silently or fatally is worse than no tool.
+                val result =
+                    runCatching { debugSkillJumper.jumpTo(target) }
+                        .fold(
+                            onSuccess = { DebugJumpResult(target, it.size, failure = null) },
+                            onFailure = { DebugJumpResult(target, seededCount = 0, failure = it.message ?: "failed") },
+                        )
+                _uiState.update { it.copy(debugJumpInProgress = false, debugJumpResult = result) }
             }
         }
 
