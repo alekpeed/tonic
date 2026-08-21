@@ -52,7 +52,18 @@ class StaircaseConvergenceSimulationTest {
         assertTrue(state.hasConverged, "did not converge within $trials trials")
         assertTrue(measuredThreshold != null)
         val error = abs(measuredThreshold - trueThreshold)
-        // Report the measured value (docs/10-TESTING.md §5) via the assertion message, whether it passes or not.
+
+        // docs/10-TESTING.md §5 and Stage 1.4 both ask for the measured convergence point to be
+        // *reported*, not merely asserted on. This previously rode on the assertion message below,
+        // with a comment claiming it surfaced "whether it passes or not" - which is not how assertions
+        // work: `assertTrue(condition, message)` shows its message only when the condition fails, so on
+        // every green run the number the spec asks for was computed and thrown away. Printing it makes
+        // the report real; the assertion keeps its message for the failing case, where it is also wanted.
+        println(
+            "Staircase convergence: measured=%.2f true=%.1f error=%.2f over %d trials, overall accuracy=%.3f"
+                .format(measuredThreshold, trueThreshold, error, trials, correctCount.toDouble() / trials),
+        )
+
         assertTrue(
             error < 15.0,
             "measured threshold=$measuredThreshold true=$trueThreshold error=$error over $trials trials, overall accuracy=${correctCount.toDouble() / trials}",
