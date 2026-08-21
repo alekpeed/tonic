@@ -516,31 +516,23 @@ class PracticeViewModel
         }
 
         /**
-         * Which node to practice and which mastered nodes are due for review — normally the Home
-         * screen's job (docs/08-UI-SPEC.md §2: "Start session, current progress at a glance"), but Home
-         * is Stage 9 and not yet built. Scoped here to the minimum this screen needs to be functional on
-         * its own: the first M2 node (in [SkillGraph.m2Nodes] order) that isn't yet [MasteryState.MASTERED]
-         * — deliberately not gated on LOCKED vs. AVAILABLE, since the M0 diagnostic placement flow that
-         * performs the real unlock is Stage 8, also not yet built, and a fresh install would otherwise
-         * have nothing practiceable at all. Once Stage 8 lands and writes real AVAILABLE states via
-         * placement, this still resolves correctly without changes - a LOCKED node past `M2_DEG_SET_1`
-         * simply won't exist for a real user by the time they reach here.
+         * Which node to practice and which mastered nodes are due for review.
+         *
+         * The node choice is [SkillGraph.currentNodeFor]'s, not this screen's. It used to be a local
+         * walk of a locally-declared chain, and so did Home's and the progress screen's — three
+         * answers to one question, which had already diverged: two of them walked `M2` alone while
+         * this one walked everything, so once the major nodes were mastered Home would report
+         * `M2.FULL_DIATONIC` while sessions here ran minor.
+         *
+         * Deliberately keyed on MASTERED rather than on LOCKED vs. AVAILABLE. The gates a node
+         * declares are checked by the resolver itself, which is stricter and more honest than reading
+         * an unlock flag: a node opens when the things it actually depends on are done, whatever any
+         * placement write happens to have recorded.
          */
         private suspend fun resolveSessionStart(): Pair<SkillWorkContext, List<DueReview>> {
             val states = skillStateRepository.observeAll().first()
-            // Major, then minor, then the chromatic degrees. Minor only opens once the whole major
-            // chain is mastered: M10's real prerequisite is M9.MODE_ID_TRIAD (docs/20-PHASE-2-SPEC.md
-            // §3), and until the M9 gate is reachable from Home this is the conservative stand-in - it
-            // never routes a learner into minor before they can hold a key in major, which is the
-            // property that matters. M11 sits last for the same reason: its declared prerequisite is
-            // M2.INDEPENDENCE_CHECK, which this stand-in cannot observe, so it waits for strictly more
-            // than the spec requires rather than less.
-            val chain =
-                SkillGraph.m2Nodes + SkillGraph.m10Nodes + listOf(SkillGraph.m10MixedModeNode) +
-                    SkillGraph.m11Nodes + SkillGraph.m12Nodes
             val currentNodeId =
-                chain.firstOrNull { states[it.id]?.masteryState != MasteryState.MASTERED }?.id
-                    ?: chain.last().id
+                SkillGraph.currentNodeFor { id -> states[id]?.masteryState == MasteryState.MASTERED }
             val currentState = states[currentNodeId]
             val currentContext =
                 SkillWorkContext(

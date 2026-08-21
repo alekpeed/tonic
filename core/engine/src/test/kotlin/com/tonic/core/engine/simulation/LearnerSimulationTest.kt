@@ -19,7 +19,7 @@ class LearnerSimulationTest {
     fun `improving learner - axis levels advance and mastery is eventually reached without thrashing`() {
         var itemIndex = 0
         val responder =
-            SimulatedResponder(correctProbability = { axisLevels, _ ->
+            SimulatedResponder(correctProbability = { axisLevels, _, _ ->
                 val cadence = (axisLevels[DifficultyAxis.CADENCE_FADE] ?: 0).toDouble()
                 val skillLevel = itemIndex * 0.03
                 itemIndex++
@@ -58,7 +58,7 @@ class LearnerSimulationTest {
         // the level back down before it can wander further. Every level along the way stays well below
         // the 90% mastery accuracy floor.
         val responder =
-            SimulatedResponder(correctProbability = { axisLevels, _ ->
+            SimulatedResponder(correctProbability = { axisLevels, _, _ ->
                 val cadence = (axisLevels[DifficultyAxis.CADENCE_FADE] ?: 0).toDouble()
                 (0.75 - cadence * 0.12).coerceIn(0.15, 0.75)
             })
@@ -94,7 +94,7 @@ class LearnerSimulationTest {
         // Low ability, and it gets WORSE at higher cadence levels specifically, so climbing difficulty
         // punishes them - exactly the scenario the safety valve exists for.
         val responder =
-            SimulatedResponder(correctProbability = { axisLevels, _ ->
+            SimulatedResponder(correctProbability = { axisLevels, _, _ ->
                 val cadence = (axisLevels[DifficultyAxis.CADENCE_FADE] ?: 0).toDouble()
                 (0.5 - cadence * 0.08).coerceIn(0.05, 0.5)
             })

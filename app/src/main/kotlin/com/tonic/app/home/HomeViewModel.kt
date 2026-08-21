@@ -60,9 +60,12 @@ class HomeViewModel
 
         private suspend fun load() {
             val states = skillStateRepository.observeAll().first()
+            // SkillGraph.currentNodeFor, not a chain of this screen's own: Home, the progress screen
+            // and the practice loop each used to answer "what are you working on" separately, and two
+            // of them walked M2 alone while the third walked everything. Home would have reported
+            // M2.FULL_DIATONIC forever while sessions ran minor.
             val currentNodeId =
-                SkillGraph.m2Nodes.firstOrNull { states[it.id]?.masteryState != MasteryState.MASTERED }?.id
-                    ?: SkillGraph.m2Nodes.last().id
+                SkillGraph.currentNodeFor { id -> states[id]?.masteryState == MasteryState.MASTERED }
             val currentState = states[currentNodeId] ?: SkillState.initial(currentNodeId)
             val activeDegrees = SkillGraph.activeDegreesFor(currentNodeId).sortedBy { it.degree }
 

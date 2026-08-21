@@ -2,6 +2,7 @@ package com.tonic.core.engine.replay
 
 import com.tonic.core.curriculum.graph.SkillGraph
 import com.tonic.core.engine.fsrs.FsrsScheduler
+import com.tonic.core.engine.mastery.BinaryMasteryEvaluator
 import com.tonic.core.engine.mastery.IndependenceCheck
 import com.tonic.core.engine.mastery.MasteryEvaluator
 import com.tonic.core.engine.mastery.PredictionMasteryEvaluator
@@ -9,6 +10,7 @@ import com.tonic.core.engine.scheduling.AxisScheduler
 import com.tonic.core.engine.scheduling.AxisSchedulerState
 import com.tonic.core.model.attempts.Attempt
 import com.tonic.core.model.ids.SkillId
+import com.tonic.core.model.items.AnswerAlphabet
 import com.tonic.core.model.items.DifficultyAxis
 import com.tonic.core.model.state.FsrsGrade
 import com.tonic.core.model.state.FsrsState
@@ -74,8 +76,19 @@ object SkillStateReducer : SkillStateReplayer {
         val totalAttempts = real.size
         val updatedAt = chronological.last().timestamp
 
-        if (SkillGraph.scopeFor(skillId) == DifficultyAxis.Scope.PREDICTION && SkillGraph.isKnownNode(skillId)) {
-            return replayPrediction(skillId, real, chronological, totalAttempts, updatedAt)
+        if (SkillGraph.isKnownNode(skillId)) {
+            when (SkillGraph.scopeFor(skillId)) {
+                DifficultyAxis.Scope.PREDICTION ->
+                    return replayPrediction(skillId, real, chronological, totalAttempts, updatedAt)
+
+                // M9. Routing a learner to a node with no mastery path would strand them there
+                // forever - and since M9 gates all of minor, that would be worse than the
+                // unreachability it replaced. See replayModeId.
+                DifficultyAxis.Scope.MODE_ID ->
+                    return replayModeId(skillId, chronological, totalAttempts, updatedAt)
+
+                DifficultyAxis.Scope.RECOGNITION -> Unit
+            }
         }
 
         if (!SkillGraph.isRecognitionNode(skillId)) {
@@ -163,6 +176,72 @@ object SkillStateReducer : SkillStateReplayer {
             axisLevels = axisState.levels,
             staircaseStates = axisState.staircases,
             activeAxis = axisState.activeAxis,
+            masteryState = masteryState,
+            masteredAt = masteredAt,
+            fsrs = fsrs,
+            totalAttempts = totalAttempts,
+            updatedAt = updatedAt,
+        )
+    }
+
+    /**
+     * The `M9` reduction — docs/20-PHASE-2-SPEC.md §3.
+     *
+     * The simplest of the three: no staircase, because the module has no axes (its three nodes *are*
+     * its progression), and [BinaryMasteryEvaluator]'s two criteria rather than the six that are about
+     * scale degrees. FSRS still applies — a mastered mode-identification node is reviewed like any
+     * other.
+     *
+     * `MINOR` is named as the signal condition, arbitrarily: d-prime measures the separation between
+     * hit and false-alarm rates, so swapping signal for noise flips the sign of both z-scores and
+     * leaves their difference unchanged.
+     */
+    private fun replayModeId(
+        skillId: SkillId,
+        chronological: List<Attempt>,
+        totalAttempts: Int,
+        updatedAt: Instant,
+    ): SkillState {
+        val masteryWindow = ArrayDeque<Attempt>()
+        var masteryState = MasteryState.IN_PROGRESS
+        var masteredAt: Instant? = null
+        var fsrs = FsrsState(stability = 0.0, difficulty = 0.0, lastReview = null, due = null)
+        var reviewBlock = mutableListOf<Attempt>()
+
+        for (attempt in chronological) {
+            if (masteryState == MasteryState.MASTERED) {
+                reviewBlock.add(attempt)
+                if (reviewBlock.size >= REVIEW_BLOCK_SIZE) {
+                    val accuracy = reviewBlock.count { it.correct }.toDouble() / reviewBlock.size
+                    fsrs =
+                        FsrsScheduler.review(fsrs, FsrsGrade.fromBlockAccuracy(accuracy), reviewBlock.last().timestamp)
+                    reviewBlock = mutableListOf()
+                }
+                continue
+            }
+            if (attempt.isWarmup) continue
+
+            masteryWindow.addLast(attempt)
+            if (masteryWindow.size > BinaryMasteryEvaluator.WINDOW_SIZE) masteryWindow.removeFirst()
+
+            val verdict =
+                BinaryMasteryEvaluator.evaluate(
+                    masteryWindow.toList(),
+                    signalLabel = AnswerAlphabet.MajorMinor.MINOR,
+                )
+            if (verdict.isMastered) {
+                masteryState = MasteryState.MASTERED
+                masteredAt = attempt.timestamp
+                fsrs = FsrsScheduler.initial(FsrsGrade.GOOD, attempt.timestamp)
+            }
+        }
+
+        return SkillState(
+            skillId = skillId,
+            // No axes at all, deliberately - not an empty map standing in for unknown levels.
+            axisLevels = emptyMap(),
+            staircaseStates = emptyMap(),
+            activeAxis = null,
             masteryState = masteryState,
             masteredAt = masteredAt,
             fsrs = fsrs,

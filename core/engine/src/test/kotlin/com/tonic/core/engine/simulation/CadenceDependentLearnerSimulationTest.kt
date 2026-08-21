@@ -54,7 +54,7 @@ class CadenceDependentLearnerSimulationTest {
     private val activeDegrees = SkillGraph.activeDegreesFor(skill).sortedBy { it.degree }
 
     private fun cadenceDependentResponder(): SimulatedResponder =
-        SimulatedResponder(correctProbability = { axisLevels, _ ->
+        SimulatedResponder(correctProbability = { axisLevels, _, _ ->
             val cadence = axisLevels[DifficultyAxis.CADENCE_FADE] ?: 0
             if (cadence < 6) 0.92 else 1.0 / activeDegrees.size // chance level once the reference is truly gone
         })
@@ -121,7 +121,7 @@ class CadenceDependentLearnerSimulationTest {
     @Test
     fun `a genuinely independent learner - good even with no reference - passes the check`() {
         // Equally good at every cadence level, including L6.
-        val independentResponder = SimulatedResponder(correctProbability = { _, _ -> 0.90 })
+        val independentResponder = SimulatedResponder(correctProbability = { _, _, _ -> 0.90 })
         val independenceItems =
             runFixedAxisBlock(
                 independentResponder,
@@ -159,8 +159,8 @@ class CadenceDependentLearnerSimulationTest {
             val result = M2ItemGenerator.generate(skill, axes, seed = seedBase + i * 131L, history = history)
             history = result.updatedHistory
             val item = result.item
-            val correct = responder.answer(axes, item.targetDegree, rng)
-            val targetLabel = item.targetDegree.degree.toString()
+            val correct = responder.answer(axes, item.targetDegree, item.mode, rng)
+            val targetLabel = item.targetDegree.canonicalLabel
             val responseLabel =
                 if (correct) {
                     targetLabel

@@ -78,6 +78,15 @@ enum class DifficultyAxis(
 
         /** Audiate a named degree, then judge what actually sounded: `M12.*`. */
         PREDICTION,
+
+        /**
+         * Say which mode is sounding: `M9.*`. **Has no axes at all** — docs/20-PHASE-2-SPEC.md §3:
+         * `M9`'s three nodes *are* its progression, each a separate skill rather than a level on a
+         * shared axis. Modeled as a scope rather than as an absence so the scheduler, the replayer and
+         * the session composer can all ask the same question of every node and get an answer, instead
+         * of each carrying its own special case for the one module that has no axes.
+         */
+        MODE_ID,
     }
 
     val levelRange: IntRange get() = 0..maxLevel
@@ -115,12 +124,16 @@ enum class DifficultyAxis(
             when (scope) {
                 Scope.RECOGNITION -> RECOGNITION_AXES
                 Scope.PREDICTION -> PREDICTION_AXES
+                Scope.MODE_ID -> emptyList()
             }
 
         fun schedulingPriorityFor(scope: Scope): List<DifficultyAxis> =
             when (scope) {
                 Scope.RECOGNITION -> SCHEDULING_PRIORITY
                 Scope.PREDICTION -> PREDICTION_SCHEDULING_PRIORITY
+                // Nothing to schedule. AxisScheduler picks no axis and returns its state untouched,
+                // which is the correct behavior for a module whose progression is its node list.
+                Scope.MODE_ID -> emptyList()
             }
     }
 }

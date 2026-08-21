@@ -142,6 +142,35 @@ object SkillGraph {
         }
 
     /**
+     * `M9`'s three nodes — docs/20-PHASE-2-SPEC.md §2.4/§3. Something sounds; the learner says whether
+     * it is major or minor.
+     *
+     * They carry no active degrees, because no degree is being named: the answer is a property of the
+     * whole passage. That is why they are [DifficultyAxis.Scope.MODE_ID] and have no difficulty axes —
+     * §3 is explicit that "`M9`'s three nodes *are* its progression," each stripping away a layer of
+     * harmonic support rather than moving a level on a shared axis.
+     *
+     * **They were absent from this graph until Stage 2.8, and that absence was the whole of why `M9`
+     * was unreachable.** `M10.MIN_SET_1` declared `M9.MODE_ID_TRIAD` as its prerequisite while nothing
+     * of that name existed here, so no chain contained it and nothing could route a learner to it — a
+     * dangling gate rather than a missing screen.
+     */
+    val m9Nodes: List<SkillNode> =
+        listOf(
+            SkillNode(SkillIds.M9_MODE_ID_CADENCE, prerequisite = SkillIds.M2_DEG_SET_1, activeDegrees = emptySet()),
+            SkillNode(
+                SkillIds.M9_MODE_ID_TRIAD,
+                prerequisite = SkillIds.M9_MODE_ID_CADENCE,
+                activeDegrees = emptySet(),
+            ),
+            SkillNode(
+                SkillIds.M9_MODE_ID_MELODIC,
+                prerequisite = SkillIds.M9_MODE_ID_TRIAD,
+                activeDegrees = emptySet(),
+            ),
+        )
+
+    /**
      * `M10.MIXED_MODE` — docs/20-PHASE-2-SPEC.md §3's interleaving node, "arguably the most valuable
      * node in Phase 2." Degree identification with the mode randomized per item and never announced
      * before the answer.
@@ -266,6 +295,7 @@ object SkillGraph {
     fun scopeFor(skillId: SkillId): DifficultyAxis.Scope =
         when (skillId) {
             in m12Nodes.map { it.id } -> DifficultyAxis.Scope.PREDICTION
+            in m9Nodes.map { it.id } -> DifficultyAxis.Scope.MODE_ID
             else -> DifficultyAxis.Scope.RECOGNITION
         }
 
@@ -346,8 +376,68 @@ object SkillGraph {
     /** Every recognition node the practice loop can run, in either mode. */
     val recognitionNodes: List<SkillNode> = m2Nodes + m10Nodes + listOf(m10MixedModeNode) + m11Nodes
 
-    /** Every node with a degree set, a generator and a mastery lifecycle — recognition and prediction alike. */
-    val allNodes: List<SkillNode> = recognitionNodes + m12Nodes
+    /** Every node this graph knows: recognition, mode identification and prediction alike. */
+    val allNodes: List<SkillNode> = recognitionNodes + m9Nodes + m12Nodes
+
+    /**
+     * The order nodes unlock in, and **the single answer to "what is the learner working on."**
+     *
+     * Home, the progress screen and the practice loop each used to derive this for themselves, and
+     * they derived it differently: two walked `M2` alone while the third walked the whole chain. Once
+     * the major nodes were mastered, Home and Progress would have gone on reporting
+     * `M2.FULL_DIATONIC` forever while practice sessions were actually running minor — two screens
+     * disagreeing about the same fact, which is worse than either being wrong on its own.
+     *
+     * The order is a topological reading of §3's prerequisites, not an invention: major, then mode
+     * identification (which gates minor), then minor, then the interleaving node that needs both, then
+     * the chromatic degrees, then audiation.
+     */
+    val practiceChain: List<SkillNode> =
+        m2Nodes + m9Nodes + m10Nodes + listOf(m10MixedModeNode) + m11Nodes + m12Nodes
+
+    /**
+     * The node a learner should be practicing, given which nodes they have mastered.
+     *
+     * The first node in [practiceChain] that is not yet mastered *and* whose gates are all satisfied —
+     * gates being [SkillNode.prerequisite] plus [SkillNode.alsoRequires], which is what makes
+     * `M10.MIXED_MODE` wait for all three of its real prerequisites rather than for whichever one
+     * happens to sit above it in the list.
+     *
+     * Falls back to the chain's last node when everything is mastered, so a learner who has finished
+     * the curriculum still has something to practice rather than being handed nothing.
+     */
+    fun currentNodeFor(mastered: (SkillId) -> Boolean): SkillId {
+        val open = practiceChain.firstOrNull { node -> !mastered(node.id) && gatesFor(node).all(mastered) }
+        return open?.id ?: practiceChain.last().id
+    }
+
+    /**
+     * Everything that must be mastered before [node] opens — its parent and any additional gates, with
+     * **independence checks resolved to the node that triggers them.**
+     *
+     * That substitution is the difference between M11 being practiceable and being dead code, and it
+     * is a reading of the spec rather than a workaround. `M11.CHROM_SHARP4` declares its prerequisite
+     * as "`M2.INDEPENDENCE_CHECK` passed", but docs/03-CURRICULUM.md §5.6 calls that check "a
+     * separate, non-blocking assessment": it is never a node a learner is routed to, so it never
+     * appears as mastered, so taken literally it is a gate that can never open. Gating on a
+     * non-blocking assessment is a contradiction in the spec's own terms; what the prerequisite means
+     * is that the `M2` chain is finished, and the node whose mastery *fires* the check is exactly
+     * that milestone.
+     *
+     * Found by the reachability test rather than by reading: the practice loop used to walk its chain
+     * by position and ignore prerequisites entirely, so M11 was reachable by accident. Checking gates
+     * properly is what exposed the dangling one.
+     */
+    fun gatesFor(node: SkillNode): List<SkillId> =
+        (listOfNotNull(node.prerequisite) + node.alsoRequires).map(::effectiveGate)
+
+    /** An independence check stands for the node that triggers it; everything else stands for itself. */
+    private fun effectiveGate(gate: SkillId): SkillId =
+        when (gate) {
+            SkillIds.M2_INDEPENDENCE_CHECK -> m2Nodes.last().id
+            SkillIds.M10_MIN_INDEPENDENCE_CHECK -> m10Nodes.last().id
+            else -> gate
+        }
 
     private val byId: Map<SkillId, SkillNode> = allNodes.associateBy { it.id }
 

@@ -32,13 +32,26 @@ class MinorIntroTest {
         const val TIMEOUT_MS = 10_000L
     }
 
-    /** Marks every major node mastered, which is what routes the next session into minor. */
-    private suspend fun PracticeFixture.masterAllOfMajor() {
-        for (id in SkillIds.M2_NODES_IN_ORDER) {
-            skillStateRepository.update(
-                SkillState.initial(id).copy(masteryState = MasteryState.MASTERED),
-            )
+    private suspend fun PracticeFixture.master(ids: List<com.tonic.core.model.ids.SkillId>) {
+        for (id in ids) {
+            skillStateRepository.update(SkillState.initial(id).copy(masteryState = MasteryState.MASTERED))
         }
+    }
+
+    /** Every major node. On its own this no longer reaches minor — see [masterEverythingBeforeMinor]. */
+    private suspend fun PracticeFixture.masterAllOfMajor() = master(SkillIds.M2_NODES_IN_ORDER)
+
+    /**
+     * Everything minor actually waits for: the major chain *and* mode identification.
+     *
+     * Mastering `M2` alone used to route straight into minor, because the loop walked its chain by
+     * position and ignored prerequisites. Stage 2.8 made routing gate-aware, and `M10.MIN_SET_1`'s
+     * declared prerequisite has always been `M9.MODE_ID_TRIAD` — a learner who cannot yet hear *which*
+     * mode is sounding has no business being asked to name a degree within one.
+     */
+    private suspend fun PracticeFixture.masterEverythingBeforeMinor() {
+        masterAllOfMajor()
+        master(SkillIds.M9_NODES_IN_ORDER)
     }
 
     @Test
@@ -56,7 +69,7 @@ class MinorIntroTest {
     fun `reaching minor for the first time shows the minor explanation, not the major one`() =
         runBlocking {
             val fixture = PracticeFixture(AppSettings(module2IntroSeen = true))
-            fixture.masterAllOfMajor()
+            fixture.masterEverythingBeforeMinor()
 
             fixture.viewModel.startIfNeeded()
             val state = withTimeout(TIMEOUT_MS) { fixture.viewModel.uiState.first { it.showIntro } }
@@ -73,7 +86,7 @@ class MinorIntroTest {
         runBlocking {
             // Marking both would silently rob a learner of an explanation they never received.
             val fixture = PracticeFixture(AppSettings(module2IntroSeen = false))
-            fixture.masterAllOfMajor()
+            fixture.masterEverythingBeforeMinor()
 
             fixture.viewModel.startIfNeeded()
             withTimeout(TIMEOUT_MS) { fixture.viewModel.uiState.first { it.showIntro } }
@@ -86,11 +99,31 @@ class MinorIntroTest {
         }
 
     @Test
+    fun `mastering major alone routes to mode identification, not to minor`() =
+        runBlocking {
+            // The routing this test used to assume was wrong, and Stage 2.8's gate-aware resolver is
+            // what corrected it: M10.MIN_SET_1 has always declared M9.MODE_ID_TRIAD as its
+            // prerequisite. Pinned here because "minor comes next" is the intuitive answer and the
+            // wrong one.
+            val fixture = PracticeFixture(AppSettings(module2IntroSeen = true))
+            fixture.masterAllOfMajor()
+
+            fixture.viewModel.startIfNeeded()
+            val state = withTimeout(TIMEOUT_MS) { fixture.viewModel.uiState.first { it.item != null } }
+
+            assertEquals(
+                SkillIds.M9_MODE_ID_CADENCE,
+                state.item?.skill,
+                "a learner who has finished major but cannot yet tell major from minor was sent to minor",
+            )
+        }
+
+    @Test
     fun `a minor session actually serves minor items`() =
         runBlocking {
             // The end-to-end point of Stage 2.3: routing, generation, loop and ladder all agreeing.
             val fixture = PracticeFixture(AppSettings(module2IntroSeen = true, module10IntroSeen = true))
-            fixture.masterAllOfMajor()
+            fixture.masterEverythingBeforeMinor()
 
             fixture.viewModel.startIfNeeded()
             val state = withTimeout(TIMEOUT_MS) { fixture.viewModel.uiState.first { it.item != null } }

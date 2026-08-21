@@ -18,6 +18,20 @@ and `:core:engine` plus every Android module's Robolectric/unit tests:
 ./gradlew build
 ```
 
+**When the question is "is the tree green," run the gate rather than gradle:**
+
+```bash
+./scripts/verify.sh
+```
+
+It runs the same build and then re-derives both golden baselines under
+`--rerun-tasks`, and — the reason it exists — it reads Gradle's own exit code
+instead of a pipeline's. Two Phase 2 stages were reported green off a command
+like `./gradlew build -q | grep -v ... | tail`, whose exit status is `tail`'s and
+therefore always zero; two real failures sat hidden across two commits. Never put
+a pipe between yourself and Gradle's status.
+
+
 To run just the pure-Kotlin engine/curriculum/model test suites:
 
 ```

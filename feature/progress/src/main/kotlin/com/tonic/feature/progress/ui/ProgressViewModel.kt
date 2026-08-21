@@ -64,14 +64,15 @@ class ProgressViewModel
 
         private suspend fun load() {
             val states = skillStateRepository.observeAll().first()
-            val masteryMap = SkillGraph.m2Nodes.map { node -> masteryMapNodeFor(node.id, states) }
+            // The whole chain, not just M2 - a progress screen that stops at the major nodes stops
+            // being a progress screen the moment a learner passes them.
+            val masteryMap = SkillGraph.practiceChain.map { node -> masteryMapNodeFor(node.id, states) }
 
             // "Per-degree accuracy" / "confusion view" are scoped to whichever node the user is actually
             // working on - the same "current node" resolution `:feature:practice`'s ViewModel uses
             // (docs/08-UI-SPEC.md §2/§6 both describe a single, current picture, not one per node).
             val currentNodeId =
-                SkillGraph.m2Nodes.firstOrNull { states[it.id]?.masteryState != MasteryState.MASTERED }?.id
-                    ?: SkillGraph.m2Nodes.last().id
+                SkillGraph.currentNodeFor { id -> states[id]?.masteryState == MasteryState.MASTERED }
             val matrix = confusionRepository.matrixFor(currentNodeId)
             val activeDegrees = SkillGraph.activeDegreesFor(currentNodeId).sortedBy { it.degree }
             val degreeAccuracy =
