@@ -174,10 +174,11 @@ class PitchDetectorTest {
         }
 
         // 64 samples at 48 kHz is 1.3 ms: shorter than one period of anything in range.
-        val tooShort = SynthEngine
-            .renderTone(Tuning.midiToHz(57), TimbreId.PURE, noteDurationMs, sampleRate, seed = 1L)
-            .samples
-            .copyOfRange(0, 64)
+        val tooShort =
+            SynthEngine
+                .renderTone(Tuning.midiToHz(57), TimbreId.PURE, noteDurationMs, sampleRate, seed = 1L)
+                .samples
+                .copyOfRange(0, 64)
         assertEquals(null, PitchDetector.detect(tooShort, sampleRate), "a sub-period window must not produce a pitch")
     }
 
@@ -202,9 +203,10 @@ class PitchDetectorTest {
     /** CLAUDE.md §5: a pure function over its inputs, so the same window must always give the same answer. */
     @Test
     fun `is deterministic`() {
-        val window = steadyWindow(
-            SynthEngine.renderTone(Tuning.midiToHz(64), TimbreId.SOFT, noteDurationMs, sampleRate, seed = 9L),
-        )
+        val window =
+            steadyWindow(
+                SynthEngine.renderTone(Tuning.midiToHz(64), TimbreId.SOFT, noteDurationMs, sampleRate, seed = 9L),
+            )
         val first = PitchDetector.detect(window, sampleRate)
         val second = PitchDetector.detect(window, sampleRate)
         assertEquals(first, second)
