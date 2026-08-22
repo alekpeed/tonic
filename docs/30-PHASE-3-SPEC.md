@@ -102,10 +102,44 @@ Key properties:
 |---|---|---|
 | `M2` (major diatonic) | Yes | Primary use case |
 | `M10` (minor) | Yes | Same mechanism |
-| `M11` (chromatic) | Yes | ⚠️ Tolerance bands narrow considerably with 12 degrees — see §5.2 ambiguity band |
+| `M11` (chromatic) | Yes | ~~⚠️ Tolerance bands narrow considerably with 12 degrees~~ **Measured 2026-08-22: they do not.** Diatonic reads correctly to 45 cents of uniform detuning, chromatic to 44, and both begin misreading at 55. See §5.5 |
 | `M9` (mode ID) | No | Answer is `MAJOR`/`MINOR`, not a pitch. Nothing to sing. |
 | `M12` (prediction) | **Yes — highest value here** | See §5.4 |
 | `M0` (diagnostic) | No | Diagnostic must work with zero permissions granted |
+
+### 5.5 Measured tolerance, and why chromatic is not the problem
+
+Stage 3.5's acceptance criterion is that chromatic tolerance bands are "verified not to produce
+systematic misreads." Measured through the real `DegreeResolver` by
+`SungToleranceMeasurementTest`, sweeping uniform detuning across every degree of every singable node:
+
+| Node | Degrees | Correct to | Unclear from | Misread from |
+|---|---|---|---|---|
+| `M2.DEG_SET_1` | 3 | never fails | — | — |
+| `M2.DEG_SET_2` / `_3` | 4–5 | 94¢ | 95¢ | — |
+| `M2.DEG_SET_4` / `FULL_DIATONIC` | 6–7 | 45¢ | 46¢ | 55¢ |
+| `M10.MIN_NATURAL` | 7 | 45¢ | 46¢ | 55¢ |
+| `M10.MIN_HARMONIC` / `MELODIC` / `MIXED_MODE` | 8–10 | 44¢ | 45¢ | 55¢ |
+| `M11.CHROM_FULL` | 12 | 44¢ | 45¢ | 55¢ |
+
+**The premise behind §9's question 4 is wrong.** Chromatic is one cent tighter than diatonic, and the
+misread band opens at exactly the same place. The major scale already contains semitone steps at
+`3`–`4` and `7`–`1`, so the binding geometry was fixed in Phase 1 the moment `4` joined the alphabet
+at `M2.DEG_SET_4`. Twelve degrees do not resolve less accurately than seven; they expose more degrees
+to the same limit.
+
+**What chromatic does change is breadth.** At §8 simulation 2's uniform −50 cents, `M2.FULL_DIATONIC`
+still reads 5 of 7 degrees and `M11.CHROM_FULL` reads 0 of 12. That learner is never *misread*
+anywhere — the ambiguity margin catches every case first, exactly as §5.2 intended — but on the
+chromatic node singing never once works for them. **A usability finding, not a correctness one**, and
+invisible to any pass/fail: the app behaves correctly and is useless to that person.
+
+⚠️ **The real risk this stage found is the 55-cent band, and it is not chromatic-specific.** Past
+about 55 cents of consistent offset the resolver stops returning "unclear" and starts returning a
+confident wrong degree — always the one below, on every alphabet with a semitone pair, `M2` included.
+That is the one outcome that reaches the staircase and the confusion matrix as real data. It is not
+mitigated by narrowing the answer set, and widening the ambiguity margin trades correct reads for
+unclear ones cent for cent. See §9 question 5.
 
 ### 5.4 Prediction items are where singing matters most
 
@@ -225,7 +259,7 @@ Extends `05-DATA-MODEL.md`.
 | 3.2 | Permission flow + explanation + worked example | Full app functionality with permission denied. Explanation reachable. Copy meets `11-ONBOARDING-CLARITY.md` §9.4. **Built 2026-08-22** — the opt-in, its explanation and the request live in `SungResponseSection`; `SungResponseSectionTest` pins the explanation-before-request ordering |
 | 3.3 | Sung response in `M2` | Tap-only path fully unaffected. Sung and tapped attempts share one `SkillState`. Fallback-to-tap always available. |
 | 3.4 | Sung prediction in `M12` | Sung answer captured during the gap, before the target plays. Cannot be gamed by guessing. **Built 2026-08-22** — see §5.4's four implementation decisions |
-| 3.5 | `M10` and `M11` | Chromatic tolerance bands verified not to produce systematic misreads. |
+| 3.5 | `M10` and `M11` | Chromatic tolerance bands verified not to produce systematic misreads. **Measured 2026-08-22** — bands reported in §5.5; no misread occurs before the unclear band on any node. `M10`/`M11` need no new wiring: both generate `FunctionalRecognitionItem`, so Stage 3.3's path already serves them |
 | 3.6 | Hardening + acceptance | Every Phase 1/2 criterion still met. No audio persisted. `sungCents` provably unread by the engine. |
 
 Same discipline throughout: STOP gate per stage, delta report with production-wiring traces, no starting the next stage until the current one is verified.
@@ -250,6 +284,7 @@ Same discipline throughout: STOP gate per stage, delta report with production-wi
 1. **`AudioRecord` vs. Oboe/NDK** (§5.1) — decide with measurements, not assumption.
 2. ~~**Ambiguity-band handling** (§5.2) — re-prompt or confirm.~~ **Decided 2026-08-21: re-prompt, at a 10-cent margin.** See §5.2.
 3. ~~**Sung prediction: replace or supplement the binary judgment** (§5.4).~~ **Decided 2026-08-21: supplement.** See §5.4.
-4. **Chromatic tolerance** (§5.3) — whether 12-degree resolution is viable for sung input at all, or whether singing should be limited to diatonic contexts.
+4. ~~**Chromatic tolerance** (§5.3) — whether 12-degree resolution is viable for sung input at all, or whether singing should be limited to diatonic contexts.~~ **Decided 2026-08-22: keep it, and the question's premise was wrong.** Chromatic resolves one cent tighter than diatonic and misreads at the same 55-cent threshold (§5.5). Restricting singing to diatonic contexts would remove the feature from `M11` while improving accuracy by nothing measurable, so there is no accuracy argument for the restriction and it is not made.
+5. **Systematic offset past 55 cents** (§5.5, new) — a learner with a consistent vocal offset that large is silently recorded as singing the degree below, on every alphabet including `M2`'s. `sungCents` already carries the per-attempt evidence a detector would need, and the fix is plausibly a calibration step or a nudge rather than a resolver change. ⚠️ **Needs device data before it is designed**: how common a >55-cent consistent offset actually is decides whether this is a real defect or a hypothetical one, and nothing in this repository can answer that.
 
 ⚠️ All four benefit from Phase 1/2 evidence. Answer them at the start of Phase 3, not now.

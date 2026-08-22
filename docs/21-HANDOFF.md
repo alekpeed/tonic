@@ -91,8 +91,8 @@ why §5 is unchanged.
 | 3.2 Permission + explanation | **Built.** The sung explanation screen exists and is tested. The opt-in, its explanation and the permission request landed 2026-08-22 in `SungResponseSection`. Only the on-device grant/deny behavior is unobserved. |
 | 3.3 Sung response in `M2` | **Done.** All three acceptance criteria have tests, green in runs #31 and #32. Simulated only — no real microphone in the loop, per §2. |
 | 3.4 Sung prediction in `M12` | **Done.** Both acceptance criteria have tests, green in run #34. The capture window is bounded by arithmetic — 200 ms lead-in, 250 ms guard before the note — so the ordering §5.4 depends on holds without a device to check it. Simulated only, same caveat as 3.3. |
-| 3.5 `M10` and `M11` | **Next up.** Not started. ⚠️ Its open question (can anyone sing chromatically enough to be scored?) needs device measurements, so the stage may not be closeable here. |
-| 3.6 Hardening | Not started. |
+| 3.5 `M10` and `M11` | **Measured and traced.** Needed no new feature code — both modules generate `FunctionalRecognitionItem`, so Stage 3.3's path already serves them, and `SungMinorAndChromaticTest` drives a real session to each and sings into it rather than taking that on trust. `SungToleranceMeasurementTest` reports the bands. The open question turned out to have a false premise — see §4b. |
+| 3.6 Hardening | **Next up.** Not started. |
 
 §9's four open questions: two settled and recorded in the spec (ambiguity band; sung prediction
 supplements rather than replaces — and §5.4 now also carries the four implementation decisions Stage
@@ -151,6 +151,38 @@ no device to write. Closed 2026-08-22, before Stage 3.5.
 
 **The rule that replaces it:** a stage is not done when its tests pass, it is done when a learner can
 get to it. State the route, then check the route.
+
+---
+
+## 4b. Stage 3.5's finding: chromatic was never the problem
+
+`docs/30-PHASE-3-SPEC.md` §5.3 warned that "tolerance bands narrow considerably with 12 degrees" and
+§9 asked whether singing should be limited to diatonic contexts because of it. Measured through the
+real resolver, the difference between seven degrees and twelve is **one cent**.
+
+| | Correct to | Unclear from | Misread from |
+|---|---|---|---|
+| `M2.FULL_DIATONIC` (7) | 45¢ | 46¢ | 55¢ |
+| `M11.CHROM_FULL` (12) | 44¢ | 45¢ | 55¢ |
+
+The major scale already contains semitone steps at `3`–`4` and `7`–`1`, so the binding geometry was
+fixed in Phase 1 the moment `4` joined the alphabet at `M2.DEG_SET_4`. Restricting singing to diatonic
+contexts would have removed the feature from `M11` and improved accuracy by nothing measurable, so
+question 4 is closed and the restriction is not made.
+
+**Two things came out of it that are worth carrying forward.**
+
+A usability finding: at a uniform −50 cents, `M2.FULL_DIATONIC` still reads 5 of 7 degrees and
+`M11.CHROM_FULL` reads **0 of 12**. That learner is never misread — the ambiguity margin catches every
+case, exactly as designed — but singing never once works for them on the chromatic node. The app is
+correct and useless to that person simultaneously, which no pass/fail can show.
+
+A real risk, now §9's new question 5: past ~55 cents of consistent offset the resolver stops saying
+"unclear" and starts returning a confident wrong degree, always the one below. That reaches the
+staircase and the confusion matrix as real data. It is not chromatic-specific — `M2` has it too — and
+it cannot be fixed by widening the ambiguity margin, which trades correct reads for unclear ones cent
+for cent. ⚠️ Needs device data before anything is designed: how common such an offset actually is
+decides whether this is a defect or a hypothetical.
 
 ---
 
