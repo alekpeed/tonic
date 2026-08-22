@@ -4,7 +4,8 @@
 authority. Check every claim here against the repo before relying on it — this file has been stale
 before and will be again.
 
-Branch: `claude/review-files-zip-docs-xmro7r`. Head at time of writing: `9bfa8b0` (run #32, green).
+Branch: `claude/handoff-stage-3-3-verified-d5j1pg`. Head at time of writing: `e95c17d` (run #34, green).
+That branch is `claude/review-files-zip-docs-xmro7r` plus this document's correction and Stage 3.4.
 
 ---
 
@@ -39,15 +40,16 @@ And when you make an edit with a script, **assert the intended text is present a
 was a find-and-replace that matched nothing because an earlier replacement in the same script had
 already changed the anchor text. It was pushed unverified.
 
-Runs #31 and #32 were green, and the streak is over. It ended because those two checks were run
-before pushing, not because the code got simpler. Keep running them.
+Runs #31 through #34 were green, and the streak is over — four in a row, including a whole stage
+landed in one push. It ended because those two checks were run before pushing, not because the code
+got simpler. Keep running them.
 
 ---
 
 ## 2. What is actually built and green
 
-Everything through **run #32** (`9bfa8b0`, this branch's head) is CI-verified green: all of Phase 1,
-all of Phase 2, this branch's explanation-screen overhaul, and all of Stage 3.3.
+Everything through **run #34** (`e95c17d`, this branch's head) is CI-verified green: all of Phase 1,
+all of Phase 2, this branch's explanation-screen overhaul, and Stages 3.3 and 3.4 entire.
 
 **Verified in CI:**
 
@@ -62,8 +64,14 @@ all of Phase 2, this branch's explanation-screen overhaul, and all of Stage 3.3.
   - `MicrophoneSource` / `CapturedAudio` / `UnavailableMicrophoneSource`
   - `SungAnswerControl`, `onSingAnswer`, `SungAnswerControlTest`, `SungAnswerFlowTest`
 
-Run #31 (`8e343ac`) is where that stack first went green; #32 held it on the head commit.
-**Stage 3.3 is complete, and the next work is Stage 3.4, sung prediction in `M12`.**
+- Stage 3.4's sung prediction, added in `e95c17d` and green on its first run:
+  - `AudiatedPitch` + `AudiatedPitchTest`
+  - `captureAudiation` in `PracticeViewModel`, opening the mic inside the audiation gap
+  - `SungPredictionTest` (five cases, through the real ViewModel, engine and analyzer)
+  - `SungPredictionSimulationTest`, and `sungCentsFor` on the prediction harness
+
+Run #31 (`8e343ac`) is where the sung stack first went green; #32 held it on the head commit.
+**Stages 3.3 and 3.4 are complete, and the next work is Stage 3.5, `M10` and `M11`.**
 
 One thing this does not mean: green in CI is not green on a device. Every one of those tests runs
 against `UnavailableMicrophoneSource`. The sung path is verified as logic and as a simulated flow,
@@ -82,12 +90,13 @@ why §5 is unchanged.
 | 3.1 Scoring pipeline | **Built and green.** `DegreeResolver` + `SungResponseAnalyzer`. Ambiguity band decided at 10 cents. |
 | 3.2 Permission + explanation | **Half.** The sung explanation screen exists and is tested. The permission flow is not built — it needs a device. |
 | 3.3 Sung response in `M2` | **Done.** All three acceptance criteria have tests, green in runs #31 and #32. Simulated only — no real microphone in the loop, per §2. |
-| 3.4 Sung prediction in `M12` | **Next up.** Not started. |
-| 3.5 `M10` and `M11` | Not started. |
+| 3.4 Sung prediction in `M12` | **Done.** Both acceptance criteria have tests, green in run #34. The capture window is bounded by arithmetic — 200 ms lead-in, 250 ms guard before the note — so the ordering §5.4 depends on holds without a device to check it. Simulated only, same caveat as 3.3. |
+| 3.5 `M10` and `M11` | **Next up.** Not started. ⚠️ Its open question (can anyone sing chromatically enough to be scored?) needs device measurements, so the stage may not be closeable here. |
 | 3.6 Hardening | Not started. |
 
 §9's four open questions: two settled and recorded in the spec (ambiguity band; sung prediction
-supplements rather than replaces). Two still open — `AudioRecord` vs Oboe, and chromatic singing
+supplements rather than replaces — and §5.4 now also carries the four implementation decisions Stage
+3.4 had to make on top of that one). Two still open — `AudioRecord` vs Oboe, and chromatic singing
 viability — and **both need device measurements**, so neither can be closed in this environment.
 
 ---
