@@ -58,6 +58,32 @@ jobs:
       - name: Verify
         run: ./scripts/verify.sh
 
+      # "Every build signs identically" is a promise, so it is checked rather than
+      # assumed. The APK's certificate is compared against the committed debug
+      # keystore's; if they ever diverge - a reverted signingConfig, a rotated
+      # key, a stray local keystore winning - the run fails here rather than
+      # months later on a phone that refuses to update.
+      - name: Verify the APK is signed by the committed debug key
+        if: always()
+        run: |
+          set -euo pipefail
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          if [ ! -f "$APK" ]; then
+            echo "no APK produced; nothing to check"
+            exit 0
+          fi
+          expected=$(keytool -list -v -keystore keystore/debug.keystore -storepass android \
+            | grep -m1 'SHA256:' | tr -d ' ')
+          actual=$(keytool -printcert -jarfile "$APK" \
+            | grep -m1 'SHA256:' | tr -d ' ')
+          echo "expected $expected"
+          echo "actual   $actual"
+          if [ "$expected" != "$actual" ]; then
+            echo "::error::APK is not signed by keystore/debug.keystore. Builds will not install over each other."
+            exit 1
+          fi
+          echo "APK signature matches the committed debug key."
+
       # The APK every run produces, published so it can be installed without a
       # local Android SDK. `./gradlew build` assembles it as a matter of course;
       # before this it was built on the runner and thrown away, which meant there

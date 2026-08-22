@@ -78,6 +78,22 @@ Two decisions worth knowing about if you touch the build:
   through the cmdline-tools version available in the build environment —
   hence the deliberately-older pins rather than bumping `compileSdk`.
 
+## Installing a build
+
+Every CI run publishes `app-debug.apk` as an artifact, with a download link on
+the run's summary page. Unzip and install on a device with developer mode on.
+
+Debug builds are signed by `keystore/debug.keystore`, committed to this
+repository, so **every build signs identically and installs over every other
+one** — CI over local, one machine over another, new over old. Without that,
+each machine signs with its own generated key and Android refuses the update,
+which forces an uninstall and wipes the progress the build was being installed
+to look at. CI checks the APK's certificate against that keystore on every run.
+
+The key is not a secret. A debug key cannot publish to Play and grants access to
+nothing; it uses the same well-known credentials Android's own default debug key
+does. Release signing is separate, unbuilt, and must never point at it.
+
 ## Continuous verification
 
 `.github/workflows/verify.yml` runs `scripts/verify.sh` on every push and pull
