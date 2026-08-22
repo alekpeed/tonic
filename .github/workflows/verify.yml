@@ -63,21 +63,49 @@ jobs:
       # keystore's; if they ever diverge - a reverted signingConfig, a rotated
       # key, a stray local keystore winning - the run fails here rather than
       # months later on a phone that refuses to update.
+      #
+      # apksigner rather than `keytool -printcert -jarfile`. keytool only reads v1
+      # (JAR) signatures, and AGP does not apply v1 to a minSdk-26 build - it signs
+      # with the v2/v3 APK schemes only. So keytool found no signature at all, the
+      # pipeline failed under `set -e` before reaching a single echo, and the step
+      # reported a signature mismatch that was really a tool mismatch.
+      #
+      # Not `set -e` here for that reason: a silent exit-1 out of a command
+      # substitution is what made the real cause invisible. Every failure path
+      # below prints why.
       - name: Verify the APK is signed by the committed debug key
         if: always()
         run: |
-          set -euo pipefail
+          set -uo pipefail
           APK=app/build/outputs/apk/debug/app-debug.apk
           if [ ! -f "$APK" ]; then
             echo "no APK produced; nothing to check"
             exit 0
           fi
+
+          # Highest installed build-tools wins; the pinned version is installed above,
+          # but a runner image carrying a newer one should not break this step.
+          APKSIGNER=$(ls -d "$ANDROID_HOME"/build-tools/*/apksigner 2>/dev/null | sort -V | tail -1)
+          if [ -z "$APKSIGNER" ]; then
+            echo "::error::apksigner not found under $ANDROID_HOME/build-tools"
+            exit 1
+          fi
+
+          # keytool prints colon-separated uppercase, apksigner bare lowercase hex.
+          normalize() { tr -d ' :' | tr 'A-F' 'a-f'; }
+
           expected=$(keytool -list -v -keystore keystore/debug.keystore -storepass android \
-            | grep -m1 'SHA256:' | tr -d ' ')
-          actual=$(keytool -printcert -jarfile "$APK" \
-            | grep -m1 'SHA256:' | tr -d ' ')
+            | sed -n 's/.*SHA256: *//p' | head -1 | normalize)
+          actual=$("$APKSIGNER" verify --print-certs "$APK" \
+            | sed -n 's/.*SHA-256 digest: *//p' | head -1 | normalize)
+
           echo "expected $expected"
           echo "actual   $actual"
+
+          if [ -z "$expected" ] || [ -z "$actual" ]; then
+            echo "::error::could not read a certificate digest - the check itself is broken, not necessarily the signature."
+            exit 1
+          fi
           if [ "$expected" != "$actual" ]; then
             echo "::error::APK is not signed by keystore/debug.keystore. Builds will not install over each other."
             exit 1
