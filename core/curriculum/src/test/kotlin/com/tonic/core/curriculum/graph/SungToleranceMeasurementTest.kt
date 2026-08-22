@@ -2,6 +2,7 @@ package com.tonic.core.curriculum.graph
 
 import com.tonic.core.model.ids.SkillId
 import com.tonic.core.model.ids.SkillIds
+import com.tonic.core.model.items.DifficultyAxis
 import com.tonic.core.model.music.DegreeResolver
 import com.tonic.core.model.music.Mode
 import com.tonic.core.model.music.PitchClass
@@ -123,7 +124,7 @@ class SungToleranceMeasurementTest {
      */
     @Test
     fun `measure and report the sung tolerance of every singable node`() {
-        val nodes = SkillIds.M2_NODES_IN_ORDER + SkillIds.M10_NODES_IN_ORDER + SkillIds.M11_NODES_IN_ORDER
+        val nodes = SINGABLE_NODES
 
         println("[measure] Sung tolerance by node, in cents of uniform detuning")
         println("[measure]   node                                  n  correct to  unclear from  misread from")
@@ -220,6 +221,20 @@ class SungToleranceMeasurementTest {
     }
 
     private companion object {
+        /**
+         * Every node whose answer is a degree — `M2`, `M10`, `M11` — in chain order.
+         *
+         * Derived from the graph rather than listed, and not only for tidiness: a hardcoded list is a
+         * second place to remember when a node is added, and the node most likely to be forgotten is a
+         * new chromatic one, which is exactly where the bands are tightest. Scope is the right filter
+         * because it already means "answers with a degree": `M9` answers major-or-minor and `M12`
+         * answers a match direction, and neither is a pitch anyone sings.
+         */
+        val SINGABLE_NODES =
+            SkillGraph.practiceChain
+                .filter { SkillGraph.scopeFor(it.id) == DifficultyAxis.Scope.RECOGNITION }
+                .map { it.id }
+
         const val MAX_SWEEP_CENTS = 99
 
         /**
