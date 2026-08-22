@@ -324,8 +324,10 @@ class SungLearnerSimulationTest {
 
         assertTrue(run.unclearCount > 0, "the midpoint must actually be refused, or this proves nothing")
         assertTrue(
-            run.attempts.none { !it.correct },
-            "§5.2: unclear is never wrong - a refused answer must not reach the attempt log at all",
+            run.attempts.isEmpty(),
+            "§5.2: unclear is never wrong - a refused answer must not reach the attempt log at all. " +
+                "Asserted as empty rather than as 'none incorrect', which an empty list satisfies " +
+                "vacuously and would keep satisfying if refusal started recording correct answers.",
         )
     }
 

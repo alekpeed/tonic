@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -136,19 +137,35 @@ class SungAnswerControlTest {
     /** While actually recording, the sing button is the one thing that stops — pressing it again would restart capture. */
     @Test
     fun `the sing button is inert while listening, and the ladder is not`() {
-        var sang = false
         var tapped: ScaleDegree? = null
         render(
             sungAvailable = true,
             capture = SungCaptureState.LISTENING,
             onDegreeSelected = { tapped = it },
-            onSing = { sang = true },
         )
 
-        compose.onNodeWithTag("sing_answer").performClick()
-        assertTrue(!sang, "a second press during capture must not start a second capture")
+        // Asserted as not-enabled rather than clicked-and-ignored: Compose strips the click action
+        // from a disabled node, so performClick on one throws "missing OnClick" instead of quietly
+        // doing nothing - which would fail this test for a reason unrelated to what it checks.
+        compose.onNodeWithTag("sing_answer").assertIsNotEnabled()
 
         compose.onNodeWithTag(LADDER_BUTTON).performScrollTo().performClick()
         assertEquals(1, tapped?.degree, "§6.3: the buttons are live throughout, including mid-capture")
+    }
+
+    private companion object {
+        /**
+         * Degree 1's button. `DegreeLadder` tags each button by canonical label; there is no container
+         * tag, and asserting on a real button is the stronger claim anyway - §6.3's promise is that the
+         * learner can *answer* by tapping, and a present-but-empty ladder would satisfy a container
+         * check while stranding exactly the person the rule exists for.
+         *
+         * Every click on it scrolls first. The ladder puts degree 1 at the *bottom* of seven slots
+         * inside a `verticalScroll`, so on the default test viewport it sits below the fold - and
+         * `performClick` on a node outside the viewport does not throw, it simply never reaches the
+         * button, leaving the test asserting on a click that never happened. Runs #13 and #14 were
+         * spent on exactly that, and `IntroDispatchTest` records the same hazard.
+         */
+        const val LADDER_BUTTON = "degree_button_1"
     }
 }
