@@ -1,9 +1,10 @@
 # 21 — Handoff
 
-**Written 2026-08-22.** A dated snapshot, not authority. Check every claim here against the repo
-before relying on it — this file has been stale before and will be again.
+**Written 2026-08-22, revised the same day once run #31 reported.** A dated snapshot, not
+authority. Check every claim here against the repo before relying on it — this file has been stale
+before and will be again.
 
-Branch: `claude/review-files-zip-docs-xmro7r`. Head at time of writing: `8e343ac`.
+Branch: `claude/review-files-zip-docs-xmro7r`. Head at time of writing: `9bfa8b0` (run #32, green).
 
 ---
 
@@ -38,12 +39,15 @@ And when you make an edit with a script, **assert the intended text is present a
 was a find-and-replace that matched nothing because an earlier replacement in the same script had
 already changed the anchor text. It was pushed unverified.
 
+Runs #31 and #32 were green, and the streak is over. It ended because those two checks were run
+before pushing, not because the code got simpler. Keep running them.
+
 ---
 
 ## 2. What is actually built and green
 
-Everything through **run #24** (`59a37cd`) is CI-verified green. That includes all of Phase 1 and
-Phase 2, plus this branch's work up to and including the explanation-screen overhaul.
+Everything through **run #32** (`9bfa8b0`, this branch's head) is CI-verified green: all of Phase 1,
+all of Phase 2, this branch's explanation-screen overhaul, and all of Stage 3.3.
 
 **Verified in CI:**
 
@@ -51,18 +55,20 @@ Phase 2, plus this branch's work up to and including the explanation-screen over
 - Debug APK published by every run, signed by a committed key so builds install over each other.
 - `apksigner`-based signature verification.
 - The Room schema-committed guard.
+- Stage 3.3's sung-answer path entire — everything from `0f4c39f` onward:
+  - `Attempt.inputMethod` / `sungCents`, Room v2 + migration, `MigrationTest`
+  - `SungDataIsNeverAdaptiveTest`
+  - `SungLearnerSimulationTest`
+  - `MicrophoneSource` / `CapturedAudio` / `UnavailableMicrophoneSource`
+  - `SungAnswerControl`, `onSingAnswer`, `SungAnswerControlTest`, `SungAnswerFlowTest`
 
-**Written but never once green** — everything from `0f4c39f` onward, which is all of Stage 3.3:
+Run #31 (`8e343ac`) is where that stack first went green; #32 held it on the head commit.
+**Stage 3.3 is complete, and the next work is Stage 3.4, sung prediction in `M12`.**
 
-- `Attempt.inputMethod` / `sungCents`, Room v2 + migration, `MigrationTest`
-- `SungDataIsNeverAdaptiveTest`
-- `SungLearnerSimulationTest`
-- `MicrophoneSource` / `CapturedAudio` / `UnavailableMicrophoneSource`
-- `SungAnswerControl`, `onSingAnswer`, `SungAnswerControlTest`, `SungAnswerFlowTest`
-
-Run #31 was in flight when this was written, on `8e343ac`. **Check it before anything else.** If it
-is green, Stage 3.3 is complete and the next work is Stage 3.4. If it is red, the stack trace will
-now be complete — full exception output was enabled repo-wide in that same commit.
+One thing this does not mean: green in CI is not green on a device. Every one of those tests runs
+against `UnavailableMicrophoneSource`. The sung path is verified as logic and as a simulated flow,
+and has not once met a real microphone — which is why §3 still reports 3.0 and 3.2 as half-built and
+why §5 is unchanged.
 
 ---
 
@@ -75,8 +81,8 @@ now be complete — full exception output was enabled repo-wide in that same com
 | 3.0 Mic capture + pitch detection | **Half.** `PitchDetector` (MPM) built and measured — worst error 7.69 cents against a 100-cent requirement. Real capture is not built: `MicrophoneSource` is an interface and the bound implementation reports itself unavailable. Latency, CPU, dropouts and recorded-signal accuracy all need hardware. |
 | 3.1 Scoring pipeline | **Built and green.** `DegreeResolver` + `SungResponseAnalyzer`. Ambiguity band decided at 10 cents. |
 | 3.2 Permission + explanation | **Half.** The sung explanation screen exists and is tested. The permission flow is not built — it needs a device. |
-| 3.3 Sung response in `M2` | **Written, unverified.** All three acceptance criteria have tests; none has passed CI yet. |
-| 3.4 Sung prediction in `M12` | Not started. |
+| 3.3 Sung response in `M2` | **Done.** All three acceptance criteria have tests, green in runs #31 and #32. Simulated only — no real microphone in the loop, per §2. |
+| 3.4 Sung prediction in `M12` | **Next up.** Not started. |
 | 3.5 `M10` and `M11` | Not started. |
 | 3.6 Hardening | Not started. |
 
