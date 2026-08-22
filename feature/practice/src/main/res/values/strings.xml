@@ -172,4 +172,25 @@
     <string name="sung_intro_unclear">If the app cannot make out what you sang, it simply asks again. That is never counted as a wrong answer.</string>
     <string name="sung_intro_tap_always">The buttons are always there too. You can tap any question instead, at any time.</string>
     <string name="sung_intro_start">Got it</string>
+
+    <!--
+      The sung answer control. Held to 30-PHASE-3-SPEC.md §2: no copy may imply singing is the real or
+      advanced way to answer. Nothing below praises it, ranks it against tapping, or calls the ladder a
+      fallback for people who cannot manage the better thing.
+    -->
+    <string name="sung_answer_sing">Sing your answer</string>
+    <string name="sung_answer_listening">Listening…</string>
+    <!--
+      §5.2: unclear is never wrong. Says the app did not catch it, which is a fact about the app, and
+      names the buttons as an equally ordinary way to answer rather than a consolation.
+    -->
+    <string name="sung_answer_unclear">Didn\'t catch that. Sing it again, or tap your answer.</string>
+    <!--
+      §3 mitigation 4 and §6.4: information, never a grade. No "good", no "close", no praise or
+      correction - the answer was already scored on which note you sang, and this is about your voice,
+      which is not being marked.
+    -->
+    <string name="sung_readout_on_pitch">You were on pitch.</string>
+    <string name="sung_readout_flat">You were about %1$d cents below that note.</string>
+    <string name="sung_readout_sharp">You were about %1$d cents above that note.</string>
 </resources>

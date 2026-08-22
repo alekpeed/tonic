@@ -2,6 +2,8 @@ package com.tonic.feature.practice.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.tonic.core.audio.capture.MicrophoneSource
+import com.tonic.core.audio.pitch.SungResponseAnalyzer
 import com.tonic.core.audio.player.AudioPlayer
 import com.tonic.core.audio.synth.SynthEngine
 import com.tonic.core.curriculum.graph.SkillGraph
@@ -15,6 +17,8 @@ import com.tonic.core.model.ids.SkillIds
 import com.tonic.core.model.items.AnswerAlphabet
 import com.tonic.core.model.items.Item
 import com.tonic.core.model.music.ScaleDegree
+import com.tonic.core.model.music.SungAnswer
+import com.tonic.core.model.music.UnclearReason
 import com.tonic.core.model.state.AppSettings
 import com.tonic.core.model.state.MasteryState
 import com.tonic.core.model.state.PlannedSlot
@@ -37,6 +41,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
+import kotlin.math.roundToInt
 import kotlin.random.Random
 
 /**
@@ -57,6 +62,7 @@ class PracticeViewModel
         private val skillStateRepository: SkillStateRepository,
         private val sessionRepository: SessionRepository,
         private val settingsRepository: SettingsRepository,
+        private val microphoneSource: MicrophoneSource,
         private val clock: Clock,
     ) : ViewModel() {
         private val _uiState = MutableStateFlow(PracticeUiState())
@@ -154,6 +160,20 @@ class PracticeViewModel
                 beginFreshSession()
             }
         }
+
+        /**
+         * Whether [item] can be answered by singing — docs/30-PHASE-3-SPEC.md §5.3's table.
+         *
+         * Three independent conditions, and all of them must hold. The learner opted in; a microphone
+         * is actually available (§6.1 makes a denial ordinary, not an error — no prompt, no nagging,
+         * no degraded experience); and the item has a pitch to sing at all. `M9` fails the last one:
+         * its answer is major-or-minor, so there is nothing to produce, and offering to listen would
+         * be asking for something that cannot be an answer.
+         */
+        private fun sungAvailableFor(item: Item?): Boolean =
+            gateSettings.sungResponseEnabled &&
+                microphoneSource.isAvailable &&
+                item is Item.FunctionalRecognitionItem
 
         /**
          * The engine's per-item playback gate — called under its mutex just before an item would play,
@@ -426,6 +446,11 @@ class PracticeViewModel
                             correctAnswerLabel = if (itemChanged) null else it.correctAnswerLabel,
                             revealedMode = if (itemChanged) null else it.revealedMode,
                             inputEnabled = if (itemChanged) false else it.inputEnabled,
+                            // Re-evaluated per item rather than once: M9 has no pitch to sing, so the
+                            // control must disappear when the loop reaches one and come back after.
+                            sungResponseAvailable = sungAvailableFor(loopState.currentItem),
+                            sungCapture = if (itemChanged) SungCaptureState.IDLE else it.sungCapture,
+                            lastSungCents = if (itemChanged) null else it.lastSungCents,
                         )
                     }
                     if (itemChanged) {
@@ -520,15 +545,42 @@ class PracticeViewModel
                 }
         }
 
-        fun onDegreeSelected(degree: ScaleDegree) {
+        fun onDegreeSelected(degree: ScaleDegree) = answerWithDegree(degree, InputMethod.TAP, sungCents = null)
+
+        /**
+         * Scores a degree answer, whichever way it arrived — docs/30-PHASE-3-SPEC.md §2.
+         *
+         * One path, deliberately, rather than a sung path beside a tapped one. §2 requires that "sung
+         * and tapped attempts are not separate skill states," and the surest way to honor that is for
+         * there to be no second implementation that could drift: the flash, the contrast sequence, the
+         * mode reveal and the pacing are the same code for both, and [inputMethod] and [sungCents] are
+         * carried through to the attempt without being consulted on the way.
+         */
+        private fun answerWithDegree(
+            degree: ScaleDegree,
+            inputMethod: InputMethod,
+            sungCents: Int?,
+        ) {
             if (!_uiState.value.inputEnabled) return
             // The ladder is only ever on screen for a recognition item; narrowing here rather than at
             // every use below keeps the rest of this path exactly as it was.
             val item = _uiState.value.recognitionItem ?: return
-            _uiState.update { it.copy(selectedDegree = degree, inputEnabled = false) }
+            _uiState.update {
+                it.copy(
+                    selectedDegree = degree,
+                    inputEnabled = false,
+                    sungCapture = SungCaptureState.IDLE,
+                    lastSungCents = sungCents,
+                )
+            }
 
             viewModelScope.launch {
-                engine.submitAnswer(degree.canonicalLabel, autoAdvance = false)
+                engine.submitAnswer(
+                    degree.canonicalLabel,
+                    autoAdvance = false,
+                    inputMethod = inputMethod,
+                    sungCents = sungCents,
+                )
                 val feedback = engine.state.value.lastFeedback ?: return@launch
                 val correctDegree = item.activeDegrees.first { it.canonicalLabel == feedback.correctLabel }
                 // docs/20-PHASE-2-SPEC.md §5.4: at M10.MIXED_MODE the mode is withheld until here and
@@ -548,6 +600,57 @@ class PracticeViewModel
                 }
                 delay(INTER_ITEM_PAUSE_MS)
                 engine.proceedToNextItem()
+            }
+        }
+
+        /**
+         * Captures a sung answer and scores it as a degree — docs/30-PHASE-3-SPEC.md §5.2.
+         *
+         * The whole of §5.2 steps 1–7 in order: capture a bounded window, resolve it through
+         * [SungResponseAnalyzer], and hand the resulting degree to the same scoring path a tap uses.
+         *
+         * **An unreadable answer records nothing at all.** §5.2: "a mumble, a cough, silence, or
+         * background noise produces a retry prompt, never a recorded incorrect attempt. This matters
+         * enormously — a false 'wrong' corrupts the staircase and the confusion matrix." So the
+         * unclear branch leaves the item live, leaves input enabled, and writes no attempt: the
+         * learner has not answered yet, and the app must not pretend otherwise in either direction.
+         */
+        fun onSingAnswer() {
+            val state = _uiState.value
+            if (!state.inputEnabled || !state.sungResponseAvailable) return
+            if (state.sungCapture == SungCaptureState.LISTENING) return
+            val item = state.recognitionItem ?: return
+
+            _uiState.update { it.copy(sungCapture = SungCaptureState.LISTENING) }
+            viewModelScope.launch {
+                val captured = microphoneSource.record(SUNG_CAPTURE_WINDOW_MS)
+                // Empty capture and unreadable capture are one case here on purpose: both mean the app
+                // could not tell what was sung, and both owe the learner another go rather than a mark.
+                val answer =
+                    if (captured.isEmpty) {
+                        SungAnswer.Unclear(UnclearReason.NO_VOICED_SIGNAL)
+                    } else {
+                        SungResponseAnalyzer.analyze(
+                            buffer = captured.samples,
+                            sampleRate = captured.sampleRate,
+                            tonic = item.key,
+                            mode = item.mode,
+                            alphabet = item.activeDegrees,
+                            a4Hz = gateSettings.referenceA4Hz.toDouble(),
+                        )
+                    }
+
+                when (answer) {
+                    is SungAnswer.Unclear ->
+                        _uiState.update { it.copy(sungCapture = SungCaptureState.UNCLEAR) }
+
+                    is SungAnswer.Resolved ->
+                        answerWithDegree(
+                            answer.degree,
+                            InputMethod.SUNG,
+                            sungCents = answer.centsFromDegree.roundToInt(),
+                        )
+                }
             }
         }
 
@@ -652,6 +755,18 @@ class PracticeViewModel
 
             // "Between items: a short, consistent pause (~400 ms). Do not vary it randomly" - docs/08-UI-SPEC.md §4.
             const val INTER_ITEM_PAUSE_MS = 400L
+
+            /**
+             * How long one sung answer is captured for — docs/30-PHASE-3-SPEC.md §5.2 step 1's
+             * "bounded window."
+             *
+             * Three seconds is generous for a single sustained note and still short enough that a
+             * learner who says nothing is not left staring at a listening indicator. Bounded rather
+             * than stopped by the user: a capture that runs until told otherwise is a microphone the
+             * app can leave on, which §7's "no raw audio is ever persisted" promise is easier to keep
+             * if it is structurally impossible to violate.
+             */
+            const val SUNG_CAPTURE_WINDOW_MS = 3_000L
 
             /** Long enough to read across the item change; short enough to be gone before the next answer. */
             const val SKIP_NOTICE_MS = 1_600L

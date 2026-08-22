@@ -15,6 +15,7 @@ import com.tonic.feature.practice.engine.FakeAttemptRepository
 import com.tonic.feature.practice.engine.FakeAudioInterruptions
 import com.tonic.feature.practice.engine.FakeAudioPlayer
 import com.tonic.feature.practice.engine.FakeConfusionRepository
+import com.tonic.feature.practice.engine.FakeMicrophoneSource
 import com.tonic.feature.practice.engine.FakeSessionRepository
 import com.tonic.feature.practice.engine.FakeSkillStateRepository
 import com.tonic.feature.practice.engine.PracticeLoopEngine
@@ -101,6 +102,7 @@ class PracticeViewModelTest {
         val audioPlayer = FakeAudioPlayer()
         val audioInterruptions = FakeAudioInterruptions()
         val settingsRepository = FakeSettingsRepository(settings)
+        val microphoneSource = FakeMicrophoneSource()
         val clock = Clock { Instant.EPOCH }
         val engine =
             PracticeLoopEngine(
@@ -113,8 +115,15 @@ class PracticeViewModelTest {
                 clock,
             )
         val viewModel =
-            PracticeViewModel(engine, audioPlayer, skillStateRepository, sessionRepository, settingsRepository, clock)
-                .also { retain(it) }
+            PracticeViewModel(
+                engine,
+                audioPlayer,
+                skillStateRepository,
+                sessionRepository,
+                settingsRepository,
+                microphoneSource,
+                clock,
+            ).also { retain(it) }
 
         /**
          * Waits for input to actually be accepted, not just for an item to exist - matching how the

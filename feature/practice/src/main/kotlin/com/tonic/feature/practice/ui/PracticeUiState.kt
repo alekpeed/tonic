@@ -82,6 +82,23 @@ data class PracticeUiState(
      * they misheard the degree or misheard the key, which are different problems with different fixes.
      */
     val revealedMode: Mode? = null,
+    /**
+     * Whether this item can be answered by singing — docs/30-PHASE-3-SPEC.md §5.3.
+     *
+     * False whenever singing is switched off, permission is absent, or the item has no pitch to sing
+     * (`M9` asks major-or-minor; there is nothing to produce). It never gates the ladder: §6.3 requires
+     * the tap fallback to be present on every sung item, always visible, so this adds a control and
+     * removes nothing.
+     */
+    val sungResponseAvailable: Boolean = false,
+    /** Where the sung answer is in its cycle, if singing is on at all. */
+    val sungCapture: SungCaptureState = SungCaptureState.IDLE,
+    /**
+     * How far the last sung answer landed from the degree it resolved to, in cents — shown *after* the
+     * answer as information, never as a grade (docs/30-PHASE-3-SPEC.md §3 mitigation 4 and §6.4).
+     * Cleared on every new item. Null for a tapped answer.
+     */
+    val lastSungCents: Int? = null,
 ) {
     /** The ladder's contents. Empty for an item type that does not answer with a degree, such as `M9`. */
     val activeDegrees: List<ScaleDegree>
@@ -94,6 +111,25 @@ data class PracticeUiState(
     /** The mode-identification item, when that is what is on screen. */
     val modeItem: Item.ModeIdentificationItem?
         get() = item as? Item.ModeIdentificationItem
+}
+
+/**
+ * The sung answer's cycle — docs/30-PHASE-3-SPEC.md §5.2 and §6.4.
+ *
+ * Deliberately has no "wrong" state. §5.2: a mumble, a cough, silence or noise "produces a retry
+ * prompt, never a recorded incorrect attempt," because a false wrong corrupts the staircase and the
+ * confusion matrix. An unreadable answer therefore returns here, to [UNCLEAR], and the item is still
+ * waiting — it has not been answered at all.
+ */
+enum class SungCaptureState {
+    /** Nothing captured. The learner may sing or tap. */
+    IDLE,
+
+    /** Recording. Bounded by the capture window; the ladder stays live throughout, per §6.3. */
+    LISTENING,
+
+    /** Captured but not readable as a pitch. Ask again; score nothing. */
+    UNCLEAR,
 }
 
 /** The first-run explanations, one per task shape (docs/08-UI-SPEC.md §3a). */

@@ -6,6 +6,7 @@ import com.tonic.feature.practice.engine.FakeAttemptRepository
 import com.tonic.feature.practice.engine.FakeAudioInterruptions
 import com.tonic.feature.practice.engine.FakeAudioPlayer
 import com.tonic.feature.practice.engine.FakeConfusionRepository
+import com.tonic.feature.practice.engine.FakeMicrophoneSource
 import com.tonic.feature.practice.engine.FakeSessionRepository
 import com.tonic.feature.practice.engine.FakeSkillStateRepository
 import com.tonic.feature.practice.engine.PracticeLoopEngine
@@ -34,6 +35,7 @@ internal class PracticeFixture(
     val audioPlayer = FakeAudioPlayer()
     val audioInterruptions = FakeAudioInterruptions()
     val settingsRepository = FakeSettingsRepository(settings)
+    val microphoneSource = FakeMicrophoneSource()
     val clock = Clock { now }
     val engine =
         PracticeLoopEngine(
@@ -46,7 +48,15 @@ internal class PracticeFixture(
             clock,
         )
     val viewModel =
-        PracticeViewModel(engine, audioPlayer, skillStateRepository, sessionRepository, settingsRepository, clock)
+        PracticeViewModel(
+            engine,
+            audioPlayer,
+            skillStateRepository,
+            sessionRepository,
+            settingsRepository,
+            microphoneSource,
+            clock,
+        )
 
     /**
      * Starts a session and clears the explanation screen the way a person does, leaving a live item.

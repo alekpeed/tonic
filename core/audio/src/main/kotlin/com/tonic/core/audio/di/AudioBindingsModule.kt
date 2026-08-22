@@ -1,5 +1,7 @@
 package com.tonic.core.audio.di
 
+import com.tonic.core.audio.capture.MicrophoneSource
+import com.tonic.core.audio.capture.UnavailableMicrophoneSource
 import com.tonic.core.audio.focus.AudioFocusManager
 import com.tonic.core.audio.focus.AudioInterruptions
 import com.tonic.core.audio.player.AudioPlayer
@@ -18,4 +20,12 @@ internal abstract class AudioBindingsModule {
 
     @Binds
     abstract fun bindAudioInterruptions(impl: AudioFocusManager): AudioInterruptions
+
+    /**
+     * Microphone capture, currently bound to the implementation that reports itself unavailable —
+     * see [UnavailableMicrophoneSource] for why a placeholder rather than a simulated capture, and
+     * what replacing it involves.
+     */
+    @Binds
+    abstract fun bindMicrophoneSource(impl: UnavailableMicrophoneSource): MicrophoneSource
 }

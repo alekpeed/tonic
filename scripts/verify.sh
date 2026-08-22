@@ -33,12 +33,39 @@ echo "verify: ./gradlew build --max-workers=2  (log: $LOG)"
 ./gradlew build --max-workers=2 > "$LOG" 2>&1
 STATUS=$?
 
-if [ "$STATUS" -ne 0 ]; then
+# What a failure actually says, rather than where the log happened to end.
+#
+# A tail is the wrong tool for a compile error. Kotlin prints its diagnostics as `e:` lines and then
+# gradle appends its own summary, the deprecation warnings, the problems-report path and the task
+# count on top - so a 40-line tail can end with "Compilation error. See log for more details" and none
+# of the details. That is exactly what happened on run #27: the build failed, and the report said only
+# that it had. Diagnostics are pulled out by prefix first, and the tail follows for everything else.
+report_failure() {
   echo
-  echo "verify: FAILED (gradle exit $STATUS)"
+  echo "verify: FAILED ($1, gradle exit $2)"
+
+  if grep -qE "^e: " "$LOG" 2>/dev/null; then
+    echo
+    echo "verify: compiler errors"
+    grep -E "^e: " "$LOG" | head -40 | sed "s/^/  /"
+  fi
+
+  # Test failures are the other case a tail truncates: gradle prints each one where it happens and
+  # then summarizes far below.
+  if grep -qE "^[A-Za-z0-9_.]+ > .* FAILED$" "$LOG" 2>/dev/null; then
+    echo
+    echo "verify: failing tests"
+    grep -E "^[A-Za-z0-9_.]+ > .* FAILED$" "$LOG" | head -40 | sed "s/^/  /"
+  fi
+
+  echo
   echo "verify: last 40 lines of $LOG"
   echo
   tail -40 "$LOG"
+}
+
+if [ "$STATUS" -ne 0 ]; then
+  report_failure "build" "$STATUS"
   exit "$STATUS"
 fi
 
@@ -52,9 +79,7 @@ echo "verify: golden baselines under --rerun-tasks"
 GOLDEN=$?
 
 if [ "$GOLDEN" -ne 0 ]; then
-  echo
-  echo "verify: GOLDEN BASELINES FAILED (gradle exit $GOLDEN)"
-  tail -40 "$LOG"
+  report_failure "golden baselines" "$GOLDEN"
   exit "$GOLDEN"
 fi
 

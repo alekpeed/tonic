@@ -1,7 +1,6 @@
 package com.tonic.feature.practice.ui
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -53,6 +52,7 @@ internal fun AnswerArea(
     onDegreeSelected: (ScaleDegree) -> Unit,
     onLabelSelected: (String) -> Unit,
     modifier: Modifier = Modifier,
+    onSing: () -> Unit = {},
 ) {
     when (val item = uiState.item) {
         is Item.ModeIdentificationItem ->
@@ -73,7 +73,19 @@ internal fun AnswerArea(
             )
 
         else ->
-            Box(modifier = modifier) {
+            Column(modifier = modifier) {
+                // Above the ladder, never instead of it - docs/30-PHASE-3-SPEC.md §6.3. The whole
+                // point of the fallback is that it is *always visible*, so there is deliberately no
+                // branch here that swaps one control for the other: singing adds a row and takes
+                // nothing away. SungAnswerControlTest asserts the ladder survives every sung state.
+                if (uiState.sungResponseAvailable) {
+                    SungAnswerControl(
+                        state = uiState.sungCapture,
+                        enabled = uiState.inputEnabled,
+                        onSing = onSing,
+                    )
+                    Spacer(modifier = Modifier.height(TonicSpacing.md))
+                }
                 DegreeLadder(
                     activeDegrees = uiState.activeDegrees,
                     // Which degrees form the spine and which hang beside them as alterations - see

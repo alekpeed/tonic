@@ -128,6 +128,7 @@ fun PracticeScreen(
     PracticeContent(
         uiState = uiState,
         onDegreeSelected = viewModel::onDegreeSelected,
+        onSing = viewModel::onSingAnswer,
         onReplay = viewModel::onReplay,
         onSkip = viewModel::onSkip,
         onLabelSelected = viewModel::onLabelSelected,
@@ -400,6 +401,8 @@ internal fun PracticeContent(
     onLabelSelected: (String) -> Unit = {},
     onOpenIntro: () -> Unit = {},
     onExit: () -> Unit = {},
+    /** Optional sung answer — docs/30-PHASE-3-SPEC.md §6.3. Defaulted so the tap-only screen is unchanged. */
+    onSing: () -> Unit = {},
 ) {
     Column(
         modifier =
@@ -510,6 +513,7 @@ internal fun PracticeContent(
             onDegreeSelected = onDegreeSelected,
             onLabelSelected = onLabelSelected,
             modifier = Modifier.weight(1f),
+            onSing = onSing,
         )
 
         Spacer(modifier = Modifier.height(TonicSpacing.sm))
