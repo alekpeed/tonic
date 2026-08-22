@@ -156,6 +156,17 @@ class PracticeLoopEngine
          */
         private var playbackHeld = false
 
+        /**
+         * The buffer withheld by [playbackHeld], waiting for [releaseHeldPlayback].
+         *
+         * Separate from the flag because the two answer different questions: the flag says "withhold the
+         * next item you prepare", and this says "here is the one that was withheld". Collapsing them
+         * into the flag alone is what the first attempt did, and it silenced the *whole session* rather
+         * than the first item - the flag stayed set, so every later item was suppressed too. Caught by
+         * an existing test that counts buffers through a contrast sequence.
+         */
+        private var heldBuffer: PcmBuffer? = null
+
         /** Starts a new session. [rootSeed] is the caller's responsibility (docs/04-ARCHITECTURE.md §4) - freshly randomized for a new session, fixed for a replay. */
         suspend fun start(
             currentNode: SkillWorkContext,
@@ -270,6 +281,8 @@ class PracticeLoopEngine
             lastPresentedLevels = null
             lastPresentedSkill = null
             sessionDeadline = null
+            playbackHeld = false
+            heldBuffer = null
             queue.clear()
         }
 
@@ -470,10 +483,9 @@ class PracticeLoopEngine
          */
         suspend fun releaseHeldPlayback() =
             loopMutex.withLock {
-                if (!playbackHeld) return@withLock
-                playbackHeld = false
-                val current = pending ?: return@withLock
-                audioPlayer.play(current.buffer)
+                val buffer = heldBuffer ?: return@withLock
+                heldBuffer = null
+                audioPlayer.play(buffer)
             }
 
         /**
@@ -754,7 +766,11 @@ class PracticeLoopEngine
 
             pending = rendered
             replayCountForCurrent = 0
-            if (!playbackHeld) {
+            if (playbackHeld) {
+                // Consumed here: the hold covers the item it was armed for and no other.
+                playbackHeld = false
+                heldBuffer = rendered.buffer
+            } else {
                 audioPlayer.play(rendered.buffer)
             }
             // Snapshot taken *here*, at a fixed point in program order under the mutex, and handed to
