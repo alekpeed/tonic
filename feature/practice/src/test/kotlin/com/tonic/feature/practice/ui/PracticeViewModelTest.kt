@@ -116,9 +116,20 @@ class PracticeViewModelTest {
             PracticeViewModel(engine, audioPlayer, skillStateRepository, sessionRepository, settingsRepository, clock)
                 .also { retain(it) }
 
-        /** Waits for input to actually be accepted, not just for an item to exist - matching how the real ladder gates input on [PracticeUiState.inputEnabled]. */
+        /**
+         * Waits for input to actually be accepted, not just for an item to exist - matching how the
+         * real ladder gates input on [PracticeUiState.inputEnabled].
+         *
+         * Dismisses the first-run explanation on the way, as a real learner must: the screen overlays
+         * the ladder, so no answer can be given under it. This became load-bearing when the playback
+         * hold became per-item - an open intro now correctly silences *every* item behind it, so a test
+         * that answers items with the intro still up counts fewer played buffers than the live flow
+         * produces. Run #21 failed the contrast-sequence test exactly that way.
+         */
         suspend fun startAndAwaitFirstItem(): Item.FunctionalRecognitionItem {
             viewModel.startIfNeeded()
+            withTimeout(TIMEOUT_MS) { viewModel.uiState.first { it.showIntro || it.item != null } }
+            if (viewModel.uiState.value.showIntro) viewModel.onIntroDismissed()
             return withTimeout(TIMEOUT_MS) {
                 viewModel.uiState.first { it.item != null && it.inputEnabled }.recognitionItem!!
             }
