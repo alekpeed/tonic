@@ -115,13 +115,19 @@ Mandatory constraints on implementation:
 
 If a wording decision is uncertain, stop and ask. Do not improvise copy in this area.
 
-## 9. Real music and copyright (constrains Phase 7, stated now)
+## 9. Real music and copyright (a closed decision, and the reasoning behind it)
 
-All Phase 1 audio is synthesized in-app. No assets, no licensing exposure.
+**All audio in this app is synthesized in-app. There are no third-party audio assets and no licensing exposure. This is permanent, not a Phase 1 convenience.**
 
-For the future real-music bridge module, the constraint that must not be forgotten: using a commercial recording requires clearing **two separate copyrights** — a synchronization license for the underlying composition, from the publisher, and a master use license for the specific sound recording, from the label. The US Copyright Office treats the recording and the underlying work as distinct, separately owned, separately licensed works. There is no reliable short-clip safe harbor; the Sixth Circuit's *Bridgeport v. Dimension Films* holding effectively required licensing even for a roughly two-second, three-note sample, and the existence of a micro-licensing market weighs against a fair use defense for a commercial app.
+An earlier plan reserved a real-music bridge module — `M7`, playing excerpts of commercial recordings — as a future phase. It was **dropped from the product, not deferred**: the identifier is gone from `ModuleId`, and the gap is pinned by a test rather than merely left. `ModuleId.fromCode("M7")` throws, and so does resolving `SkillId("M7.REAL_MELODY").moduleId`. An `M7.*` string surviving in an attempt log from a build that predates the removal therefore fails loudly instead of resolving to whatever module later inherits the number.
 
-Therefore Phase 7 must use only: self-commissioned or self-recorded performances owned outright, public-domain compositions in self-owned recordings, or properly licensed royalty-free catalogs. Do not embed commercial masters under any framing.
+The reasoning is kept here rather than deleted with the module, because this is the kind of decision that gets quietly reopened by someone who has not priced it.
+
+Using a commercial recording requires clearing **two separate copyrights** — a synchronization license for the underlying composition, from the publisher, and a master use license for the specific sound recording, from the label. The US Copyright Office treats the recording and the underlying work as distinct, separately owned, separately licensed works, so clearing one clears nothing about the other. There is no reliable short-clip safe harbor: the Sixth Circuit's *Bridgeport v. Dimension Films* holding effectively required licensing even for a roughly two-second, three-note sample, and the existence of a micro-licensing market weighs against a fair use defense for a commercial app.
+
+That is a per-track negotiation with two rights holders, repeated for every excerpt, in exchange for material whose pedagogical work the synthesis engine already does. The curriculum never depended on hearing a particular recording — it depends on hearing a degree in a key, which `:core:audio` renders at any pitch, in any key, in four timbres, for free. The trade was not worth making.
+
+**If it is ever reopened**, the only admissible sources are: self-commissioned or self-recorded performances owned outright, public-domain compositions in self-owned recordings, or properly licensed royalty-free catalogs. Commercial masters do not become admissible under any framing — not as short clips, not as "educational use," not behind a paywall. And the reopening is a product decision requiring an explicit instruction, not something a future module picks up because a spec once mentioned it.
 
 ## 10. Summary of hard invariants
 

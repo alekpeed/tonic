@@ -59,7 +59,7 @@ class PracticeLoopEngineTest {
     ) {
         val random = Random(seed)
         while (!fixture.engine.state.value.isFinished) {
-            val item = fixture.engine.state.value.currentItem ?: break
+            val item = fixture.engine.state.value.recognitionItem ?: break
             if (thinkTimeMs > 0) delay(thinkTimeMs)
             val correct = random.nextDouble() < accuracy
             val label =
@@ -77,6 +77,119 @@ class PracticeLoopEngineTest {
         }
     }
 
+    /**
+     * docs/08-UI-SPEC.md §3a. The explanation screen is shown over a session that has already started,
+     * so dismissing it lands on a ready item rather than a spinner - but the first item used to *play*
+     * underneath it, so the learner heard the chords while still reading the sentence explaining what
+     * the chords were for. The explanation and the thing it explains arrived together, which teaches
+     * neither. Reported from live use on every module.
+     *
+     * Held means held: rendered, queued, pre-rendering the next one, and silent.
+     */
+    @Test
+    fun `a held session prepares the first item without playing it`() =
+        runBlocking {
+            val fixture = Fixture()
+            val introOpen = true
+            fixture.engine.start(
+                freshNode(),
+                dueReviews = emptyList(),
+                sessionLengthMinutes = 5,
+                rootSeed = 1L,
+                now = Instant.EPOCH,
+                holdPlaybackFor = { introOpen },
+            )
+
+            assertNotNull(fixture.engine.state.value.recognitionItem, "the item must still be prepared")
+            assertEquals(0, fixture.audioPlayer.playedBuffers.size, "nothing may play while the intro is up")
+        }
+
+    /** And the exercise begins on Start: the prepared item plays then, exactly once. */
+    @Test
+    fun `releasing the hold plays the prepared item once`() =
+        runBlocking {
+            val fixture = Fixture()
+            val introOpen = true
+            fixture.engine.start(
+                freshNode(),
+                dueReviews = emptyList(),
+                sessionLengthMinutes = 5,
+                rootSeed = 1L,
+                now = Instant.EPOCH,
+                holdPlaybackFor = { introOpen },
+            )
+            fixture.engine.releaseHeldPlayback()
+
+            assertEquals(1, fixture.audioPlayer.playedBuffers.size)
+
+            // A second dismiss must not restart it - the hold is lifted, not re-armed.
+            fixture.engine.releaseHeldPlayback()
+            assertEquals(1, fixture.audioPlayer.playedBuffers.size)
+        }
+
+    /** The hold is for the first item only: once lifted, the loop plays normally again. */
+    @Test
+    fun `later items play normally after the hold is lifted`() =
+        runBlocking {
+            val fixture = Fixture()
+            var introOpen = true
+            fixture.engine.start(
+                freshNode(),
+                dueReviews = emptyList(),
+                sessionLengthMinutes = 5,
+                rootSeed = 1L,
+                now = Instant.EPOCH,
+                holdPlaybackFor = { introOpen },
+            )
+            // Dismissal in the ViewModel closes the intro *and* releases - both, in that order, or the
+            // gate would hold the next item for a screen no longer on it.
+            introOpen = false
+            fixture.engine.releaseHeldPlayback()
+            val afterFirst = fixture.audioPlayer.playedBuffers.size
+
+            val item = assertNotNull(fixture.engine.state.value.recognitionItem)
+            fixture.engine.submitAnswer(item.targetDegree.canonicalLabel, latencyMs = 100)
+
+            assertTrue(
+                fixture.audioPlayer.playedBuffers.size > afterFirst,
+                "the second item must play on its own, with no further release",
+            )
+        }
+
+    /**
+     * Up to 40% of a session is spaced-repetition review of older, already-mastered nodes, interleaved
+     * among the current node's work (`SessionComposer`). A review is not the learner *entering* that
+     * module - they finished it - so the gate must be able to tell the two apart, or practice stops
+     * partway through to re-explain major-scale degrees to someone working on audiation, once per old
+     * module the session happens to draw from.
+     *
+     * The gate is handed the whole slot for exactly this. Asserted here at the engine boundary, since
+     * `isReview` is the engine's own bookkeeping and the caller can only act on what it is given.
+     */
+    @Test
+    fun `the playback gate can tell a review slot from the node being worked`() =
+        runBlocking {
+            val fixture = Fixture()
+            val reviewFlags = mutableListOf<Boolean>()
+            fixture.engine.start(
+                freshNode(),
+                dueReviews = emptyList(),
+                sessionLengthMinutes = 5,
+                rootSeed = 1L,
+                now = Instant.EPOCH,
+                holdPlaybackFor = { slot ->
+                    reviewFlags += slot.isReview
+                    false
+                },
+            )
+
+            assertTrue(reviewFlags.isNotEmpty(), "the gate must be consulted before an item plays")
+            assertFalse(
+                reviewFlags.first(),
+                "a session's own work is not review - marking it so would suppress its explanation",
+            )
+        }
+
     @Test
     fun `starting a session generates and plays the first item`() =
         runBlocking {
@@ -90,7 +203,7 @@ class PracticeLoopEngineTest {
             )
 
             val state = fixture.engine.state.value
-            assertNotNull(state.currentItem)
+            assertNotNull(state.recognitionItem)
             assertEquals(1, fixture.audioPlayer.playedBuffers.size)
             assertFalse(state.isFinished)
             // The Summary screen's own `summary/{sessionId}` nav argument (docs/09-BUILD-PLAN.md Stage 9)
@@ -110,7 +223,7 @@ class PracticeLoopEngineTest {
                 rootSeed = 1L,
                 now = Instant.EPOCH,
             )
-            val firstItem = fixture.engine.state.value.currentItem!!
+            val firstItem = fixture.engine.state.value.recognitionItem!!
 
             fixture.engine.submitAnswer(firstItem.targetDegree.degree.toString())
 
@@ -124,7 +237,7 @@ class PracticeLoopEngineTest {
                     .single()
                     .correct,
             )
-            val secondItem = fixture.engine.state.value.currentItem
+            val secondItem = fixture.engine.state.value.recognitionItem
             assertNotNull(secondItem)
             assertTrue(fixture.audioPlayer.playedBuffers.size >= 2)
         }
@@ -204,7 +317,7 @@ class PracticeLoopEngineTest {
             val submitDurationsMs = mutableListOf<Long>()
             var guard = 0
             while (!fixture.engine.state.value.isFinished && guard < 30) {
-                val item = fixture.engine.state.value.currentItem ?: break
+                val item = fixture.engine.state.value.recognitionItem ?: break
                 delay(thinkTimeMs) // simulated user think time - this is when pre-rendering has to finish
                 val t0 = System.nanoTime()
                 fixture.engine.submitAnswer(item.targetDegree.degree.toString())
@@ -246,7 +359,7 @@ class PracticeLoopEngineTest {
                 rootSeed = 11L,
                 now = Instant.EPOCH,
             )
-            val item = fixture.engine.state.value.currentItem!!
+            val item = fixture.engine.state.value.recognitionItem!!
 
             val t0 = System.nanoTime()
             fixture.engine.submitAnswer(item.targetDegree.degree.toString(), autoAdvance = false)
@@ -332,7 +445,7 @@ class PracticeLoopEngineTest {
                 rootSeed = 1L,
                 now = Instant.EPOCH,
             )
-            val item = fixture.engine.state.value.currentItem!!
+            val item = fixture.engine.state.value.recognitionItem!!
 
             fixture.engine.replay()
             fixture.engine.replay()
@@ -360,7 +473,7 @@ class PracticeLoopEngineTest {
                 rootSeed = 1L,
                 now = Instant.EPOCH,
             )
-            val item = fixture.engine.state.value.currentItem!!
+            val item = fixture.engine.state.value.recognitionItem!!
             val wrongLabel =
                 item.activeDegrees
                     .first { it != item.targetDegree }
@@ -371,11 +484,15 @@ class PracticeLoopEngineTest {
 
             fixture.engine.awaitPersistence()
             assertEquals(1, fixture.attemptRepository.all.size, "the attempt is still recorded, just not synchronously")
-            assertEquals(item, fixture.engine.state.value.currentItem, "must not have advanced past the answered item")
+            assertEquals(
+                item,
+                fixture.engine.state.value.recognitionItem,
+                "must not have advanced past the answered item",
+            )
 
             fixture.engine.proceedToNextItem()
             assertTrue(
-                fixture.engine.state.value.currentItem != item || fixture.engine.state.value.isFinished,
+                fixture.engine.state.value.recognitionItem != item || fixture.engine.state.value.isFinished,
                 "proceedToNextItem should now advance",
             )
         }
@@ -391,7 +508,7 @@ class PracticeLoopEngineTest {
                 rootSeed = 1L,
                 now = Instant.EPOCH,
             )
-            val item = fixture.engine.state.value.currentItem!!
+            val item = fixture.engine.state.value.recognitionItem!!
             val wrongDegree = item.activeDegrees.first { it != item.targetDegree }
             val wrongLabel = wrongDegree.degree.toString()
 
@@ -414,7 +531,7 @@ class PracticeLoopEngineTest {
             )
 
             fixture.engine.proceedToNextItem()
-            assertTrue(fixture.engine.state.value.currentItem != item)
+            assertTrue(fixture.engine.state.value.recognitionItem != item)
         }
 
     @Test
@@ -476,7 +593,7 @@ class PracticeLoopEngineTest {
             var cadenceBeforeCheck: Int? = null
             while (!fixture.engine.state.value.isFinished && guard < 3000) {
                 val state = fixture.engine.state.value
-                val item = state.currentItem ?: break
+                val item = state.recognitionItem ?: break
                 if (state.isIndependenceCheckProbe) {
                     if (!independenceCheckSeen) {
                         cadenceBeforeCheck =

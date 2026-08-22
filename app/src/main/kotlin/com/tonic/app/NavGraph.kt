@@ -1,12 +1,14 @@
 package com.tonic.app
 
 import androidx.compose.runtime.Composable
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.tonic.app.debug.DebugIntakeViewModel
 import com.tonic.app.home.HomeScreen
 import com.tonic.app.onboarding.OnboardingScreen
 import com.tonic.app.summary.SummaryScreen
@@ -90,7 +92,21 @@ fun TonicNavGraph(navController: NavHostController = rememberNavController()) {
             )
         }
         composable(TonicRoute.Diagnostic.route) {
+            val debugIntake: DebugIntakeViewModel = hiltViewModel()
             DiagnosticScreen(
+                // Null in a release build, so the control is absent rather than hidden.
+                onDebugSkip =
+                    if (BuildConfig.DEBUG) {
+                        {
+                            debugIntake.skipIntake {
+                                navController.navigate(TonicRoute.Home.route) {
+                                    popUpTo(TonicRoute.Diagnostic.route) { inclusive = true }
+                                }
+                            }
+                        }
+                    } else {
+                        null
+                    },
                 onContinue = {
                     // Both placement outcomes land on Home: M1 remediation's actual training content is
                     // out of Phase 1 scope (CLAUDE.md §2). DiagnosticLoopEngine already unlocked
@@ -130,6 +146,17 @@ fun TonicNavGraph(navController: NavHostController = rememberNavController()) {
             )
         }
         composable(TonicRoute.Progress.route) { ProgressScreen() }
-        composable(TonicRoute.Settings.route) { SettingsScreen() }
+        composable(TonicRoute.Settings.route) {
+            SettingsScreen(
+                // Debug-only, and a no-op in a release build because the section that fires it is
+                // compiled out. Straight into practice on the seeded node - that is what a "jump to
+                // node" button means, and what the first version conspicuously did not do.
+                onDebugJumpFinished = {
+                    navController.navigate(TonicRoute.Practice.route) {
+                        popUpTo(TonicRoute.Home.route)
+                    }
+                },
+            )
+        }
     }
 }

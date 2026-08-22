@@ -47,10 +47,49 @@ sealed interface AnswerAlphabet {
         override val labels = listOf(INTACT, ALTERED)
     }
 
-    /** `M2.*`: the degree ladder, restricted to the node's active degree set. */
+    /**
+     * `M9.*`: which mode is sounding — docs/20-PHASE-2-SPEC.md §2.4. A binary answer, so accuracy alone
+     * cannot certify it and mastery also requires d-prime (§3, the same reasoning as `M0.SAME_DIFF`):
+     * a learner who answers "major" to everything scores 50% while hearing nothing at all.
+     */
+    data object MajorMinor : AnswerAlphabet {
+        const val MAJOR = "MAJOR"
+        const val MINOR = "MINOR"
+        override val labels = listOf(MAJOR, MINOR)
+    }
+
+    /**
+     * `M12.*`: the prediction answer — docs/20-PHASE-2-SPEC.md §8.1 decision 3. Three buttons from the
+     * first prediction item onward so the control layout never changes shape mid-module, with direction
+     * collapsed to a plain "didn't match" for *scoring* at `M12.PREDICT_TRIAD`: a learner who hears that
+     * the note was wrong but cannot yet say which way is not penalized for a skill that belongs to
+     * `M1.HIGH_LOW`.
+     *
+     * Direction is carried rather than dropped because a two-way answer makes the confusion matrix
+     * useless — a 2×2 grid records *that* a learner was wrong while recording nothing about what they
+     * heard instead. Response bias is handled by d-prime either way (docs/07-ADAPTIVE-ENGINE.md §2),
+     * computed over [matchedVsNot], so the three-way answer costs nothing there.
+     */
+    data object MatchDirection : AnswerAlphabet {
+        const val MATCHED = "MATCHED"
+        const val TOO_LOW = "TOO_LOW"
+        const val TOO_HIGH = "TOO_HIGH"
+        override val labels = listOf(MATCHED, TOO_LOW, TOO_HIGH)
+
+        /**
+         * Collapses a directional answer to the binary a d-prime computation needs, and to the form
+         * `M12.PREDICT_TRIAD` scores against. Any non-[MATCHED] label counts as "detected a mismatch."
+         */
+        fun matchedVsNot(label: String): Boolean = label == MATCHED
+    }
+
+    /** `M2.*`, `M10.*`, `M11.*`: the degree ladder, restricted to the node's active degree set. */
     data class ScaleDegrees(
         val degrees: List<ScaleDegree>,
     ) : AnswerAlphabet {
-        override val labels = degrees.map { it.degree.toString() }
+        // canonicalLabel, not degree.toString(): the latter silently dropped the alteration, so ♭3 and
+        // ♮3 both produced "3" and would have collided in the attempt log and the confusion matrix the
+        // moment Phase 2 put both on screen. Identical output for every unaltered Phase 1 degree.
+        override val labels = degrees.map { it.canonicalLabel }
     }
 }

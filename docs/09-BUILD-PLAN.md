@@ -11,9 +11,42 @@ At a STOP gate:
 
 Do not batch stages. Do not "get ahead." A stage that is 90% done and blocked is a better report than three stages half-built.
 
+## Where the build actually is
+
+`CLAUDE.md` §2 defers to this document for the current phase, so it is stated here rather than inferred
+from which stages have headings.
+
+| Phase | Stages | State |
+|---|---|---|
+| 1 — M0 diagnostic, M2 major diatonic | 1.0–1.10 | Built. Green under `scripts/verify.sh` |
+| 2 — minor, chromatic, audiation, export | 2.0–2.8 (`20-PHASE-2-SPEC.md` §7) | Built. Green |
+| 3 — optional sung response | 3.0–3.6 (`30-PHASE-3-SPEC.md` §8) | Built. Green. ⚠️ Device measurements still owed — `21-HANDOFF.md` §3 |
+| 4 — rhythm (`M3`) | 4.0–4.7 (`40-PHASE-4-SPEC.md` §9) | **Specified only. Not started.** Stage 4.0 is blocked on the Oboe decision (§10 q1) |
+
+Two things that "built and green" does not mean, and which are tracked nowhere else:
+
+- **Stage 1.2's manual on-device gate: signed off by the maintainer, 2026-08-21.** The listening pass
+  was performed and passed. Subjective findings were not recorded in writing, which the stage asks
+  for — if `PLUCK` is ever revisited against the Karplus-Strong question left open in
+  `06-AUDIO-ENGINE.md` §3, that verdict wants capturing here rather than reconstructing.
+- **Phase 2's audio was also accepted by ear** (same date). What that does *not* cover is task
+  viability — whether a learner can hold a degree across `M12`'s silent gap, whether the ladder leaks
+  the mode at `M10.MIXED_MODE`, whether twelve positions are tappable, and whether the leading-tone-free
+  `i–iv–v–i` minor cadence establishes a key at every fade level (`20-PHASE-2-SPEC.md` §8.1 decision 4,
+  which asks for that check explicitly). Those need the exercises performed, not heard.
+- **Phase 3 was started on explicit instruction, 2026-08-21.** Both gates in `30-PHASE-3-SPEC.md` §5
+  and rule 3 below are therefore cleared. Its §9 defines answering four open questions as the first
+  action of the phase, not a precondition to it.
+
+## Stage numbering
+
+Every stage number in this project carries its phase: `1.0`–`1.10` here, `2.0`–`2.8` in `20-PHASE-2-SPEC.md` §7, `3.0`–`3.6` in `30-PHASE-3-SPEC.md` §8.
+
+Phase 1's stages were originally written as bare integers, `Stage 0` through `Stage 10`, when Phase 1 was the only phase that existed. That collided as soon as it wasn't: "Stage 2" meant the audio engine here and the whole of Phase 2 elsewhere, "Stage 3" meant curriculum-and-generators here and the start of Phase 3 elsewhere — one finished, one not started, one decimal point apart. **Renumbered 2026-08-21. `Stage N` in any older text means `Stage 1.N`**, which is the mapping to apply to source comments that still cite the old form.
+
 ---
 
-## Stage 0 — Skeleton
+## Stage 1.0 — Skeleton
 
 Build:
 - Gradle project, version catalog, all modules from `04-ARCHITECTURE.md` §2, empty but wired.
@@ -31,7 +64,7 @@ Acceptance:
 
 ---
 
-## Stage 1 — Domain model
+## Stage 1.1 — Domain model
 
 Build `:core:model` in full: all types listed in `04-ARCHITECTURE.md` §3, tuning math (`06-AUDIO-ENGINE.md` §6), `Clock` abstraction, serializable state classes with `schemaVersion`.
 
@@ -45,7 +78,7 @@ Acceptance:
 
 ---
 
-## Stage 2 — Audio engine
+## Stage 1.2 — Audio engine
 
 Build `:core:audio` per `06-AUDIO-ENGINE.md`: four timbres, ADSR, mixing, limiter, reference-plan rendering, `AudioTrack` player, focus handling.
 
@@ -62,7 +95,7 @@ Acceptance (all automated except the last):
 
 ---
 
-## Stage 3 — Curriculum and generators
+## Stage 1.3 — Curriculum and generators
 
 Build `:core:curriculum`: skill graph, `M0` and `M2` item generators, `ReferencePlanBuilder`, `BalancedSampler`.
 
@@ -78,7 +111,7 @@ Acceptance:
 
 ---
 
-## Stage 4 — Adaptive engine
+## Stage 1.4 — Adaptive engine
 
 Build `:core:engine` per `07-ADAPTIVE-ENGINE.md`: staircase, d-prime, axis scheduler, confusion tracker, mastery evaluator, FSRS scheduler, session composer.
 
@@ -98,7 +131,7 @@ Acceptance:
 
 ---
 
-## Stage 5 — Persistence
+## Stage 1.5 — Persistence
 
 Build `:core:data` per `05-DATA-MODEL.md`: entities, DAOs, repositories, DataStore, schema export.
 
@@ -112,7 +145,7 @@ Acceptance:
 
 ---
 
-## Stage 6 — Practice loop (headless)
+## Stage 1.6 — Practice loop (headless)
 
 Wire the loop end to end with no real UI: a test harness or debug screen that runs generation → render → play → answer → record → adapt.
 
@@ -126,7 +159,7 @@ Acceptance:
 
 ---
 
-## Stage 7 — Practice UI
+## Stage 1.7 — Practice UI
 
 Build `:core:ui` and `:feature:practice` per `08-UI-SPEC.md`. The degree ladder is the centerpiece — build it carefully.
 
@@ -142,7 +175,7 @@ Acceptance:
 
 ---
 
-## Stage 8 — Diagnostic UI
+## Stage 1.8 — Diagnostic UI
 
 Build `:feature:diagnostic`. All four M0 sub-tests, adaptive termination, placement output.
 
@@ -156,7 +189,7 @@ Acceptance:
 
 ---
 
-## Stage 9 — Home, summary, progress, settings
+## Stage 1.9 — Home, summary, progress, settings
 
 Build the remaining features.
 
@@ -171,7 +204,7 @@ Acceptance:
 
 ---
 
-## Stage 10 — Hardening
+## Stage 1.10 — Hardening
 
 - Full-app pass: rotation, process death, low memory, airplane mode, storage pressure.
 - Verify no network permission in the manifest at all.
@@ -188,12 +221,14 @@ Acceptance: all Phase 1 success criteria in `01-PRODUCT-SPEC.md` §5 demonstrabl
 
 ## Later phases (do not start without instruction)
 
+Phases 2 and 3 have left this table — 2 is built (`20-PHASE-2-SPEC.md`) and 3 is specified
+(`30-PHASE-3-SPEC.md`). What remains below has no spec yet, only a name and a reason.
+
 | Phase | Content | Notes |
 |---|---|---|
-| 2 | Minor mode, chromatic degrees, prediction/audiation items, data export | |
-| 3 | Optional sung response | Mic permission, pitch detection, real-time feedback. Never a gate |
 | 4 | Rhythm (M3) | **Requires revisiting the audio backend** — low-latency input likely means Oboe/NDK, plus round-trip latency calibration |
 | 5 | Melodic dictation (M4) | |
 | 6 | Harmony and harmonic dictation (M5, M6) | Bass-line first |
-| 7 | Real-music bridge (M7) | Blocked on owned/licensed audio. See `02-PEDAGOGY.md` §9 |
 | 8 | Advanced/modal (M8), desktop build | |
+
+**Phase 7 is retired and its number is not reused.** It was the real-music bridge; the module was dropped from the product and its identifiers removed from the code (`02-PEDAGOGY.md` §9). The gap stays a gap for the same reason `03-CURRICULUM.md` §1 forbids recycling a shipped `SkillId`: a number that once meant something specific is worse than useless when it silently starts meaning something else. Deprecate, do not recycle — that rule is about identifiers, and a phase number is an identifier.

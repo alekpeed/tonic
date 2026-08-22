@@ -101,6 +101,9 @@ dependencies {
     testImplementation(libs.coroutines.test)
     testImplementation(libs.turbine)
     testImplementation(libs.robolectric)
+    // Renders this module's screens in a JVM test, as :feature:practice has since Stage 7.
+    testImplementation(libs.compose.ui.test.junit4)
+    testImplementation(libs.compose.ui.test.manifest)
     testImplementation(libs.androidx.test.core)
     testImplementation(libs.androidx.test.ext.junit)
     testRuntimeOnly(libs.junit.vintage.engine)

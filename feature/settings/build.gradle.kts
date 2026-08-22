@@ -48,6 +48,9 @@ android {
 
     buildFeatures {
         compose = true
+        // BuildConfig.DEBUG gates the debug-only "jump to node" tool in SettingsScreen - see
+        // DebugSkillJumper's KDoc. Never compiled into a release build.
+        buildConfig = true
     }
 
     compileOptions {
@@ -93,6 +96,11 @@ dependencies {
     kapt(libs.hilt.compiler)
     implementation(libs.hilt.navigation.compose)
 
+    // The microphone permission request in SungResponseSection. rememberLauncherForActivityResult is
+    // the only way to ask from a composable, and this is the only module that asks — :app has carried
+    // the same catalog entry since Stage 1.0.
+    implementation(libs.activity.compose)
+
     testImplementation(libs.junit.jupiter.api)
     testImplementation(kotlin("test-junit5"))
     testRuntimeOnly(libs.junit.jupiter.engine)
@@ -102,6 +110,11 @@ dependencies {
     testImplementation(libs.androidx.test.core)
     testImplementation(libs.androidx.test.ext.junit)
     testRuntimeOnly(libs.junit.vintage.engine)
+
+    // Renders this module's screen in a JVM test, the way :feature:practice has since Stage 7. Absent
+    // until the debug section shipped a crash three times with every other layer under test.
+    testImplementation(libs.compose.ui.test.junit4)
+    testImplementation(libs.compose.ui.test.manifest)
 
     androidTestImplementation(platform(libs.compose.bom))
     androidTestImplementation(libs.compose.ui.test.junit4)

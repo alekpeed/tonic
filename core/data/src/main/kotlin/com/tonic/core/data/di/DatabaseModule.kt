@@ -7,6 +7,7 @@ import com.tonic.core.data.dao.ConfusionStateDao
 import com.tonic.core.data.dao.DiagnosticResultDao
 import com.tonic.core.data.dao.SessionDao
 import com.tonic.core.data.dao.SkillStateDao
+import com.tonic.core.data.db.Migrations
 import com.tonic.core.data.db.TonicDatabase
 import dagger.Module
 import dagger.Provides
@@ -26,7 +27,10 @@ internal object DatabaseModule {
         Room
             .databaseBuilder(context, TonicDatabase::class.java, TonicDatabase.DATABASE_NAME)
             // No fallbackToDestructiveMigration() - docs/05-DATA-MODEL.md §4. Every real schema change
-            // ships its own androidx.room.migration.Migration.
+            // ships its own androidx.room.migration.Migration, and they are all registered here: a
+            // migration that exists but is never added is indistinguishable from no migration at all,
+            // except that it looks safe in review.
+            .addMigrations(*Migrations.ALL)
             .build()
 
     @Provides

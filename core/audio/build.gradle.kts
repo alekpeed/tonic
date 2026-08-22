@@ -16,9 +16,10 @@ plugins {
 // docs/01-PRODUCT-SPEC.md §5 criterion 8 sets a coverage floor for
 // :core:model/:core:curriculum/:core:engine specifically, not :core:audio —
 // this module mixes pure render logic (fully testable on the JVM) with
-// thin Android wrappers (AudioTrackPlayer, AudioFocusManager) that need a
-// real device to exercise meaningfully and are excluded here rather than
-// padded with tests that would just be asserting mocks called each other.
+// thin Android wrappers (AudioTrackPlayer, AudioFocusManager, and now
+// AudioRecordMicrophoneSource) that need a real device to exercise
+// meaningfully and are excluded here rather than padded with tests that
+// would just be asserting mocks called each other.
 kover {
     reports {
         filters {
@@ -26,6 +27,13 @@ kover {
                 classes(
                     "com.tonic.core.audio.player.*",
                     "com.tonic.core.audio.focus.*",
+                    // The AudioRecord wrapper only, not the whole capture package: MicrophoneSource,
+                    // CapturedAudio and UnavailableMicrophoneSource are pure and stay covered. What
+                    // is excluded is the class whose every interesting property - does the buffer
+                    // fill, how long does it take to start, what does a real room sound like - is a
+                    // fact about hardware. Excluding the package instead would have quietly dropped
+                    // the three types that a test can actually hold to account.
+                    "com.tonic.core.audio.capture.AudioRecordMicrophoneSource",
                 )
             }
         }
@@ -81,4 +89,19 @@ dependencies {
 tasks.withType<Test> {
     useJUnitPlatform()
     failOnNoDiscoveredTests = false
+
+    // Test stdout is a deliverable in these two modules, not noise. docs/10-TESTING.md §5 asks for
+    // simulation and measurement output to be "treated as a report, not just a pass/fail", and Stage
+    // 1.4's acceptance says outright to "report the measured convergence point". Gradle captures
+    // stdout and discards it unless asked, so without this the reports are written and never read -
+    // which is how the staircase convergence figure and the pitch-detector accuracy table both came
+    // to exist without anyone being able to see them.
+    testLogging {
+        showStandardStreams = true
+    }
+
+    // Passthrough for the listenable-sample export (AudioSampleExportTest). Gradle does not forward
+    // -D to the test JVM on its own, and an opt-in switch is useless if it cannot be reached from the
+    // command line - the same reasoning as the golden-corpus switch in :core:curriculum.
+    System.getProperty("tonic.audio.export")?.let { systemProperty("tonic.audio.export", it) }
 }

@@ -38,4 +38,12 @@ internal data class AttemptEntity(
     val isWarmup: Boolean,
     val isAbandoned: Boolean,
     val isIndependenceCheckProbe: Boolean,
+    /**
+     * docs/30-PHASE-3-SPEC.md §4/§7, added in schema version 2. Both carry defaults so the migration
+     * is a pure `ALTER TABLE ADD COLUMN` over an append-only log that must never be rewritten: every
+     * row written before Phase 3 reads back as a tapped attempt with no pitch data, which is what it
+     * was.
+     */
+    val inputMethod: String = "TAP",
+    val sungCents: Int? = null,
 )

@@ -48,4 +48,24 @@ data class Attempt(
      * node's own mastered axis levels" FSRS reviews use.
      */
     val isIndependenceCheckProbe: Boolean = false,
+    /**
+     * How this answer was given — docs/30-PHASE-3-SPEC.md §4. Defaults to [InputMethod.TAP] so every
+     * attempt written before Phase 3, and every attempt from a learner who never grants microphone
+     * permission, reads back exactly as it always did.
+     *
+     * Recorded, never adapted on. §2's invariant is that sung and tapped attempts feed one
+     * `SkillState`, so nothing in the adaptive engine may branch on this. See [sungCents].
+     */
+    val inputMethod: InputMethod = InputMethod.TAP,
+    /**
+     * How far the sung pitch landed from the answered degree, in cents, signed — negative is flat.
+     * Null for every tapped attempt, and null for a sung one whose pitch could not be read.
+     *
+     * **For display and analysis only — docs/30-PHASE-3-SPEC.md §7, in those words.** Never read by
+     * `Staircase`, `AxisScheduler`, `MasteryEvaluator` or `ConfusionTracker`. §3 mitigation 4 is what
+     * this serves: how close you were is shown as information, never as a grade, because scoring it
+     * would make the app measure singing rather than hearing. The same guarantee `replayCount` has,
+     * for the same reason, and asserted the same way.
+     */
+    val sungCents: Int? = null,
 )

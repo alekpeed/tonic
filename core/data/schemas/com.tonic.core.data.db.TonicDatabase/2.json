@@ -1,0 +1,415 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 2,
+    "identityHash": "25a83855ea4e88407186c1e4fef4e09e",
+    "entities": [
+      {
+        "tableName": "attempts",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `skillId` TEXT NOT NULL, `sessionId` INTEGER NOT NULL, `itemSeed` INTEGER NOT NULL, `axisLevelsJson` TEXT NOT NULL, `targetLabel` TEXT NOT NULL, `responseLabel` TEXT, `correct` INTEGER NOT NULL, `latencyMs` INTEGER NOT NULL, `replayCount` INTEGER NOT NULL, `keyPitchClass` INTEGER NOT NULL, `targetMidi` INTEGER NOT NULL, `timbreId` TEXT NOT NULL, `cadenceFadeLevel` INTEGER NOT NULL, `timestamp` INTEGER NOT NULL, `isWarmup` INTEGER NOT NULL, `isAbandoned` INTEGER NOT NULL, `isIndependenceCheckProbe` INTEGER NOT NULL, `inputMethod` TEXT NOT NULL, `sungCents` INTEGER)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "skillId",
+            "columnName": "skillId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sessionId",
+            "columnName": "sessionId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "itemSeed",
+            "columnName": "itemSeed",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "axisLevelsJson",
+            "columnName": "axisLevelsJson",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "targetLabel",
+            "columnName": "targetLabel",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "responseLabel",
+            "columnName": "responseLabel",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "correct",
+            "columnName": "correct",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "latencyMs",
+            "columnName": "latencyMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "replayCount",
+            "columnName": "replayCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "keyPitchClass",
+            "columnName": "keyPitchClass",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "targetMidi",
+            "columnName": "targetMidi",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "timbreId",
+            "columnName": "timbreId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "cadenceFadeLevel",
+            "columnName": "cadenceFadeLevel",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "timestamp",
+            "columnName": "timestamp",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isWarmup",
+            "columnName": "isWarmup",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isAbandoned",
+            "columnName": "isAbandoned",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isIndependenceCheckProbe",
+            "columnName": "isIndependenceCheckProbe",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "inputMethod",
+            "columnName": "inputMethod",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sungCents",
+            "columnName": "sungCents",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_attempts_skillId_timestamp",
+            "unique": false,
+            "columnNames": [
+              "skillId",
+              "timestamp"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_attempts_skillId_timestamp` ON `${TABLE_NAME}` (`skillId`, `timestamp`)"
+          },
+          {
+            "name": "index_attempts_sessionId",
+            "unique": false,
+            "columnNames": [
+              "sessionId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_attempts_sessionId` ON `${TABLE_NAME}` (`sessionId`)"
+          },
+          {
+            "name": "index_attempts_skillId_targetLabel_responseLabel",
+            "unique": false,
+            "columnNames": [
+              "skillId",
+              "targetLabel",
+              "responseLabel"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_attempts_skillId_targetLabel_responseLabel` ON `${TABLE_NAME}` (`skillId`, `targetLabel`, `responseLabel`)"
+          }
+        ]
+      },
+      {
+        "tableName": "skill_states",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`skillId` TEXT NOT NULL, `axisLevelsJson` TEXT NOT NULL, `staircaseStateJson` TEXT NOT NULL, `activeAxis` TEXT, `masteryStatus` TEXT NOT NULL, `masteredAt` INTEGER, `fsrsStability` REAL NOT NULL, `fsrsDifficulty` REAL NOT NULL, `fsrsLastReview` INTEGER, `fsrsDue` INTEGER, `fsrsReps` INTEGER NOT NULL, `fsrsLapses` INTEGER NOT NULL, `totalAttempts` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`skillId`))",
+        "fields": [
+          {
+            "fieldPath": "skillId",
+            "columnName": "skillId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "axisLevelsJson",
+            "columnName": "axisLevelsJson",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "staircaseStateJson",
+            "columnName": "staircaseStateJson",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "activeAxis",
+            "columnName": "activeAxis",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "masteryStatus",
+            "columnName": "masteryStatus",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "masteredAt",
+            "columnName": "masteredAt",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "fsrsStability",
+            "columnName": "fsrsStability",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "fsrsDifficulty",
+            "columnName": "fsrsDifficulty",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "fsrsLastReview",
+            "columnName": "fsrsLastReview",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "fsrsDue",
+            "columnName": "fsrsDue",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "fsrsReps",
+            "columnName": "fsrsReps",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "fsrsLapses",
+            "columnName": "fsrsLapses",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "totalAttempts",
+            "columnName": "totalAttempts",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "skillId"
+          ]
+        }
+      },
+      {
+        "tableName": "confusion_state",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`skillId` TEXT NOT NULL, `stateJson` TEXT NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`skillId`))",
+        "fields": [
+          {
+            "fieldPath": "skillId",
+            "columnName": "skillId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "stateJson",
+            "columnName": "stateJson",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "skillId"
+          ]
+        }
+      },
+      {
+        "tableName": "sessions",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `startedAt` INTEGER NOT NULL, `endedAt` INTEGER, `plannedItemCount` INTEGER NOT NULL, `completedItemCount` INTEGER NOT NULL, `rootSeed` INTEGER NOT NULL, `resumeStateJson` TEXT)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "startedAt",
+            "columnName": "startedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "endedAt",
+            "columnName": "endedAt",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "plannedItemCount",
+            "columnName": "plannedItemCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "completedItemCount",
+            "columnName": "completedItemCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "rootSeed",
+            "columnName": "rootSeed",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "resumeStateJson",
+            "columnName": "resumeStateJson",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "diagnostic_results",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `pitchDirectionThresholdCents` INTEGER NOT NULL, `discriminationDPrime` REAL NOT NULL, `tonalMemorySpan` INTEGER NOT NULL, `amusiaIndicatorFlag` INTEGER NOT NULL, `recommendedEntry` TEXT NOT NULL, `initialAxisLevelsJson` TEXT NOT NULL, `seed` INTEGER NOT NULL, `completedAt` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "pitchDirectionThresholdCents",
+            "columnName": "pitchDirectionThresholdCents",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "discriminationDPrime",
+            "columnName": "discriminationDPrime",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "tonalMemorySpan",
+            "columnName": "tonalMemorySpan",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "amusiaIndicatorFlag",
+            "columnName": "amusiaIndicatorFlag",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "recommendedEntry",
+            "columnName": "recommendedEntry",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "initialAxisLevelsJson",
+            "columnName": "initialAxisLevelsJson",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "seed",
+            "columnName": "seed",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "completedAt",
+            "columnName": "completedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        }
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '25a83855ea4e88407186c1e4fef4e09e')"
+    ]
+  }
+}

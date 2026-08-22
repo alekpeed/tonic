@@ -1,6 +1,8 @@
 # 05 — Data Model
 
-Local only. Room for relational state, DataStore Preferences for settings. No network, no sync, no export in Phase 1 (export is a Phase 2 candidate).
+Local only. Room for relational state, DataStore Preferences for settings. No network, no sync.
+
+Export landed in Phase 2 (`20-PHASE-2-SPEC.md` §6): the whole database is readable out as one JSON file from Settings, through the system's create-document picker, so the user chooses the destination and the app needs no storage permission. It remains local by construction — the app declares no network permission at all, so an export is a file and can only ever be a file. There is deliberately **no import**. Two fields are deliberately omitted from an export: `resumeStateJson`, a mid-session scratchpad that is not progress, and `amusiaIndicatorFlag`, which is internal routing state that `02-PEDAGOGY.md` §8 forbids ever surfacing evaluatively — a shareable file carrying a column legible as "amusia" is exactly that.
 
 Single-user. There is no user table and no user ID column. If multi-profile is ever needed it becomes a schema migration, and that is an acceptable cost versus carrying a dead foreign key everywhere now.
 
@@ -32,6 +34,8 @@ The append-only event log. Everything else is derivable from this table; treat i
 | `isWarmup` | Boolean | Recorded but excluded from mastery evaluation and the staircase — `07-ADAPTIVE-ENGINE.md` §8 |
 | `isAbandoned` | Boolean | Interruption/session kill (incoming call, headphone unplug, backgrounded, rotated) discarded the item rather than scoring it — excluded from every adaptive computation |
 | `isIndependenceCheckProbe` | Boolean | One of the 30 forced-`CADENCE_FADE`-L6 `M2.INDEPENDENCE_CHECK` probes (`03-CURRICULUM.md` §5.6). Still folded into axis-level replay (a failed check lowers `CADENCE_FADE`, and that has to survive a rebuild the same way any other axis move does) but excluded from the ordinary mastery window and FSRS review-block accumulation |
+| `inputMethod` | String | `TAP` or `SUNG` — how the **scoring** answer was given (`30-PHASE-3-SPEC.md` §4). Added in schema v2, defaulting to `TAP`: before Phase 3 the degree ladder was the only way to answer anything, so for every earlier row that is a statement of fact, not a guess. Recorded, never adapted on — §2 makes sung and tapped attempts one `SkillState`. **Always `TAP` on `M12.*`, including when the learner sang**: a prediction item's answer is the three-button judgment, and the sung pitch supplements it rather than replacing it (`30-PHASE-3-SPEC.md` §5.4). `sungCents` is what marks such a row as sung |
+| `sungCents` | Int? | Signed deviation of the sung pitch from the degree it is measured against; negative is flat. On a recognition item that is the degree the learner answered with; on a prediction item it is the degree the item **named** — the one they were asked to audiate, not the note that eventually sounded, which they had not heard when they sang (`30-PHASE-3-SPEC.md` §5.4). Folded into ±600 cents, so the same degree in any octave reads alike (`sung_octave_agnostic`). Null for every tapped attempt and for any capture whose pitch could not be read. **For display and analysis only** (`30-PHASE-3-SPEC.md` §7) — never read by `Staircase`, `AxisScheduler`, `MasteryEvaluator` or `ConfusionTracker`, the same guarantee `replayCount` has and for the same reason. `SungDataIsNeverAdaptiveTest` asserts it by replaying one history twice and demanding an identical `SkillState`; `SungPredictionSimulationTest` asserts the same over a 400-item prediction run |
 
 Indices: `(skillId, timestamp)`, `(sessionId)`, `(skillId, targetLabel, responseLabel)`.
 
@@ -130,12 +134,31 @@ Settings only. No progress data.
 | `onboarding_completed` | Boolean | `false` |
 | `diagnostic_completed` | Boolean | `false` |
 | `module2_intro_seen` | Boolean | `false` |
+| `module9_intro_seen` | Boolean | `false` |
+| `module10_intro_seen` | Boolean | `false` |
+| `module11_intro_seen` | Boolean | `false` |
+| `module12_intro_seen` | Boolean | `false` |
+| `mixed_mode_intro_seen` | Boolean | `false` |
+| `sung_response_enabled` | Boolean | `false` |
+| `sung_octave_agnostic` | Boolean | `true` |
+| `sung_response_intro_seen` | Boolean | `false` |
 | `daily_reminder_enabled` | Boolean | `false` |
 | `daily_reminder_time` | String? | null |
 
 `daily_reminder_enabled` defaults to **false**. Opt-in only. See `08-UI-SPEC.md` §7.
 
-`module2_intro_seen` records that the Module 2 explanation screen and its worked example have been shown once — `11-ONBOARDING-CLARITY.md` §5: "shown automatically once, on first encounter with that exercise type," and never again automatically. It gates the automatic showing only; the screen stays reachable on demand forever, and recalling it does not depend on or change this flag.
+The three `sung_*` keys are Phase 3's (`30-PHASE-3-SPEC.md` §7). `sung_response_enabled` defaults false
+because §6.1 forbids requesting the microphone from anyone who has not actively opted into singing, and
+a default of true would do exactly that. `sung_octave_agnostic` defaults **true** because §3 mitigation 3
+makes octave-agnosticism a mitigation against the phase's central risk rather than a preference: forcing
+a register tests vocal range, not hearing. `sung_response_intro_seen` is `08-UI-SPEC.md` §3a's per-shape
+flag applied to singing, which is its own task shape — same question, different answer control.
+
+`module9_intro_seen`, `module10_intro_seen`, `module11_intro_seen`, `module12_intro_seen` and `mixed_mode_intro_seen` were the same mechanism for Phase 2's task shapes, and are retired on the same terms. The per-shape split they encoded still holds in the code that replaced them: each module has its own explanation, and having met one says nothing about the others.
+
+**`module2_intro_seen` and its Phase 2 siblings are retired: still stored, no longer written or read.** They recorded that a module's explanation screen had been shown once, and gated it from ever showing automatically again. That rule was dropped on 2026-08-22 by the maintainer's instruction — a module's explanation now appears every time the learner enters that module (`08-UI-SPEC.md` §3a, `11-ONBOARDING-CLARITY.md` §5), governed by in-memory state for the current visit and by nothing durable at all.
+
+The keys and their `AppSettings` fields are kept rather than migrated away, so the stored schema stays stable and an install carrying `true` values from an older build needs no migration: nothing consults them. Do not repurpose them, and do not reintroduce a read without changing §3a first.
 
 ---
 
@@ -143,7 +166,16 @@ Settings only. No progress data.
 
 - Room `exportSchema = true`. Schema JSON committed to the repo.
 - Every schema change ships an explicit `Migration`. `fallbackToDestructiveMigration()` is **forbidden** — losing a user's ear training progress is unacceptable and unrecoverable.
-- Every migration gets a `MigrationTestHelper` test that loads a real prior-version database and verifies the upgrade.
+- Every migration gets a `MigrationTestHelper` test that loads a real prior-version database and verifies the upgrade. The test must write rows at the old version and read them back after — asserting the migration *ran* is not the same as asserting the data *survived it*, and only the second one matters.
+- Migrations live in `core/data/.../db/Migrations.kt` and every one is registered in `Migrations.ALL`, which `DatabaseModule` passes to the builder. A migration that exists but was never registered passes its own test and crashes on a device, so the migration tests include one case that goes through `Room.databaseBuilder` with that list rather than naming a migration directly.
+- CI fails the build if a run generates schema JSON that is not committed, and prints the file. Schemas are only useful if they are in the repo before the next migration needs them.
+
+### Version history
+
+| Version | Change |
+|---|---|
+| 1 | Initial schema |
+| 2 | `attempts` gains `inputMethod` and `sungCents` for Phase 3's optional sung response (`30-PHASE-3-SPEC.md` §7). Two added columns, both defaulted; the append-only log is never rewritten |
 
 ---
 

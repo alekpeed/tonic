@@ -64,18 +64,19 @@ class ProgressViewModel
 
         private suspend fun load() {
             val states = skillStateRepository.observeAll().first()
-            val masteryMap = SkillGraph.m2Nodes.map { node -> masteryMapNodeFor(node.id, states) }
+            // The whole chain, not just M2 - a progress screen that stops at the major nodes stops
+            // being a progress screen the moment a learner passes them.
+            val masteryMap = SkillGraph.practiceChain.map { node -> masteryMapNodeFor(node.id, states) }
 
             // "Per-degree accuracy" / "confusion view" are scoped to whichever node the user is actually
             // working on - the same "current node" resolution `:feature:practice`'s ViewModel uses
             // (docs/08-UI-SPEC.md §2/§6 both describe a single, current picture, not one per node).
             val currentNodeId =
-                SkillGraph.m2Nodes.firstOrNull { states[it.id]?.masteryState != MasteryState.MASTERED }?.id
-                    ?: SkillGraph.m2Nodes.last().id
+                SkillGraph.currentNodeFor { id -> states[id]?.masteryState == MasteryState.MASTERED }
             val matrix = confusionRepository.matrixFor(currentNodeId)
             val activeDegrees = SkillGraph.activeDegreesFor(currentNodeId).sortedBy { it.degree }
             val degreeAccuracy =
-                activeDegrees.map { degree -> DegreeAccuracy(degree, matrix.accuracyFor(degree.degree.toString())) }
+                activeDegrees.map { degree -> DegreeAccuracy(degree, matrix.accuracyFor(degree.canonicalLabel)) }
             val confusionStatements =
                 ConfusionTracker.confusionPairs(matrix).map { cell ->
                     ConfusionStatement(ScaleDegree(cell.target.toInt()), ScaleDegree(cell.response.toInt()))
@@ -105,7 +106,14 @@ class ProgressViewModel
                     MasteryState.LOCKED, MasteryState.MASTERED -> null
                     MasteryState.AVAILABLE, MasteryState.IN_PROGRESS -> {
                         val window = masteryWindowFor(skillId)
-                        MasteryEvaluator.evaluate(window, SkillGraph.activeDegreesFor(skillId), state.axisLevels)
+                        MasteryEvaluator.evaluate(
+                            window,
+                            SkillGraph.activeDegreesFor(skillId),
+                            state.axisLevels,
+                            // The same six criteria the replayer applies, so the progress screen shows
+                            // what is actually blocking rather than a subset of it.
+                            focusDegree = SkillGraph.focusDegreeFor(skillId),
+                        )
                     }
                 }
             return MasteryMapNode(skillId, activeDegrees, state.masteryState, verdict)

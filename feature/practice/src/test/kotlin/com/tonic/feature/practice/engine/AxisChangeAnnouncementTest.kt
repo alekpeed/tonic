@@ -74,7 +74,7 @@ class AxisChangeAnnouncementTest {
             var index = 0
             while (!fixture.engine.state.value.isFinished && index < items) {
                 val state = fixture.engine.state.value
-                val item = state.currentItem ?: break
+                val item = state.recognitionItem ?: break
                 state.axisChange?.let { seen += index to it }
                 index++
                 val correct = random.nextDouble() < accuracy
@@ -113,7 +113,7 @@ class AxisChangeAnnouncementTest {
 
             fixture.engine.start(context, emptyList(), 20, rootSeed = 4242L, now = Instant.EPOCH)
             repeat(30) {
-                val item = fixture.engine.state.value.currentItem ?: return@repeat
+                val item = fixture.engine.state.value.recognitionItem ?: return@repeat
                 fixture.engine.submitAnswer(item.targetDegree.degree.toString())
             }
             fixture.engine.awaitPersistence()
@@ -129,7 +129,7 @@ class AxisChangeAnnouncementTest {
             var index = 0
             while (!fixture.engine.state.value.isFinished && index < 12) {
                 val state = fixture.engine.state.value
-                val item = state.currentItem ?: break
+                val item = state.recognitionItem ?: break
                 state.axisChange?.let { seen += index to it }
                 index++
                 fixture.engine.submitAnswer(item.targetDegree.degree.toString())

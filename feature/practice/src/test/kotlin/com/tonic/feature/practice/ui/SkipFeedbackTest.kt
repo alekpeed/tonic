@@ -35,9 +35,8 @@ class SkipFeedbackTest {
     fun `skip acknowledges immediately, presents a genuinely new item, and the notice clears itself`() =
         runBlocking {
             val fixture = PracticeFixture(AppSettings(module2IntroSeen = true))
-            fixture.viewModel.startIfNeeded()
-            val before =
-                withTimeout(TIMEOUT_MS) { fixture.viewModel.uiState.first { it.item != null } }.item!!
+            fixture.startPastIntro(TIMEOUT_MS)
+            val before = fixture.viewModel.uiState.value.item!!
 
             fixture.viewModel.onSkip()
 

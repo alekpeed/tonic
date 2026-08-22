@@ -63,7 +63,7 @@ class ReplayHomeReminderTest {
             now = now,
         )
         repeat(20) {
-            val item = engine.state.value.currentItem ?: fail("session ended before a silent item appeared")
+            val item = engine.state.value.recognitionItem ?: fail("session ended before a silent item appeared")
             if (item.referencePlan.elements.isEmpty()) return item
             engine.abandonCurrentItem()
         }
@@ -103,7 +103,7 @@ class ReplayHomeReminderTest {
                 rootSeed = 42L,
                 now = fixture.now,
             )
-            val item = fixture.engine.state.value.currentItem
+            val item = fixture.engine.state.value.recognitionItem
             assertNotNull(item)
             assertEquals(null, item.homeReminder, "an item with a full reference needs no reminder")
 

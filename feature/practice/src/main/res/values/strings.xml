@@ -19,6 +19,9 @@
          happening and what to do, on every item, every time. -->
     <string name="practice_phase_reference">Setting up \"home\" — more notes than your buttons. That\'s normal.</string>
     <string name="practice_phase_target">One note, alone — this is the question.</string>
+    <string name="practice_that_was_major">That one was major.</string>
+    <string name="practice_that_was_minor">That one was minor.</string>
+    <string name="practice_phase_audiation_gap">Nothing is playing. Build the note in your head and wait for it.</string>
     <string name="practice_phase_awaiting_answer">Tap where it sits, relative to home. Not sure? Guess.</string>
 
     <!-- Module 2 explanation screen - docs/11-ONBOARDING-CLARITY.md §3's six required content points,
@@ -40,6 +43,82 @@
     <string name="m2_intro_no_wrong">You won\'t always be sure, and that\'s expected. Guessing is how this gets easier — nothing is scored and nothing is held against you.</string>
     <string name="m2_intro_start">Start practicing</string>
     <string name="m2_intro_help">How this works</string>
+
+    <!-- Module 9 explanation - docs/20-PHASE-2-SPEC.md §5.1: "must explain what major and minor are
+         being asked about, in plain terms, without assuming the user knows." Deliberately avoids the
+         words "happy" and "sad": they are the usual shorthand and they are unreliable (plenty of minor
+         music is not sad), and a learner who anchors on mood rather than sound is being taught the
+         wrong cue. The description below points at the third instead, which is the actual difference,
+         without ever using the word "third" - docs/11-ONBOARDING-CLARITY.md §9.4. -->
+    <string name="m9_answer_MAJOR">Major</string>
+    <string name="m9_answer_MINOR">Minor</string>
+    <string name="m9_intro_title">Something new: major or minor</string>
+    <string name="m9_intro_what_changes">Up to now you\'ve been naming single notes inside one key. This asks something different, and simpler: you just say which of two flavors the whole thing has.</string>
+    <string name="m9_intro_the_two">Every key comes in one of two flavors, called major and minor. Same set of steps, one of them shifted slightly, and that one shift changes the whole character of the sound.</string>
+    <string name="m9_intro_the_task">You\'ll hear a short passage. Your job: major, or minor. That\'s the whole question — no notes to name, two buttons.</string>
+    <string name="m9_intro_dont_overthink">Most people hear this before they can explain it. Don\'t look for a rule; play the two examples below a few times and let the difference land on its own.</string>
+    <string name="m9_intro_example_heading">Hear them side by side</string>
+    <string name="m9_intro_play_major">Play the major one</string>
+    <string name="m9_intro_play_minor">Play the minor one</string>
+    <string name="m9_intro_example_hint">Play each a few times, and switch between them. The contrast is much easier to hear than either one alone.</string>
+    <string name="m9_intro_no_wrong">You won\'t be sure at first, and guessing is fine. Nothing here is scored against you.</string>
+    <string name="m9_intro_start">Start</string>
+    <string name="m9_intro_help">What am I listening for?</string>
+
+    <!-- Minor-mode explanation screen - docs/20-PHASE-2-SPEC.md §5.1: "must explain what changed from
+         major and why ♭3 is labeled that way", under 08-UI-SPEC.md §3a's first-run rule. Written to
+         assume nothing: the learner has mastered major degrees, and that is all. -->
+    <string name="m10_intro_title">Something new: minor</string>
+    <string name="m10_intro_what_changed">Everything works the same way as before. Chords set up a \"home\" note, then one note plays, and you say where it sits. What changes is the flavor of the scale those notes come from.</string>
+    <string name="m10_intro_the_sound">Play the example and you\'ll hear it straight away. Minor sounds darker, heavier, sadder — most people hear the difference long before they can name it. You don\'t need a word for it. You just need to hear where the note sits.</string>
+    <string name="m10_intro_flat_three">One button looks different now: \u266d3, said \"flat three\". It sits between 2 and 3 — a little lower than the 3 you already know. That small drop is most of what makes the whole thing sound minor.</string>
+    <string name="m10_intro_why_flat">It keeps its number because it is still the third note of the scale. The \u266d just says \"the lower version of it\". Same for \u266d6 later on. A number always means the same distance from home, in every key and either flavor — that is the point of the labels.</string>
+    <string name="m10_intro_start">Start practicing</string>
+    <string name="m10_intro_help">How minor works</string>
+
+    <!-- Module 11 (chromatic degrees) first-run explanation - docs/20-PHASE-2-SPEC.md §5.1. -->
+    <string name="m11_intro_title">Notes between the notes</string>
+    <string name="m11_intro_between">Until now every note you\'ve named came from the seven the key is built on. Those seven were never all the notes there are — they\'re the ones this key uses as its own. In between some of them sits another note, closer to its neighbor than any two of the seven are to each other. You\'ve been hearing these in music your whole life. Now you get to name them.</string>
+    <string name="m11_intro_why_label">A new note needs a name, and it borrows one. \u266f4 means \"the 4 you know, nudged up\". \u266d7 means \"the 7 you know, nudged down\". The number still says the same thing it always did — how far from home — and the sign in front says which version of it you\'re hearing. Exactly like \u266d3 in minor.</string>
+    <string name="m11_intro_where_on_ladder">On the ladder these sit alongside the note they\'re named after, slightly narrower, so you can see at a glance which is which. \u266f4 is beside 4, just above it, and below the 5 it wants to fall into.</string>
+    <string name="m11_intro_one_at_a_time">You get one of these at a time, mixed in with all the notes you already know — that\'s the point. On its own a new note is just a sound. What makes it recognizable is where it sits against the ones around it.</string>
+    <string name="m11_intro_start">Start practicing</string>
+    <!-- M10.MIXED_MODE first-run explanation - docs/08-UI-SPEC.md §3a. -->
+    <string name="mixed_intro_title">Something new: you won\'t be told which</string>
+    <string name="mixed_intro_no_warning">You\'ve been naming notes in major, and naming notes in minor, always knowing which one you were in. From here you won\'t be told. Each round picks one or the other, and the chords at the start are the only thing that says which.</string>
+    <string name="mixed_intro_all_ten">That\'s why there are more buttons now. All ten are on screen every round — the ones you know from major and the ones you know from minor, side by side. They don\'t change between rounds, because if they did, they\'d be giving the answer away before you\'d heard anything.</string>
+    <string name="mixed_intro_two_steps">So it\'s two things at once, in order. Listen to the chords and let the flavor land — bright or dark. Then place the note against that. Most of the work is the first step, and you\'ve already done it on its own.</string>
+    <string name="mixed_intro_example_heading">Try one</string>
+    <string name="mixed_intro_example_prompt">Play this and decide the flavor before you think about the note at all.</string>
+    <string name="mixed_intro_reveal">Which was it?</string>
+    <string name="mixed_intro_answer">That one was minor, and the note was %1$s. In major the same button position would have been a different note — which is exactly why the flavor has to come first.</string>
+    <string name="mixed_intro_told_after">After every answer you\'ll be told which flavor it was, right or wrong. That way a miss tells you something: whether you placed the note wrong, or heard the key wrong.</string>
+    <string name="mixed_intro_start">Start practicing</string>
+    <string name="mixed_intro_help">Major or minor, unannounced</string>
+
+    <!-- Module 12 (prediction / audiation) - docs/20-PHASE-2-SPEC.md §2.3, §5.1, §5.3. -->
+    <string name="m12_hold_this_one">Hear this one in your head</string>
+    <string name="m12_answer_matched">That\'s the one</string>
+    <string name="m12_answer_too_low">Lower than mine</string>
+    <string name="m12_answer_too_high">Higher than mine</string>
+    <string name="m12_intro_title">Something new: hear it before it plays</string>
+    <string name="m12_intro_backwards">Every exercise so far played a note and asked you to name it. This one runs backwards. We name the note first, then there\'s silence, and your job during that silence is to hear the note in your head. Then it plays, and you say whether it was the one you were holding.</string>
+    <string name="m12_intro_how_it_goes">The chords set up home, the same as always. A number appears — say it\'s 5. Nothing plays. You find the 5 in your head and hold onto it. Then a note sounds. Was that your 5, or was it lower, or higher?</string>
+    <string name="m12_intro_silence_is_the_exercise">The silence is not the app loading. It is the exercise. Nothing is timing you and nothing is watching how fast you get there — take the whole gap.</string>
+    <string name="m12_intro_what_holding_means">If "hear it in your head" sounds like something you can\'t do, try this: think of a song you know and let the first line play internally, without singing. That is the thing. It is the same skill, aimed at one note.</string>
+    <string name="m12_intro_example_heading">Try one</string>
+    <string name="m12_intro_example_prompt">The example holds %1$s. Play it, hold that note through the silence, and see whether the note that arrives is the one you had.</string>
+    <string name="m12_intro_example_play">Play the example</string>
+    <string name="m12_intro_reveal">What was it?</string>
+    <string name="m12_intro_answer_matched">That was a match — the note that played was exactly the %1$s you were holding.</string>
+    <string name="m12_intro_answer_mismatched">That was not a match — the note that played was %1$s the %2$s you were holding.</string>
+    <string name="m12_intro_answer_lower">lower than</string>
+    <string name="m12_intro_answer_higher">higher than</string>
+    <string name="m12_intro_three_buttons">Three buttons: it matched, it was lower, or it was higher. Early on, spotting that something was off at all is the win — you won\'t be marked down for getting the direction wrong.</string>
+    <string name="m12_intro_start">Start practicing</string>
+    <string name="m12_intro_help">How this one works</string>
+
+    <string name="m11_intro_help">Notes between the notes</string>
 
     <!-- Per-item reference-shape line - docs/11-ONBOARDING-CLARITY.md §9.3's per-item corollary,
          added after live use: an announcement at the moment a level changes is not enough when the
@@ -81,4 +160,53 @@
     <string name="practice_paused_title">Paused.</string>
     <string name="practice_paused_body">That note wasn\'t scored. Continue whenever you\'re ready.</string>
     <string name="practice_paused_continue">Continue</string>
+    <!-- Sung response explanation - docs/30-PHASE-3-SPEC.md §6.2. Plain words only: every term is
+         one the learner already has, and the reassurance about not being judged is stated outright
+         rather than implied, per docs/11-ONBOARDING-CLARITY.md §9.4. -->
+    <string name="sung_intro_title">Answering by singing</string>
+    <string name="sung_intro_what_happens">You can sing your answer instead of tapping it. Everything else stays the same: you hear the setup, then the note, then you answer.</string>
+    <string name="sung_intro_any_octave">Sing it high or low, whichever is comfortable for your voice. It counts either way.</string>
+    <string name="sung_intro_example_heading">For example</string>
+    <string name="sung_intro_example">Say the answer is 3, and you sing it slightly flat. That still counts as 3. The app works out which note you were going for, and close is close enough.</string>
+    <string name="sung_intro_not_judged">How well you sing is not part of this. Nothing here scores your voice.</string>
+    <string name="sung_intro_unclear">If the app cannot make out what you sang, it simply asks again. That is never counted as a wrong answer.</string>
+    <string name="sung_intro_tap_always">The buttons are always there too. You can tap any question instead, at any time.</string>
+    <string name="sung_intro_start">Got it</string>
+
+    <!--
+      The sung answer control. Held to 30-PHASE-3-SPEC.md §2: no copy may imply singing is the real or
+      advanced way to answer. Nothing below praises it, ranks it against tapping, or calls the ladder a
+      fallback for people who cannot manage the better thing.
+    -->
+    <string name="sung_answer_sing">Sing your answer</string>
+    <string name="sung_answer_listening">Listening…</string>
+    <!--
+      §5.2: unclear is never wrong. Says the app did not catch it, which is a fact about the app, and
+      names the buttons as an equally ordinary way to answer rather than a consolation.
+    -->
+    <string name="sung_answer_unclear">Didn\'t catch that. Sing it again, or tap your answer.</string>
+    <!--
+      §3 mitigation 4 and §6.4: information, never a grade. No "good", no "close", no praise or
+      correction - the answer was already scored on which note you sang, and this is about your voice,
+      which is not being marked.
+    -->
+    <string name="sung_readout_on_pitch">You were on pitch.</string>
+    <string name="sung_readout_flat">You were about %1$d cents below that note.</string>
+    <string name="sung_readout_sharp">You were about %1$d cents above that note.</string>
+
+    <!--
+      M12's sung prediction — docs/30-PHASE-3-SPEC.md §5.4 and §6.4.
+
+      The listening line is a statement about the app, phrased so it cannot be read as a demand:
+      §2 forbids any copy implying singing is the real or advanced way to answer, and a learner who
+      says nothing into the gap has done nothing wrong. "If you want to" carries that, and the app
+      still listens either way rather than waiting on a decision.
+
+      The held/not-caught lines appear only after the answer is in. They report what happened,
+      never how well it went — the attempt was already scored on the button (§5.4), and these say
+      nothing about it in either direction.
+    -->
+    <string name="m12_sung_listening">Sing it out loud too, if you want to.</string>
+    <string name="m12_sung_held">You sang %1$s.</string>
+    <string name="m12_sung_not_caught">No sung note caught that time.</string>
 </resources>

@@ -34,4 +34,45 @@
     <string name="settings_discard_session_body">If a saved practice session keeps bringing back a problem, discard it here. Your calibration and skill progress are kept — only the unfinished session goes.</string>
     <string name="settings_discard_session_done">Saved session discarded. Your progress is untouched.</string>
     <string name="settings_discard_session_none">No saved session to discard.</string>
+
+    <!-- Data export - docs/20-PHASE-2-SPEC.md §6. Local only: the app has no network permission, so
+         the file goes wherever the user puts it and nowhere else. Framed as "yours", because it is. -->
+    <string name="settings_data_heading">Your data</string>
+    <string name="settings_export_body">Save everything this app knows about your practice — every answer, every session, your progress — as a single file you can keep or open elsewhere. It stays on your device unless you move it.</string>
+    <string name="settings_export">Export my data</string>
+    <string name="settings_export_saved">Saved.</string>
+    <string name="settings_export_cancelled">Export cancelled. Nothing was saved and nothing changed.</string>
+    <string name="settings_export_failed">Couldn\'t write the file. Your data is untouched — try somewhere else, or free up some space.</string>
+
+    <!-- Debug-only "jump to node" tool - never present in a release build (BuildConfig.DEBUG gates
+         the whole section in SettingsScreen). Resets progress, stamps every earlier node mastered, and
+         navigates straight into practice, so a tester can reach any node without grinding to it. -->
+    <string name="settings_debug_heading">Developer options (debug build only)</string>
+    <string name="settings_debug_jump_body">Pick a node and go straight to practicing it. This ERASES all progress, marks every earlier node complete, and skips onboarding and the diagnostic. Testing only.</string>
+    <string name="settings_debug_jump_result">Unlocked %1$d node(s). Now on %2$s.</string>
+    <string name="settings_debug_jump_working">Jumping…</string>
+    <string name="settings_debug_jump_failed">Jump failed: %1$s</string>
+
+    <!--
+      Answering by singing — docs/30-PHASE-3-SPEC.md 6.1.
+
+      Held to 2's rule that no copy may imply singing is the real or advanced way to answer: it is
+      an option, not a tier. Nothing here praises it, ranks it against tapping, or describes the
+      ladder as a fallback. The dialog says the four things 6.1 requires be said before the system
+      permission prompt appears, in the order a person would want them.
+    -->
+    <string name="settings_sung_heading">Singing</string>
+    <string name="settings_sung_toggle">Answer by singing</string>
+    <string name="settings_sung_body">Adds the option to sing your answer instead of tapping it. Tapping stays available on every question, and is scored exactly the same.</string>
+    <string name="settings_sung_permission_missing">Microphone access is off, so singing is unavailable. Turn this on again to ask for it.</string>
+    <string name="settings_sung_octave_agnostic">Any octave counts</string>
+    <string name="settings_sung_octave_agnostic_body">Sing the note wherever it sits comfortably in your voice. Turn this off only if you want the octave to matter.</string>
+
+    <string name="settings_sung_dialog_title">About the microphone</string>
+    <string name="settings_sung_dialog_what">Tonic listens while you sing an answer, works out which note you aimed for, and forgets the audio as soon as the question is over.</string>
+    <string name="settings_sung_dialog_private">Nothing is recorded, saved, or sent anywhere. The app has no network access at all.</string>
+    <string name="settings_sung_dialog_optional">This is optional. Every module works fully without it, and you can turn it off whenever you like.</string>
+    <string name="settings_sung_dialog_continue">Ask for access</string>
+    <string name="settings_sung_dialog_not_now">Not now</string>
+
 </resources>

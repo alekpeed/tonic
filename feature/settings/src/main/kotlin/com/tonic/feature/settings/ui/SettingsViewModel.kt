@@ -2,11 +2,15 @@ package com.tonic.feature.settings.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.tonic.core.curriculum.graph.SkillGraph
+import com.tonic.core.data.export.DataExportRepository
 import com.tonic.core.data.repository.SessionRepository
 import com.tonic.core.data.settings.SettingsRepository
+import com.tonic.core.model.ids.SkillId
 import com.tonic.core.model.state.LabelStyle
 import com.tonic.core.model.state.ThemeMode
 import com.tonic.core.model.time.Clock
+import com.tonic.feature.settings.debug.DebugSkillJumper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -32,9 +36,14 @@ class SettingsViewModel
     constructor(
         private val settingsRepository: SettingsRepository,
         private val sessionRepository: SessionRepository,
+        private val dataExportRepository: DataExportRepository,
+        private val debugSkillJumper: DebugSkillJumper,
         private val clock: Clock,
     ) : ViewModel() {
-        private val _uiState = MutableStateFlow(SettingsUiState())
+        private val _uiState =
+            MutableStateFlow(
+                SettingsUiState(debugJumpTargets = SkillGraph.practiceChain.map { it.id }),
+            )
         val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
         init {
@@ -43,6 +52,45 @@ class SettingsViewModel
                     _uiState.update { it.copy(settings = settings, isLoading = false) }
                 }
             }
+        }
+
+        /**
+         * Seeds whatever still blocks [target] so the practice loop lands there next — the fix for "I
+         * can't debug it if I can't get through the level." `BuildConfig.DEBUG`-only; see
+         * [DebugSkillJumper]'s KDoc for why this does not compromise mastery's meaning for real play.
+         */
+        fun onDebugJumpRequested(target: SkillId) {
+            // A jump takes real time (hundreds of attempts, a mastery replay per node), so the press
+            // has to say so immediately or it reads as a dead button - which is exactly how the first
+            // version came across.
+            if (_uiState.value.debugJumpInProgress) return
+            _uiState.update { it.copy(debugJumpInProgress = true, debugJumpResult = null) }
+            viewModelScope.launch {
+                // Never let this crash the app. The first version had no catch at all, so the
+                // unsatisfiable-target bug surfaced to a tester as a hard crash with nothing said
+                // about why. A debug tool that fails silently or fatally is worse than no tool.
+                val result =
+                    runCatching { debugSkillJumper.jumpTo(target) }
+                        .fold(
+                            onSuccess = { DebugJumpResult(target, it.size, failure = null) },
+                            onFailure = { DebugJumpResult(target, seededCount = 0, failure = it.message ?: "failed") },
+                        )
+                _uiState.update {
+                    it.copy(
+                        debugJumpInProgress = false,
+                        debugJumpResult = result,
+                        debugJumpNavigateTo = target.takeIf { _ -> result.failure == null },
+                    )
+                }
+            }
+        }
+
+        /**
+         * Clears the result once the screen has navigated on it, so returning to Settings does not
+         * immediately bounce back out on a stale success.
+         */
+        fun onDebugJumpNavigationHandled() {
+            _uiState.update { it.copy(debugJumpNavigateTo = null) }
         }
 
         /**
@@ -58,6 +106,27 @@ class SettingsViewModel
                     it.copy(discardResult = if (discarded) DiscardResult.DISCARDED else DiscardResult.NOTHING_SAVED)
                 }
             }
+        }
+
+        /**
+         * Builds the export document and hands it to the screen to be saved — docs/20-PHASE-2-SPEC.md
+         * §6. Nothing leaves the device here and nothing can: the app has no network permission at all
+         * (docs/01-PRODUCT-SPEC.md §4). Where the file goes is entirely the user's choice, made in the
+         * system picker, and the app never learns the destination beyond whether the write succeeded.
+         */
+        fun onExportDataRequested() {
+            viewModelScope.launch {
+                val json = dataExportRepository.exportToJson()
+                val name = dataExportRepository.suggestedFileName()
+                _uiState.update {
+                    it.copy(pendingExport = PendingExport(name, json), exportResult = null)
+                }
+            }
+        }
+
+        /** The screen has finished with (or abandoned) the picker. Clears the payload either way. */
+        fun onExportFinished(result: ExportResult) {
+            _uiState.update { it.copy(pendingExport = null, exportResult = result) }
         }
 
         fun onLabelStyleChanged(style: LabelStyle) {
@@ -86,6 +155,23 @@ class SettingsViewModel
 
         fun onReduceMotionChanged(enabled: Boolean) {
             viewModelScope.launch { settingsRepository.setReduceMotion(enabled) }
+        }
+
+        /**
+         * Turns the sung response on or off — docs/30-PHASE-3-SPEC.md §6.1.
+         *
+         * Only ever called with `true` once microphone permission has actually been granted; the
+         * permission request and its explanation live in [SungResponseSection], because they need a
+         * composition to launch from. This setter is deliberately unaware of that: a permission the
+         * app does not hold is caught again at the point of use by `MicrophoneSource.isAvailable`,
+         * which is checked live, so a stale `true` here disables singing rather than breaking it.
+         */
+        fun onSungResponseEnabledChanged(enabled: Boolean) {
+            viewModelScope.launch { settingsRepository.setSungResponseEnabled(enabled) }
+        }
+
+        fun onSungOctaveAgnosticChanged(enabled: Boolean) {
+            viewModelScope.launch { settingsRepository.setSungOctaveAgnostic(enabled) }
         }
 
         /**

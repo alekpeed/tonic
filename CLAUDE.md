@@ -30,7 +30,18 @@ A desktop (Ubuntu) build is a **future** consideration. It is not in scope now, 
 
 The build is phased. The current phase is defined in `docs/09-BUILD-PLAN.md`.
 
-**Phase 1 scope is Module 0 (Diagnostic) and Module 2 (Diatonic Functional Recognition) only.**
+Phases 1, 2 and 3 are built. Phase 1 shipped Module 0 (Diagnostic) and Module 2 (Diatonic Functional
+Recognition); Phase 2 added M9 mode identification, M10 minor, M11 chromatic degrees, M12 audiation
+and data export; Phase 3 added the optional sung response across M2, M10, M11 and M12. **Phase 3's
+code is complete and green, but its acceptance is not: every measurement it owes needs a device.** See
+`docs/21-HANDOFF.md` §3 before treating any of it as finished.
+
+**Phase 4 is specified in `docs/40-PHASE-4-SPEC.md` and has not been started** — rule 3 below governs
+that, and writing a spec is not the instruction rule 3 requires. Its Stage 4.0 is additionally blocked
+on an open question Phase 3 left unanswered (Oboe vs `AudioTrack`); `21-HANDOFF.md` §9 is the bridge.
+
+See `docs/09-BUILD-PLAN.md` "Where the build actually is" for per-phase state, including what
+"built and green" does not cover.
 
 Rules:
 
@@ -38,7 +49,7 @@ Rules:
 2. At every checkpoint marked **STOP** in `09-BUILD-PLAN.md`, halt, report what was built, report what was verified, and wait for explicit approval before continuing.
 3. Do not start a new phase without an explicit affirmative instruction in chat.
 4. If a spec is ambiguous or a decision is required that is not covered by these documents, **stop and ask**. Do not guess and proceed.
-5. Reserved identifiers for future modules (M1, M3–M8) exist in `docs/03-CURRICULUM.md`. Define the enum/ID constants so the schema is stable, but leave the implementations unbuilt.
+5. Reserved identifiers for unbuilt modules (M3–M6, M8) exist in `docs/03-CURRICULUM.md` §6. Define the enum/ID constants so the schema is stable, but leave the implementations unbuilt. Two of them — `M8.MINOR_MODE` and `M8.CHROMATIC_DEGREES` — are dead rather than pending, since Phase 2 shipped that work as M10 and M11; they are kept unreused, never repointed. M7 does not exist and its number is retired (`docs/02-PEDAGOGY.md` §9).
 
 ---
 
@@ -57,6 +68,11 @@ Rules:
 | `docs/08-UI-SPEC.md` | Screens, widgets, states, accessibility |
 | `docs/09-BUILD-PLAN.md` | Phase order, acceptance criteria, STOP gates |
 | `docs/10-TESTING.md` | Test strategy and determinism requirements |
+| `docs/11-ONBOARDING-CLARITY.md` | In-app explanation standard. Wins over `08` on any explanation detail |
+| `docs/20-PHASE-2-SPEC.md` | Phase 2: minor, chromatic, audiation, export. §3 defines M9–M12; §8 records decisions and per-stage findings |
+| `docs/21-HANDOFF.md` | Working notes, not authority. A dated snapshot — check its claims against the repo before relying on them |
+| `docs/30-PHASE-3-SPEC.md` | Phase 3: optional sung response. Built; §5.5 and §9 carry its measurements and open questions |
+| `docs/40-PHASE-4-SPEC.md` | Phase 4: rhythm (M3). Specified, unbuilt. First phase to require timed production |
 
 If you change behavior that a document describes, update that document in the same commit. Documents that disagree with the code are worse than no documents.
 
@@ -126,8 +142,20 @@ Do not, without explicit chat approval:
 ## 8. Communication style for this project
 
 - Direct and technical. No filler, no praise, no restating the request back.
+- **Be brief.** Default to a few lines. Reasoning belongs in commit messages and KDoc, where it is
+  durable and skippable, not in chat. Long-form output is by request only.
+- **Reply format, every time:** what was done, what is needed from the human (omit if nothing), what is
+  next. Nothing else — no background, no caveats, no findings that were not asked for.
+- Ask questions through the interactive question prompt, not as prose in the reply.
 - American English spelling and grammar throughout — code, comments, docs, and UI strings.
 - Report what you built, what you verified, and what you did not verify. State uncertainty explicitly.
+- **Lint locally before pushing: `scripts/ktlint.sh`.** It needs no Android SDK and takes seconds, and
+  its ktlint version is pinned to match CI's. Style violations otherwise cost a full CI round each.
+- **The build is verifiable in CI, so verify it there.** `.github/workflows/verify.yml` runs
+  `scripts/verify.sh` on every push and pull request, on a runner that has the Android SDK. Development
+  sandboxes for this project generally do not, so "I could not run the build" is not a reason to leave a
+  change unverified — push the branch and read the run. Never report green without a source for it:
+  either a local `verify.sh` exit code or a passing CI run.
 - When you finish a phase, produce a short delta report: files added, decisions made, deviations from spec (with reasons), open questions.
 - Do not claim something works if you have not run it.
 

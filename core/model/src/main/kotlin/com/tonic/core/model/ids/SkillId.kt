@@ -86,8 +86,52 @@ object SkillIds {
     val M6_TWO_VOICE = SkillId("M6.TWO_VOICE")
     val M6_FOUR_VOICE = SkillId("M6.FOUR_VOICE")
 
-    val M7_REAL_MELODY = SkillId("M7.REAL_MELODY")
-    val M7_REAL_HARMONY = SkillId("M7.REAL_HARMONY")
+    // Phase 2, docs/20-PHASE-2-SPEC.md §3. M9 identifies *which mode* is sounding and gates everything
+    // in minor: before a learner can name a degree within minor, they have to hear that it is minor.
+    val M9_MODE_ID_CADENCE = SkillId("M9.MODE_ID_CADENCE")
+    val M9_MODE_ID_TRIAD = SkillId("M9.MODE_ID_TRIAD")
+    val M9_MODE_ID_MELODIC = SkillId("M9.MODE_ID_MELODIC")
+
+    /** In prerequisite order — each node strips away a layer of harmonic support. */
+    val M9_NODES_IN_ORDER = listOf(M9_MODE_ID_CADENCE, M9_MODE_ID_TRIAD, M9_MODE_ID_MELODIC)
+
+    // M10 mirrors M2's structure in natural minor - same six axes, same cadence-fade mechanic, same
+    // mastery criteria (docs/20-PHASE-2-SPEC.md §3). Every id is declared now so the schema is stable;
+    // Stage 2.3 builds sets 1-4, Stage 2.4 the three minor forms and the independence check.
+    val M10_MIN_SET_1 = SkillId("M10.MIN_SET_1")
+    val M10_MIN_SET_2 = SkillId("M10.MIN_SET_2")
+    val M10_MIN_SET_3 = SkillId("M10.MIN_SET_3")
+    val M10_MIN_SET_4 = SkillId("M10.MIN_SET_4")
+    val M10_MIN_NATURAL = SkillId("M10.MIN_NATURAL")
+    val M10_MIN_HARMONIC = SkillId("M10.MIN_HARMONIC")
+    val M10_MIN_MELODIC = SkillId("M10.MIN_MELODIC")
+    val M10_MIN_INDEPENDENCE_CHECK = SkillId("M10.MIN_INDEPENDENCE_CHECK")
+    val M10_MIXED_MODE = SkillId("M10.MIXED_MODE")
+
+    // M11 introduces the five notes outside the diatonic set, one node at a time, in the pull-strength
+    // order of docs/20-PHASE-2-SPEC.md §2.2. Each node adds exactly one degree to the previous set.
+    val M11_CHROM_SHARP4 = SkillId("M11.CHROM_SHARP4")
+    val M11_CHROM_FLAT7 = SkillId("M11.CHROM_FLAT7")
+    val M11_CHROM_FLAT6 = SkillId("M11.CHROM_FLAT6")
+    val M11_CHROM_FLAT3 = SkillId("M11.CHROM_FLAT3")
+    val M11_CHROM_FLAT2 = SkillId("M11.CHROM_FLAT2")
+    val M11_CHROM_FULL = SkillId("M11.CHROM_FULL")
+
+    // M12 inverts the recognition task: the learner is told which degree is coming, holds it across a
+    // silent gap, and judges what actually sounded (docs/20-PHASE-2-SPEC.md §2.3). Its nodes widen the
+    // degree pool the stated degree is drawn from rather than adding a new interaction each time.
+    val M12_PREDICT_TRIAD = SkillId("M12.PREDICT_TRIAD")
+    val M12_PREDICT_DIATONIC = SkillId("M12.PREDICT_DIATONIC")
+    val M12_PREDICT_MINOR = SkillId("M12.PREDICT_MINOR")
+    val M12_PREDICT_CHROMATIC = SkillId("M12.PREDICT_CHROMATIC")
+
+    /**
+     * In prerequisite order. `PREDICT_MINOR` and `PREDICT_CHROMATIC` both follow `PREDICT_DIATONIC`
+     * and neither precedes the other — this list is the order they unlock in, not a claim that
+     * chromatic prediction requires minor prediction.
+     */
+    val M12_NODES_IN_ORDER =
+        listOf(M12_PREDICT_TRIAD, M12_PREDICT_DIATONIC, M12_PREDICT_MINOR, M12_PREDICT_CHROMATIC)
 
     val M8_MINOR_MODE = SkillId("M8.MINOR_MODE")
     val M8_CHROMATIC_DEGREES = SkillId("M8.CHROMATIC_DEGREES")

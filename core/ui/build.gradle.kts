@@ -80,6 +80,14 @@ dependencies {
     testImplementation(libs.androidx.test.ext.junit)
     testRuntimeOnly(libs.junit.vintage.engine)
 
+    // Compose UI testing on the JVM under Robolectric, not only on a device. These were previously
+    // androidTest-only, which meant docs/09-BUILD-PLAN.md Stage 7's "ladder fits seven degrees plus
+    // gaps on a 5-inch screen, no scroll, at 200% font scale" and docs/08-UI-SPEC.md §9's
+    // maximum-font-scale requirement had no way to run in this project at all - and in fact never ran.
+    // A layout claim that cannot be executed is a claim nobody is checking.
+    testImplementation(libs.compose.ui.test.junit4)
+    testImplementation(libs.compose.ui.test.manifest)
+
     androidTestImplementation(platform(libs.compose.bom))
     androidTestImplementation(libs.compose.ui.test.junit4)
     debugImplementation(libs.compose.ui.test.manifest)

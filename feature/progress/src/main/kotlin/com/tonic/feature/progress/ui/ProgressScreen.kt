@@ -148,7 +148,7 @@ private fun MasteryMapRow(
             val blocking = node.verdict?.blockingCriterion
             if (expanded && blocking != null) {
                 Spacer(modifier = Modifier.height(TonicSpacing.sm))
-                val copy = copyFor(blocking)
+                val copy = copyFor(blocking, labelStyle)
                 Text(
                     text = stringResource(copy.textRes, *copy.args.toTypedArray()),
                     style = MaterialTheme.typography.bodyMedium,

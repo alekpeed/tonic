@@ -41,19 +41,37 @@ This supersedes and expands `08-UI-SPEC.md` §3a with concrete required copy con
 
 ## 4. Every future module gets the same treatment before it ships
 
-This is not a one-time patch for Module 2. Before any future module (rhythm, dictation, harmony, real-music) plays its first exercise for a first-time user, it must have gone through the same three-step standard in §1, with content specific to that module's mechanic. This requirement is now permanent and belongs in `09-BUILD-PLAN.md`'s acceptance criteria for every future-phase stage that introduces a new exercise type — no stage introducing a new task shape is complete without its explanation screen and worked example.
+This is not a one-time patch for Module 2. Before any future module (rhythm, dictation, harmony) plays its first exercise for a first-time user, it must have gone through the same three-step standard in §1, with content specific to that module's mechanic. This requirement is now permanent and belongs in `09-BUILD-PLAN.md`'s acceptance criteria for every future-phase stage that introduces a new exercise type — no stage introducing a new task shape is complete without its explanation screen and worked example.
 
-## 5. Recall, not repetition
+## 5. Re-entry and recall
 
-The explanation is shown automatically once, on first encounter with that exercise type. After that:
+The explanation is shown automatically **every time the learner enters that exercise type** — see `08-UI-SPEC.md` §3a for what "enters" means and why this replaced an earlier once-ever rule. Within a type already entered it does not repeat between items. Alongside that:
 
-- It is never shown again automatically.
 - It is always reachable on demand via a small, low-emphasis help affordance on the practice screen itself (an icon or a text link — implementation detail for `08-UI-SPEC.md`, not this document).
 - Recalling it manually shows the exact same explanation and worked example, not an abbreviated version. If it was clear enough to help the first time, it should still be there intact the tenth time the user forgets and looks it up.
+- Recall shows the explanation for the exercise currently on screen — decided by the node the user is actually on, never by whichever explanation the session happened to open with.
+- Nothing persistent gates a module's explanation. It is not "used up," so there is no state to clear and no way for it to become unreachable. (The sung-response explanation is the one exception: it describes a way of *answering* rather than a module, is reached only by opting in, and so keeps a once-ever flag.)
 
 ## 6. Answer-button labeling: reconsider the bare numbers
 
-`08-UI-SPEC.md` §3 currently specifies numbers (1, 3, 5, ...) as the default label on the degree ladder, with solfège as an alternate. That default is now in question, not settled.
+**Resolved 2026-08-20, and not yet built.** The decision is recorded in `20-PHASE-2-SPEC.md` §8.1,
+decision 2: the numeral stays the canonical label, and each button carries a small persistent subtitle
+for the first N sessions after its degree set is unlocked, then drops it. Relationship phrases ("Home,"
+"Up a bit") were rejected because no honest phrasing separates `♯4` from `4` and `5`, so they collapse
+at exactly the point Phase 2 needed them; solfège-as-default was rejected because chromatic solfège
+(`di, ri, fi, se, le, te`) is *more* foreign to a beginner than `♭6`, not less.
+
+**Implementation status: none.** The ladder still renders one bare label per button. The only trace in
+the codebase is a note in `ScaleDegree`'s KDoc saying that fading semantic subtitles belong in
+`:core:ui` — where nothing implements them. This is a binding decision with no code behind it, and
+Phase 2 shipped the twelve-position ladder that §8.1 argued makes bare numerals worst.
+
+The original framing of the question is kept below, because the reasoning is what makes the decision
+legible.
+
+---
+
+`08-UI-SPEC.md` §3 specifies numbers (1, 3, 5, ...) as the default label on the degree ladder, with solfège as an alternate. That default was put in question, not settled, by the following.
 
 The problem observed directly in real use: even with a full explanation, bare numerals on buttons carry no inherent meaning to a first-time user until they've internalized what those numbers refer to — and that internalization is exactly the thing not yet built on first contact. Bare numerals may be the *right* label once the mapping is second nature, while being actively counterproductive on the first several sessions.
 
@@ -63,7 +81,7 @@ The problem observed directly in real use: even with a full explanation, bare nu
 - A persistent small subtitle under each numeral for the first N sessions of a newly-unlocked degree set, then removed.
 - Solfège as the earlier default rather than numbers, since "do" carries an inherent "home" connotation that "1" does not, for a user without a lifetime of counting-based musical habit.
 
-This is flagged as an open design decision, to be resolved in its own pass, because it changes a settled part of `08-UI-SPEC.md` and deserves its own consideration rather than being bundled into another fix silently.
+This was flagged as an open design decision, to be resolved in its own pass, because it changes a settled part of `08-UI-SPEC.md` and deserves its own consideration rather than being bundled into another fix silently. It was resolved that way — see the header above.
 
 ## 7. What "shippable" actually implies for this spec
 
@@ -74,6 +92,12 @@ Concretely, holding the app to a real shipping standard means:
 - "The user can technically figure it out with effort" is not the bar. The bar is: a reasonably attentive user gets it from the explanation and the one worked example, without needing to ask anyone anything.
 
 ## 8. Immediate required fixes, in priority order
+
+**All five were completed during Phase 1 and this section is discharged.** It is kept as the record of
+what was wrong and in what order it had to be fixed, because the ordering argument — that copy layered
+on an unanswerable question does not make the question answerable — is the reusable part. The standing
+requirements those fixes were built to satisfy live in §1–§7 and §9, which remain in force for every
+future module.
 
 Found through direct use, not theoretical review. Fix in this order — later items assume earlier ones are done, and building copy/UI on top of an unfixed lower-numbered item wastes the work:
 

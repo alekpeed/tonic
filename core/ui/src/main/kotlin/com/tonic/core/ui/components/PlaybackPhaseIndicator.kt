@@ -26,7 +26,20 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 
 /** What the audio is currently doing — docs/08-UI-SPEC.md §4: "a user needs to know whether the app is still playing the setup or has moved to the question." */
-enum class PlaybackPhase { REFERENCE, TARGET, AWAITING_ANSWER }
+enum class PlaybackPhase {
+    REFERENCE,
+    TARGET,
+    AWAITING_ANSWER,
+
+    /**
+     * `M12` only — the silent window in which the learner builds the named degree internally
+     * (docs/20-PHASE-2-SPEC.md §2.3). Distinct from [REFERENCE] and [TARGET] because *nothing is
+     * playing*, and the learner has to know that the silence is the exercise rather than a fault.
+     * §5.3 rules out a countdown here explicitly, so this shares the calm dot treatment with every
+     * other phase and shows no elapsed or remaining time at all.
+     */
+    AUDIATION_GAP,
+}
 
 /**
  * A large, calm, non-verbal indicator of [phase] — deliberately not a countdown or timer
@@ -45,6 +58,9 @@ fun PlaybackPhaseIndicator(
             PlaybackPhase.REFERENCE -> "Setting the key"
             PlaybackPhase.TARGET -> "Playing the note"
             PlaybackPhase.AWAITING_ANSWER -> "Your turn"
+            // Says what to do, not how long is left. docs/20-PHASE-2-SPEC.md §5.3 and
+            // docs/02-PEDAGOGY.md §6: no time pressure, ever.
+            PlaybackPhase.AUDIATION_GAP -> "Hear it in your head"
         }
     Column(
         modifier = modifier.testTag("playback_phase").semantics { liveRegion = LiveRegionMode.Polite },
@@ -71,6 +87,8 @@ private fun PhaseGlyph(
             PlaybackPhase.REFERENCE -> 3
             PlaybackPhase.TARGET -> 1
             PlaybackPhase.AWAITING_ANSWER -> 0
+            // Two dots, drifting - visibly "something is coming", visibly not a countdown.
+            PlaybackPhase.AUDIATION_GAP -> 2
         }
 
     val pulse =

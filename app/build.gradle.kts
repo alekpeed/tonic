@@ -23,6 +23,30 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        // Every debug build is signed by the keystore committed at keystore/debug.keystore, rather
+        // than by whatever ~/.android/debug.keystore the building machine happens to have generated
+        // for itself.
+        //
+        // Android refuses to update an installed app whose signing certificate has changed, and with
+        // per-machine keys that is every combination: a CI build will not install over a local one,
+        // one laptop's build will not install over another's, and a fresh CI runner would eventually
+        // stop installing over its own earlier output. The only way through is to uninstall first,
+        // which wipes the very progress a build is usually being installed to inspect.
+        //
+        // The key is deliberately in the repository and is not a secret. A debug key signs nothing
+        // that matters: it cannot publish to Play, it grants no access to anything, and Android's own
+        // default debug key uses these exact well-known credentials (android/android/androiddebugkey)
+        // for the same reason. Release signing is a separate, unbuilt concern and must never point
+        // here.
+        getByName("debug") {
+            storeFile = rootProject.file("keystore/debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
@@ -34,11 +58,15 @@ android {
         }
         debug {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
 
     buildFeatures {
         compose = true
+        // Gates the debug-only intake skip in NavGraph. The skip has to live here rather than in
+        // :feature:diagnostic, because :app is what decides navigation and what knows the build type.
+        buildConfig = true
     }
 
     compileOptions {

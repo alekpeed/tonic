@@ -7,6 +7,7 @@ import com.tonic.core.data.entity.DiagnosticResultEntity
 import com.tonic.core.data.entity.SessionEntity
 import com.tonic.core.data.entity.SkillStateEntity
 import com.tonic.core.model.attempts.Attempt
+import com.tonic.core.model.attempts.InputMethod
 import com.tonic.core.model.ids.SkillId
 import com.tonic.core.model.items.DifficultyAxis
 import com.tonic.core.model.state.ConfusionState
@@ -42,6 +43,8 @@ internal fun Attempt.toEntity(): AttemptEntity =
         isWarmup = isWarmup,
         isAbandoned = isAbandoned,
         isIndependenceCheckProbe = isIndependenceCheckProbe,
+        inputMethod = inputMethod.name,
+        sungCents = sungCents,
     )
 
 internal fun AttemptEntity.toDomain(): Attempt =
@@ -64,6 +67,12 @@ internal fun AttemptEntity.toDomain(): Attempt =
         isWarmup = isWarmup,
         isAbandoned = isAbandoned,
         isIndependenceCheckProbe = isIndependenceCheckProbe,
+        // An unrecognized value can only mean a row from a newer build read by an older one, which
+        // this app has no path to produce. Falling back to TAP keeps the log readable rather than
+        // throwing on a field nothing scores.
+        inputMethod =
+            runCatching { InputMethod.valueOf(inputMethod) }.getOrDefault(InputMethod.TAP),
+        sungCents = sungCents,
     )
 
 internal fun SkillState.toEntity(): SkillStateEntity =

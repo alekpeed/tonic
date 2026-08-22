@@ -7,6 +7,7 @@ import com.tonic.core.data.repository.SessionRepository
 import com.tonic.core.data.repository.SkillStateRepository
 import com.tonic.core.data.settings.SettingsRepository
 import com.tonic.core.engine.streak.StreakCalculator
+import com.tonic.core.model.ids.SkillId
 import com.tonic.core.model.state.MasteryState
 import com.tonic.core.model.state.SkillState
 import com.tonic.core.model.time.Clock
@@ -14,7 +15,6 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.ZoneId
@@ -55,14 +55,24 @@ class HomeViewModel
                     }
                 }
             }
-            viewModelScope.launch { load() }
+            // Collected, not read once. `observeAll().first()` took a single snapshot at first
+            // composition, and because [started] makes this whole method a no-op afterwards, nothing
+            // ever refreshed it: returning to Home after mastering a node - or after a debug jump -
+            // showed the node the learner was on when the app started, indefinitely. Room's Flow
+            // re-emits on every write, so collecting it makes Home current by construction rather
+            // than by remembering to reload.
+            viewModelScope.launch {
+                skillStateRepository.observeAll().collect { states -> load(states) }
+            }
         }
 
-        private suspend fun load() {
-            val states = skillStateRepository.observeAll().first()
+        private suspend fun load(states: Map<SkillId, SkillState>) {
+            // SkillGraph.currentNodeFor, not a chain of this screen's own: Home, the progress screen
+            // and the practice loop each used to answer "what are you working on" separately, and two
+            // of them walked M2 alone while the third walked everything. Home would have reported
+            // M2.FULL_DIATONIC forever while sessions ran minor.
             val currentNodeId =
-                SkillGraph.m2Nodes.firstOrNull { states[it.id]?.masteryState != MasteryState.MASTERED }?.id
-                    ?: SkillGraph.m2Nodes.last().id
+                SkillGraph.currentNodeFor { id -> states[id]?.masteryState == MasteryState.MASTERED }
             val currentState = states[currentNodeId] ?: SkillState.initial(currentNodeId)
             val activeDegrees = SkillGraph.activeDegreesFor(currentNodeId).sortedBy { it.degree }
 

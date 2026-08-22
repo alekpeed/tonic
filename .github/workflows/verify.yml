@@ -1,0 +1,183 @@
+# The verification gate, run on GitHub's hardware.
+#
+# This exists because the sandboxed environments this project is developed in
+# have no Android SDK, so `./gradlew build` could not be run there at all and
+# every "green" claim had to be qualified or taken on trust. A hosted runner
+# has the SDK, so the claim becomes checkable.
+#
+# It runs scripts/verify.sh rather than gradle directly, deliberately. That
+# script exists because a piped gradle invocation reports the exit code of the
+# last command in the pipe rather than gradle's own, and two real failures once
+# shipped behind a `| tail` that always succeeded. Calling the script here keeps
+# CI and local verification on exactly one definition of "green".
+name: verify
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+# A branch only needs its newest commit verified; supersede in-flight runs.
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    # kapt (Room + Hilt) plus a cold Gradle cache is slow on first run. Generous
+    # rather than tight — a timeout kill looks like a failure and is not one.
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # JDK 21 rather than 17: the project targets JVM 17 as bytecode output
+      # (every module sets jvmTarget explicitly), but that is independent of the
+      # JDK running Gradle, and 21 is what the development environment uses.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      # compileSdk is pinned at 35 (CLAUDE.md §1, and see the README on why the
+      # newest androidx releases are deliberately not taken). Runner images carry
+      # several platforms but the set changes over time, so install explicitly
+      # rather than assuming.
+      - name: Install the pinned Android platform
+        run: |
+          set -euo pipefail
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+            "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Verify
+        run: ./scripts/verify.sh
+
+      # Room writes a schema JSON per database version into core/data/schemas, and
+      # docs/05-DATA-MODEL.md §4 requires those to be committed: they are what
+      # every future migration is validated against, and a MigrationTestHelper
+      # test cannot run without the version it is migrating to. The build
+      # generating one is easy to miss locally, and the failure it causes lands
+      # much later, on whoever writes the next migration. So the build is asked
+      # whether it produced anything not in the repository, and the file is
+      # printed rather than merely named - a schema that has to be regenerated to
+      # be read is a schema nobody reads.
+      - name: Check the Room schemas are committed
+        if: always()
+        run: |
+          set -uo pipefail
+          if [ -z "$(git status --porcelain core/data/schemas)" ]; then
+            echo "Room schemas match the repository."
+            exit 0
+          fi
+          echo "::error::The build produced Room schema files that are not committed. Commit them - docs/05-DATA-MODEL.md §4."
+          git status --porcelain core/data/schemas
+          for f in $(git status --porcelain core/data/schemas | awk '{print $2}'); do
+            echo "----- $f -----"
+            cat "$f"
+          done
+          exit 1
+
+      # "Every build signs identically" is a promise, so it is checked rather than
+      # assumed. The APK's certificate is compared against the committed debug
+      # keystore's; if they ever diverge - a reverted signingConfig, a rotated
+      # key, a stray local keystore winning - the run fails here rather than
+      # months later on a phone that refuses to update.
+      #
+      # apksigner rather than `keytool -printcert -jarfile`. keytool only reads v1
+      # (JAR) signatures, and AGP does not apply v1 to a minSdk-26 build - it signs
+      # with the v2/v3 APK schemes only. So keytool found no signature at all, the
+      # pipeline failed under `set -e` before reaching a single echo, and the step
+      # reported a signature mismatch that was really a tool mismatch.
+      #
+      # Not `set -e` here for that reason: a silent exit-1 out of a command
+      # substitution is what made the real cause invisible. Every failure path
+      # below prints why.
+      - name: Verify the APK is signed by the committed debug key
+        if: always()
+        run: |
+          set -uo pipefail
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          if [ ! -f "$APK" ]; then
+            echo "no APK produced; nothing to check"
+            exit 0
+          fi
+
+          # Highest installed build-tools wins; the pinned version is installed above,
+          # but a runner image carrying a newer one should not break this step.
+          APKSIGNER=$(ls -d "$ANDROID_HOME"/build-tools/*/apksigner 2>/dev/null | sort -V | tail -1)
+          if [ -z "$APKSIGNER" ]; then
+            echo "::error::apksigner not found under $ANDROID_HOME/build-tools"
+            exit 1
+          fi
+
+          # keytool prints colon-separated uppercase, apksigner bare lowercase hex.
+          normalize() { tr -d ' :' | tr 'A-F' 'a-f'; }
+
+          expected=$(keytool -list -v -keystore keystore/debug.keystore -storepass android \
+            | sed -n 's/.*SHA256: *//p' | head -1 | normalize)
+          actual=$("$APKSIGNER" verify --print-certs "$APK" \
+            | sed -n 's/.*SHA-256 digest: *//p' | head -1 | normalize)
+
+          echo "expected $expected"
+          echo "actual   $actual"
+
+          if [ -z "$expected" ] || [ -z "$actual" ]; then
+            echo "::error::could not read a certificate digest - the check itself is broken, not necessarily the signature."
+            exit 1
+          fi
+          if [ "$expected" != "$actual" ]; then
+            echo "::error::APK is not signed by keystore/debug.keystore. Builds will not install over each other."
+            exit 1
+          fi
+          echo "APK signature matches the committed debug key."
+
+      # The APK every run produces, published so it can be installed without a
+      # local Android SDK. `./gradlew build` assembles it as a matter of course;
+      # before this it was built on the runner and thrown away, which meant there
+      # was no way to get the app onto a phone from here at all - and every
+      # remaining Phase 3 criterion needs a real device (30-PHASE-3-SPEC.md §8).
+      #
+      # if: always() because a run that fails lint or one test still produces an
+      # installable APK, and that build is often exactly the one worth holding in
+      # your hand. if-no-files-found: warn because a failure early enough to stop
+      # assembly should not then also fail the upload.
+      - name: Upload debug APK
+        id: apk
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: warn
+          retention-days: 14
+
+      # A link on the run's own summary page, so the APK is one click from the
+      # run rather than something you have to know to scroll for.
+      - name: Link the APK in the run summary
+        if: always() && steps.apk.outputs.artifact-url != ''
+        run: |
+          {
+            echo "### Debug APK"
+            echo
+            echo "[Download app-debug.apk](${{ steps.apk.outputs.artifact-url }})"
+            echo
+            echo "Commit \`${GITHUB_SHA:0:7}\` on \`${GITHUB_REF_NAME}\`."
+            echo "Unzip, then install on a device with developer mode on."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # verify.sh tails 40 lines on failure, which is often not enough to see
+      # which module broke. Keep the whole log either way.
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verify-log
+          path: build/verify.log
+          if-no-files-found: warn
+          retention-days: 14

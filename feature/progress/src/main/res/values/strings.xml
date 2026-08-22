@@ -31,4 +31,13 @@
     <string name="progress_independence_not_yet">Not attempted yet — this appears once the full set is mastered.</string>
     <string name="progress_independence_passed">Passed, with no reference playing beforehand.</string>
     <string name="progress_independence_failed">Not yet — a bit more practice with less reference support first.</string>
+
+    <!-- Binary-answer nodes (M9, M12) - docs/20-PHASE-2-SPEC.md §3. Same plain-language bar as every
+         other criterion: say what is short and by how much, never name the statistic. "d-prime" means
+         nothing to a learner, and 11-ONBOARDING-CLARITY.md §9.4 forbids leaving a term implicit, so the
+         sentence describes what it measures instead of labeling it. -->
+    <string name="progress_criterion_window_coverage">You\'re %1$d answers into this one — it takes %2$d before there\'s enough to go on.</string>
+    <string name="progress_criterion_focus_degree">The new note, %1$s, isn\'t solid on its own yet. It needs more turns and a higher hit rate before this step counts as learned.</string>
+    <string name="progress_criterion_predict_gap">The pause before the note is still short. It needs to get longer, so what you\'re comparing against is the note you built rather than one still ringing in your ears.</string>
+    <string name="progress_criterion_d_prime">Your right answers still look a lot like your lucky ones. This needs to be right for the right reason, consistently, both ways round.</string>
 </resources>

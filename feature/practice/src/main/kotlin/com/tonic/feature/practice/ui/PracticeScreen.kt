@@ -41,12 +41,12 @@ import com.tonic.core.model.items.AxisChange
 import com.tonic.core.model.items.CadenceFadeLevel
 import com.tonic.core.model.items.DifficultyAxis
 import com.tonic.core.model.items.Item
+import com.tonic.core.model.music.Mode
 import com.tonic.core.model.music.ScaleDegree
 import com.tonic.core.ui.components.MinimalProgressIndicator
 import com.tonic.core.ui.components.PlaybackPhase
 import com.tonic.core.ui.components.PlaybackPhaseIndicator
 import com.tonic.core.ui.components.StageHeader
-import com.tonic.core.ui.ladder.DegreeLadder
 import com.tonic.core.ui.theme.TonicSpacing
 import com.tonic.core.ui.theme.TonicTheme
 import com.tonic.feature.practice.R
@@ -79,13 +79,29 @@ fun PracticeScreen(
 
     // Above every other state: docs/11-ONBOARDING-CLARITY.md §1 requires this before the first item
     // plays, and §5 makes it recallable at any point afterwards.
+    //
+    // Which one is dispatched on the kind the ViewModel resolved from the node. This screen previously
+    // rendered M2IntroContent unconditionally, so M10IntroContent - built, tested and correctly
+    // selected by introKindFor - was unreachable, and a learner arriving at minor was shown the major
+    // explanation. The bug was in the one line that connects them, which is exactly where a test that
+    // exercises a composable directly cannot see it.
     if (uiState.showIntro) {
-        M2IntroContent(
+        IntroForKind(
+            kind = uiState.introKind,
             answerLabel = viewModel.workedExampleAnswer,
             answerRevealed = uiState.introAnswerRevealed,
             onPlayExample = viewModel::onPlayWorkedExample,
             onRevealAnswer = viewModel::onRevealWorkedExampleAnswer,
             onStart = viewModel::onIntroDismissed,
+            predictionExample =
+                PredictionExampleCopy(
+                    statedLabel = viewModel.predictionExampleLabel,
+                    matched = viewModel.predictionExampleMatched,
+                    soundedWasLower = viewModel.predictionExampleWasLower,
+                ),
+            mixedModeExampleAnswer = viewModel.mixedModeExampleAnswer,
+            onPlayM9Major = viewModel::onPlayM9MajorExample,
+            onPlayM9Minor = viewModel::onPlayM9MinorExample,
         )
         return
     }
@@ -112,8 +128,10 @@ fun PracticeScreen(
     PracticeContent(
         uiState = uiState,
         onDegreeSelected = viewModel::onDegreeSelected,
+        onSing = viewModel::onSingAnswer,
         onReplay = viewModel::onReplay,
         onSkip = viewModel::onSkip,
+        onLabelSelected = viewModel::onLabelSelected,
         onOpenIntro = viewModel::onOpenIntro,
         onExit = { viewModel.onExitSession(onExitToHome) },
     )
@@ -271,24 +289,120 @@ private fun axisChangeRes(change: AxisChange): Int =
             if (change.isIncrease) R.string.practice_axis_tempo_harder else R.string.practice_axis_tempo_easier
         DifficultyAxis.KEY_SPREAD ->
             if (change.isIncrease) R.string.practice_axis_key_harder else R.string.practice_axis_key_easier
+        // Prediction axes never reach this screen: M12 items have their own screen and their own
+        // announcements (docs/20-PHASE-2-SPEC.md §5.3), and the scheduler cannot offer a prediction axis
+        // to a recognition node (DifficultyAxis.Scope). Left as an explicit branch rather than an `else`
+        // so that adding a real recognition axis still fails to compile here until it has copy - which
+        // is docs/11-ONBOARDING-CLARITY.md §9.3's "no silent difficulty changes, ever" enforced by the
+        // type system rather than by remembering.
+        DifficultyAxis.PREDICT_GAP, DifficultyAxis.PREDICT_DEVIATION ->
+            error("${change.axis} is a prediction axis and cannot move on the recognition practice screen")
     }
 
 /** In words, every time - the phase indicator itself is deliberately non-verbal (docs/08-UI-SPEC.md §4). */
+private fun revealedModeRes(mode: Mode): Int =
+    when (mode) {
+        Mode.MAJOR -> R.string.practice_that_was_major
+        Mode.MINOR -> R.string.practice_that_was_minor
+    }
+
 private fun phaseCaptionRes(phase: PlaybackPhase): Int =
     when (phase) {
         PlaybackPhase.REFERENCE -> R.string.practice_phase_reference
         PlaybackPhase.TARGET -> R.string.practice_phase_target
         PlaybackPhase.AWAITING_ANSWER -> R.string.practice_phase_awaiting_answer
+        PlaybackPhase.AUDIATION_GAP -> R.string.practice_phase_audiation_gap
     }
 
+// `internal`, not private: docs/09-BUILD-PLAN.md Stage 7's "ladder fits ... on a 5-inch screen" is a
+// claim about this composable's layout, and it went unverified through all of Phase 1 because nothing
+// could reach it. PracticeScreenLayoutTest measures it directly. Still module-private - no widening of
+// the feature's public API (docs/04-ARCHITECTURE.md §4).
+
+/** What [M12IntroContent]'s reveal has to say, read off the real worked example rather than hardcoded. */
+internal data class PredictionExampleCopy(
+    val statedLabel: String = "",
+    val matched: Boolean = false,
+    val soundedWasLower: Boolean = false,
+)
+
+/**
+ * The one place that maps a resolved [IntroKind] to the screen that explains it.
+ *
+ * Extracted from [PracticeScreen] because it is where a real bug lived and could not be seen: the
+ * screen rendered [M2IntroContent] unconditionally, so [M10IntroContent] — built, previewed, and
+ * correctly selected by the ViewModel — was unreachable, and a learner arriving at minor was handed
+ * the major explanation. Every test in the repository exercised either the composables or the
+ * ViewModel, and the defect was in the line between them. It is a separate composable now so that
+ * line has something to test.
+ */
 @Composable
-private fun PracticeContent(
+internal fun IntroForKind(
+    kind: IntroKind,
+    answerLabel: String,
+    answerRevealed: Boolean,
+    onPlayExample: () -> Unit,
+    onRevealAnswer: () -> Unit,
+    onStart: () -> Unit,
+    predictionExample: PredictionExampleCopy = PredictionExampleCopy(),
+    mixedModeExampleAnswer: String = "",
+    onPlayM9Major: () -> Unit = {},
+    onPlayM9Minor: () -> Unit = {},
+) {
+    when (kind) {
+        IntroKind.M9 ->
+            M9IntroContent(
+                onPlayMajor = onPlayM9Major,
+                onPlayMinor = onPlayM9Minor,
+                onStart = onStart,
+            )
+        IntroKind.M10 -> M10IntroContent(onPlayExample = onPlayExample, onStart = onStart)
+        IntroKind.M11 -> M11IntroContent(onStart = onStart)
+        IntroKind.SUNG -> SungResponseIntroContent(onStart = onStart)
+        IntroKind.MIXED_MODE ->
+            MixedModeIntroContent(
+                answerLabel = mixedModeExampleAnswer,
+                answerRevealed = answerRevealed,
+                onPlayExample = onPlayExample,
+                onRevealAnswer = onRevealAnswer,
+                onStart = onStart,
+            )
+        IntroKind.M12 ->
+            M12IntroContent(
+                statedLabel = predictionExample.statedLabel,
+                matched = predictionExample.matched,
+                soundedWasLower = predictionExample.soundedWasLower,
+                answerRevealed = answerRevealed,
+                onPlayExample = onPlayExample,
+                onRevealAnswer = onRevealAnswer,
+                onStart = onStart,
+            )
+        // NONE reaches here only through onOpenIntro's recall on a node with no explanation of its
+        // own, where the major screen is the right thing to show: it is the one that explains the task
+        // shape every recognition node shares.
+        IntroKind.M2, IntroKind.NONE ->
+            M2IntroContent(
+                answerLabel = answerLabel,
+                answerRevealed = answerRevealed,
+                onPlayExample = onPlayExample,
+                onRevealAnswer = onRevealAnswer,
+                onStart = onStart,
+            )
+    }
+}
+
+@Composable
+internal fun PracticeContent(
     uiState: PracticeUiState,
     onDegreeSelected: (ScaleDegree) -> Unit,
     onReplay: () -> Unit,
     onSkip: () -> Unit,
+    /** A non-degree answer — `M9`'s major/minor, `M12`'s matched/too-low/too-high. */
+    onLabelSelected: (String) -> Unit = {},
     onOpenIntro: () -> Unit = {},
     onExit: () -> Unit = {},
+    /** Optional sung answer — docs/30-PHASE-3-SPEC.md §6.3. Defaulted so the tap-only screen is unchanged. */
+    onSing: () -> Unit = {},
 ) {
     Column(
         modifier =
@@ -341,7 +455,7 @@ private fun PracticeContent(
             contentDescription = "session time",
         )
 
-        uiState.item?.let { item ->
+        uiState.recognitionItem?.let { item ->
             referenceNoteRes(item)?.let { res ->
                 Text(
                     text = stringResource(res),
@@ -352,8 +466,9 @@ private fun PracticeContent(
             }
         }
 
-        Spacer(modifier = Modifier.height(TonicSpacing.lg))
-
+        // One break here, not two. A Spacer(lg) immediately followed by the indicator's own lg top
+        // padding stacked 48dp of empty space for a single visual separation - dead height the ladder
+        // needed (see DegreeLadder's scroll note).
         PlaybackPhaseIndicator(
             phase = uiState.phase,
             reduceMotion = uiState.reduceMotion,
@@ -363,7 +478,7 @@ private fun PracticeContent(
             text = stringResource(phaseCaptionRes(uiState.phase)),
             style = MaterialTheme.typography.bodyMedium,
             textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth().padding(bottom = TonicSpacing.lg),
+            modifier = Modifier.fillMaxWidth().padding(bottom = TonicSpacing.sm),
         )
 
         TextButton(
@@ -373,19 +488,33 @@ private fun PracticeContent(
             Text(stringResource(R.string.practice_replay))
         }
 
-        Spacer(modifier = Modifier.height(TonicSpacing.md))
+        Spacer(modifier = Modifier.height(TonicSpacing.sm))
 
-        Box(modifier = Modifier.weight(1f)) {
-            DegreeLadder(
-                activeDegrees = uiState.activeDegrees,
-                labelStyle = uiState.labelStyle,
-                enabled = uiState.inputEnabled,
-                selectedDegree = uiState.selectedDegree,
-                correctDegree = uiState.correctDegree,
-                reduceMotion = uiState.reduceMotion,
-                onDegreeSelected = onDegreeSelected,
+        // docs/20-PHASE-2-SPEC.md §5.4, and it sits *above* the ladder rather than below it on purpose:
+        // it appears only after an answer, on a screen whose bottom half is already showing which
+        // button was right. Put underneath, it would compete with that; put here, it reads as the
+        // caption to the feedback the learner is looking at.
+        uiState.revealedMode?.let { mode ->
+            Text(
+                text = stringResource(revealedModeRes(mode)),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary,
+                textAlign = TextAlign.Center,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = TonicSpacing.sm)
+                        .testTag("revealed_mode"),
             )
         }
+
+        AnswerArea(
+            uiState = uiState,
+            onDegreeSelected = onDegreeSelected,
+            onLabelSelected = onLabelSelected,
+            modifier = Modifier.weight(1f),
+            onSing = onSing,
+        )
 
         Spacer(modifier = Modifier.height(TonicSpacing.sm))
 

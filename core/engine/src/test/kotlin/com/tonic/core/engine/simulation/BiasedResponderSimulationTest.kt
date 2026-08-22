@@ -18,7 +18,7 @@ class BiasedResponderSimulationTest {
 
         val responder =
             SimulatedResponder(
-                correctProbability = { _, target -> if (target.degree == 1) 1.0 else 0.0 },
+                correctProbability = { _, target, _ -> if (target.degree == 1) 1.0 else 0.0 },
                 wrongAnswerPicker = { _, active, _ -> active.first { it.degree == 1 } },
             )
 

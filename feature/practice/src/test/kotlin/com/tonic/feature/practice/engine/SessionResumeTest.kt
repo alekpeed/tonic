@@ -55,7 +55,7 @@ class SessionResumeTest {
             )
 
         suspend fun answerCurrentCorrectly() {
-            val item = engine.state.value.currentItem ?: return
+            val item = engine.state.value.recognitionItem ?: return
             engine.submitAnswer(item.targetDegree.degree.toString())
         }
 
@@ -108,7 +108,7 @@ class SessionResumeTest {
 
             // The item that was on screen when the interruption hit - it was discarded, never scored,
             // so a correct resume must present it again.
-            val interruptedItem = assertNotNull(fixture.engine.state.value.currentItem)
+            val interruptedItem = assertNotNull(fixture.engine.state.value.recognitionItem)
 
             fixture.audioInterruptions.emit(AudioInterruptionEvent.BecomingNoisy)
             fixture.awaitPaused()
@@ -121,7 +121,7 @@ class SessionResumeTest {
             second.sessionRepository.adopt(resumable)
             second.engine.resume(resumable)
 
-            val firstItemAfterResume = assertNotNull(second.engine.state.value.currentItem)
+            val firstItemAfterResume = assertNotNull(second.engine.state.value.recognitionItem)
             assertEquals(
                 interruptedItem.seed,
                 firstItemAfterResume.seed,

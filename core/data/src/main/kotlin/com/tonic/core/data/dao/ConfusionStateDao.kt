@@ -12,4 +12,12 @@ internal interface ConfusionStateDao {
 
     @Query("SELECT * FROM confusion_state WHERE skillId = :skillId")
     suspend fun find(skillId: String): ConfusionStateEntity?
+
+    /** Debug tooling only — see `DebugProgressRepository`. Never called by the practice loop. */
+    @Query("DELETE FROM confusion_state")
+    suspend fun deleteAll()
+
+    /** Every confusion state. Export only — see [AttemptDao.allAttempts]. */
+    @Query("SELECT * FROM confusion_state ORDER BY skillId ASC")
+    suspend fun allConfusionStates(): List<ConfusionStateEntity>
 }

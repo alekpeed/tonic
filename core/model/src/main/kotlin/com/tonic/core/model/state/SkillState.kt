@@ -37,10 +37,19 @@ data class SkillState(
          * `SkillStateRepository.update()` with the correct status once it
          * determines the node is actually unlocked.
          */
-        fun initial(skillId: SkillId): SkillState =
+        fun initial(
+            skillId: SkillId,
+            /**
+             * Which axis family this node uses. Defaults to recognition, which is every Phase 1 node
+             * and every Phase 2 node except `M12.*` — so the default reproduces Phase 1's map exactly.
+             * A prediction node passes [DifficultyAxis.Scope.PREDICTION] rather than carrying six
+             * recognition axes it will never move (docs/20-PHASE-2-SPEC.md §4, change 3).
+             */
+            scope: DifficultyAxis.Scope = DifficultyAxis.Scope.RECOGNITION,
+        ): SkillState =
             SkillState(
                 skillId = skillId,
-                axisLevels = DifficultyAxis.entries.associateWith { 0 },
+                axisLevels = DifficultyAxis.axesFor(scope).associateWith { 0 },
                 staircaseStates = emptyMap(),
                 activeAxis = null,
                 masteryState = MasteryState.LOCKED,

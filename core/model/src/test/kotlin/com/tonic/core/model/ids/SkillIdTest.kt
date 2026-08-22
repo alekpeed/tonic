@@ -3,6 +3,7 @@ package com.tonic.core.model.ids
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
 
 class SkillIdTest {
     @Test
@@ -52,5 +53,21 @@ class SkillIdTest {
     fun `module id round trips through its code`() {
         ModuleId.entries.forEach { assertEquals(it, ModuleId.fromCode(it.code)) }
         assertFailsWith<IllegalArgumentException> { ModuleId.fromCode("M99") }
+    }
+
+    @Test
+    fun `M7 does not exist, and its number is not reused`() {
+        // The real-music bridge was removed from the product entirely rather than deferred, so unlike
+        // the reserved M3-M6 and M8 codes there is nothing coming that would claim this slot. An enum
+        // gap is exactly the kind of thing a later edit refills without noticing, so it is pinned:
+        // any M7.* surviving in a stored attempt log from a build that predates the removal must fail
+        // loudly rather than resolve to whatever module inherited the number.
+        assertTrue(ModuleId.entries.none { it.code == "M7" })
+        assertFailsWith<IllegalArgumentException> { ModuleId.fromCode("M7") }
+        assertFailsWith<IllegalArgumentException> { SkillId("M7.REAL_MELODY").moduleId }
+
+        // And the codes around it are untouched, so the removal took nothing else with it.
+        assertEquals(ModuleId.M6, ModuleId.fromCode("M6"))
+        assertEquals(ModuleId.M8, ModuleId.fromCode("M8"))
     }
 }

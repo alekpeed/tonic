@@ -126,4 +126,118 @@ sealed interface Item {
     ) : Item {
         override val answerAlphabet: AnswerAlphabet = AnswerAlphabet.ScaleDegrees(activeDegrees)
     }
+
+    /**
+     * `M9.*`: mode identification — docs/20-PHASE-2-SPEC.md §2.4. Something sounds; the learner says
+     * whether it is major or minor. No degree is being named and no tonal *position* is being judged,
+     * which is why this is its own item type rather than a recognition item with a two-button ladder.
+     *
+     * The three `M9` nodes differ only in how much support [presentation] gives, so one item type
+     * covers all of them: a full cadence, then a bare tonic triad, then an unaccompanied melodic
+     * fragment. That progression is the whole curriculum of the module.
+     */
+    data class ModeIdentificationItem(
+        override val skill: SkillId,
+        val key: PitchClass,
+        /** The answer. What the learner has to hear. */
+        val mode: Mode,
+        val tonicMidi: Int,
+        val presentation: ModePresentation,
+        /** What actually sounds, already built for [presentation] and [mode]. */
+        val elements: List<ReferenceElement>,
+        val timbre: TimbreId,
+        val timing: ItemTiming,
+        override val seed: Long,
+    ) : Item {
+        override val answerAlphabet: AnswerAlphabet = AnswerAlphabet.MajorMinor
+
+        /** The label a correct answer carries into the attempt log. */
+        val correctLabel: String
+            get() =
+                when (mode) {
+                    Mode.MAJOR -> AnswerAlphabet.MajorMinor.MAJOR
+                    Mode.MINOR -> AnswerAlphabet.MajorMinor.MINOR
+                }
+    }
+
+    /**
+     * `M12.*`: audiation. The inverse of [FunctionalRecognitionItem] — the learner is *told* which
+     * degree is coming, holds it in their head across a silent gap, and then judges what actually
+     * sounded (docs/20-PHASE-2-SPEC.md §2.3). This trains internal pitch generation rather than
+     * reaction to a stimulus, which is the Gordon-derived endpoint in docs/02-PEDAGOGY.md §6.
+     *
+     * The order matters and is why this cannot be a variant of the recognition item: the reference
+     * establishes the key, then [statedDegree] is shown *silently*, then nothing sounds for
+     * [gapBeforeSoundedNoteMs], then one note plays. What is on screen during the gap is an
+     * instruction, never a revealed answer (docs/20-PHASE-2-SPEC.md §5.3).
+     */
+    data class PredictionItem(
+        override val skill: SkillId,
+        val key: PitchClass,
+        val mode: Mode,
+        /** The degree named on screen — what the learner is asked to hear in their head. */
+        val statedDegree: ScaleDegree,
+        /** The pitch [statedDegree] actually denotes in this key and octave: what a match would sound like. */
+        val statedMidi: Int,
+        /** The pitch that actually sounds. Equal to [statedMidi] on a matching item. */
+        val soundedMidi: Int,
+        /**
+         * Detuning applied to [soundedMidi], for `PREDICT_DEVIATION` level 3 ("same degree detuned 30
+         * cents"). Zero at every other level — a deviation is otherwise a different note, not a bent one.
+         */
+        val soundedCentsOffset: Double = 0.0,
+        val referencePlan: ReferencePlan,
+        val timbre: TimbreId,
+        val referenceTimbre: TimbreId,
+        val timing: ItemTiming,
+        /** Silent audiation window between the stated degree appearing and the note sounding. */
+        val gapBeforeSoundedNoteMs: Long,
+        /** The degree pool this node draws [statedDegree] from — `{1,3,5}` at `M12.PREDICT_TRIAD`, wider later. */
+        val activeDegrees: List<ScaleDegree>,
+        override val seed: Long,
+    ) : Item {
+        override val answerAlphabet: AnswerAlphabet = AnswerAlphabet.MatchDirection
+
+        /** True when the sounded pitch is exactly what was named — no note substitution and no detuning. */
+        val matches: Boolean get() = soundedMidi == statedMidi && soundedCentsOffset == 0.0
+
+        /**
+         * The directionally-correct answer. `M12.PREDICT_TRIAD` scores against the *collapsed* form
+         * instead (docs/20-PHASE-2-SPEC.md §8.1 decision 3) — see
+         * [AnswerAlphabet.MatchDirection.matchedVsNot]; a learner who hears the mismatch but cannot yet
+         * name its direction is not penalized there for a skill that belongs to `M1.HIGH_LOW`.
+         *
+         * Compared in cents rather than MIDI numbers so a detuned deviation resolves to a direction
+         * rather than collapsing to "matched" on an equal integer.
+         */
+        val correctLabel: String
+            get() {
+                val soundedCents = soundedMidi * CENTS_PER_SEMITONE + soundedCentsOffset
+                val statedCents = statedMidi.toDouble() * CENTS_PER_SEMITONE
+                return when {
+                    soundedCents == statedCents -> AnswerAlphabet.MatchDirection.MATCHED
+                    soundedCents < statedCents -> AnswerAlphabet.MatchDirection.TOO_LOW
+                    else -> AnswerAlphabet.MatchDirection.TOO_HIGH
+                }
+            }
+
+        private companion object {
+            const val CENTS_PER_SEMITONE = 100.0
+        }
+    }
+}
+
+/**
+ * How an `M9` item presents its mode — docs/20-PHASE-2-SPEC.md §3, in prerequisite order. Each step
+ * removes harmonic scaffolding, so the mode has to be heard from less.
+ */
+enum class ModePresentation {
+    /** A full cadence. The mode is stated four times over, by every chord in the progression. */
+    CADENCE,
+
+    /** A bare tonic triad, alone. One chord, and its third is the entire answer. */
+    TONIC_TRIAD,
+
+    /** A short unaccompanied melodic fragment. No harmony at all - the mode is carried by melody. */
+    MELODIC_FRAGMENT,
 }

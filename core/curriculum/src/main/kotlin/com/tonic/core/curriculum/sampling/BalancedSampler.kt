@@ -35,9 +35,23 @@ object BalancedSampler {
         recentWindow: List<T>,
         random: Random,
         weights: Map<T, Double> = emptyMap(),
+        /**
+         * How many distinct values [recentWindow] is drawn from, when that is larger than
+         * [candidates] — `M10.MIXED_MODE` is the only caller that differs, and it differs for a real
+         * reason: the history spans all ten degrees of both modes while any one item can only target
+         * the seven of its own mode.
+         *
+         * The ceiling below is "1.5× the expected rate", and *expected* is a property of the pool the
+         * history came from, not of the shortlist this particular call is choosing between. Deriving
+         * it from `candidates.size` there computed 1.5 × 20/7 ≈ 4.3 where the honest figure is
+         * 1.5 × 20/10 = 3.0 — a ceiling loose enough that the balance rule barely bound at all, and
+         * mode-specific degrees ended up with 1 or 2 attempts per 30-item window against a mastery
+         * requirement of 3. Defaults to `candidates.size`, which is what every other caller means.
+         */
+        universeSize: Int = candidates.size,
     ): T {
         require(candidates.isNotEmpty()) { "candidates must not be empty" }
-        val expectedPerCandidate = WINDOW_SIZE.toDouble() / candidates.size
+        val expectedPerCandidate = WINDOW_SIZE.toDouble() / maxOf(universeSize, candidates.size)
         val maxAllowedCount = expectedPerCandidate * MAX_FREQUENCY_MULTIPLE
 
         val relevantHistory = recentWindow.takeLast(WINDOW_SIZE - 1)

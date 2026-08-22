@@ -1,9 +1,14 @@
 package com.tonic.feature.settings.ui
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.tonic.core.model.ids.SkillIds
 import com.tonic.core.model.state.LabelStyle
 import com.tonic.core.model.state.ThemeMode
 import com.tonic.core.model.time.Clock
+import com.tonic.feature.settings.debug.DebugSkillJumper
+import com.tonic.feature.settings.debug.FakeAttemptRepository
+import com.tonic.feature.settings.debug.FakeDebugProgressRepository
+import com.tonic.feature.settings.debug.FakeSkillStateRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -40,7 +45,30 @@ class SettingsViewModelTest {
     private fun viewModel(
         repository: FakeSettingsRepository = FakeSettingsRepository(),
         sessionRepository: FakeSessionRepository = FakeSessionRepository(),
-    ) = SettingsViewModel(repository, sessionRepository, Clock { Instant.EPOCH }) to repository
+        exportRepository: FakeDataExportRepository = FakeDataExportRepository(),
+    ) = SettingsViewModel(
+        repository,
+        sessionRepository,
+        exportRepository,
+        debugSkillJumper(),
+        Clock { Instant.EPOCH },
+    ) to repository
+
+    /**
+     * A real [DebugSkillJumper] over in-memory repositories. Its own session repository rather than
+     * this file's [FakeSessionRepository], which deliberately throws on everything the settings screen
+     * itself does not call - the jumper does create a session, and that is not this file's subject.
+     */
+    private fun debugSkillJumper(): DebugSkillJumper {
+        val attemptRepository = FakeAttemptRepository()
+        val skillStateRepository = FakeSkillStateRepository(attemptRepository)
+        return DebugSkillJumper(
+            FakeDebugProgressRepository(attemptRepository, skillStateRepository),
+            skillStateRepository,
+            FakeSettingsRepository(),
+            Clock { Instant.EPOCH },
+        )
+    }
 
     @Test
     fun `the initial DataStore read is reflected once loading completes`() =
@@ -156,7 +184,13 @@ class SettingsViewModelTest {
                 )
             val settingsRepo = FakeSettingsRepository()
             val viewModel =
-                SettingsViewModel(settingsRepo, sessions, Clock { Instant.EPOCH }).also { vm ->
+                SettingsViewModel(
+                    settingsRepo,
+                    sessions,
+                    FakeDataExportRepository(),
+                    debugSkillJumper(),
+                    Clock { Instant.EPOCH },
+                ).also { vm ->
                     vm.uiState.first { !it.isLoading }
                 }
             val settingsBefore = settingsRepo.settings.value
@@ -180,5 +214,74 @@ class SettingsViewModelTest {
             viewModel.onDiscardSavedSession()
             val state = viewModel.uiState.first { it.discardResult != null }
             assertEquals(DiscardResult.NOTHING_SAVED, state.discardResult)
+        }
+
+    @Test
+    fun `requesting an export prepares a payload for the picker, and never writes anything itself`() =
+        runBlocking {
+            // docs/20-PHASE-2-SPEC.md §6. The ViewModel's whole job here is the handoff: build the
+            // document, hand it over, and stay out of the filesystem - the write happens in the screen,
+            // against a URI the user chose, so nothing is saved anywhere until they say where.
+            val export = FakeDataExportRepository()
+            val (viewModel, _) = viewModel(exportRepository = export)
+            viewModel.uiState.first { !it.isLoading }
+
+            viewModel.onExportDataRequested()
+            val prepared = viewModel.uiState.first { it.pendingExport != null }.pendingExport!!
+
+            assertEquals("tonic-export-1234.json", prepared.suggestedFileName)
+            assertEquals(1, export.buildCount)
+            assertNull(viewModel.uiState.value.exportResult, "no outcome until the picker returns")
+        }
+
+    @Test
+    fun `every way the picker can end is reported back to the user`() =
+        runBlocking {
+            // docs/08-UI-SPEC.md §2a: a control that claims to do something must say what happened -
+            // including when the answer is "nothing", which a cancelled picker is.
+            val (viewModel, _) = viewModel()
+            viewModel.uiState.first { !it.isLoading }
+
+            for (outcome in ExportResult.entries) {
+                viewModel.onExportDataRequested()
+                viewModel.uiState.first { it.pendingExport != null }
+
+                viewModel.onExportFinished(outcome)
+                val state = viewModel.uiState.first { it.exportResult != null }
+                assertEquals(outcome, state.exportResult)
+                assertNull(state.pendingExport, "the payload is cleared however the picker ended")
+            }
+        }
+
+    @Test
+    fun `a debug jump reports where it landed, and clears its in-progress flag`() =
+        runBlocking {
+            val (viewModel, _) = viewModel()
+            viewModel.uiState.first { !it.isLoading }
+
+            viewModel.onDebugJumpRequested(SkillIds.M9_MODE_ID_CADENCE)
+            val state = viewModel.uiState.first { it.debugJumpResult != null }
+
+            assertEquals(SkillIds.M9_MODE_ID_CADENCE, state.debugJumpResult?.target)
+            assertNull(state.debugJumpResult?.failure, "a valid target must not report a failure")
+            assertFalse(state.debugJumpInProgress, "the in-progress flag must clear, or every later press is ignored")
+        }
+
+    @Test
+    fun `a debug jump that fails says so instead of taking the app down`() =
+        runBlocking {
+            // The symptom a tester actually saw: a press that crashed the app, with nothing on screen
+            // explaining it. Whatever goes wrong down there, it surfaces here as text.
+            val (viewModel, _) = viewModel()
+            viewModel.uiState.first { !it.isLoading }
+
+            viewModel.onDebugJumpRequested(SkillIds.M2_INDEPENDENCE_CHECK)
+            val state = viewModel.uiState.first { it.debugJumpResult != null }
+
+            assertTrue(
+                state.debugJumpResult?.failure != null,
+                "an unreachable target must report a failure rather than throwing",
+            )
+            assertFalse(state.debugJumpInProgress)
         }
 }

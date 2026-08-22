@@ -18,15 +18,26 @@ Identifiers are permanent. Once shipped, a `SkillId` string is never reused for 
 
 | ID | Name | Phase | Status |
 |---|---|---|---|
-| M0 | Diagnostic and Placement | 1 | **Build** |
-| M1 | Pitch Primitives | 1 | **Build** (as M0 remediation path) |
-| M2 | Diatonic Functional Recognition | 1 | **Build** |
+| M0 | Diagnostic and Placement | 1 | **Built** |
+| M1 | Pitch Primitives | 1 | **Built** (as M0 remediation path) |
+| M2 | Diatonic Functional Recognition | 1 | **Built** |
 | M3 | Rhythm | 4 | Reserve only |
 | M4 | Melodic Dictation | 5 | Reserve only |
 | M5 | Harmony | 6 | Reserve only |
 | M6 | Harmonic Dictation and Polyphony | 6 | Reserve only |
-| M7 | Real Music Bridge | 7 | Reserve only |
-| M8 | Advanced / Chromatic / Modal | 8 | Reserve only |
+| M8 | Advanced / Modal | 8 | Reserve only — partly superseded, see §6 |
+| M9 | Mode Identification | 2 | **Built** |
+| M10 | Minor Mode Functional Recognition | 2 | **Built** |
+| M11 | Chromatic Degrees | 2 | **Built** |
+| M12 | Audiation / Prediction | 2 | **Built** |
+
+M9–M12 were added in Phase 2 and their nodes, prerequisites, degree sets and
+mastery criteria are specified in `20-PHASE-2-SPEC.md` §3 rather than restated
+here; §8.3–8.7 of that document carry the corrections found while building them.
+They are numbered after the reserved block rather than inserted among it, so no
+existing identifier shifted meaning.
+
+M7 is absent deliberately and its number is not reused — `02-PEDAGOGY.md` §9.
 
 ---
 
@@ -203,8 +214,13 @@ M4.FRAG_2, M4.FRAG_3, M4.PHRASE_SHORT, M4.PHRASE_FULL, M4.RHYTHM_FIRST
 M5.QUALITY_MAJ_MIN, M5.QUALITY_EXT, M5.BASS_DEGREE, M5.FUNCTION_IVV,
 M5.FUNCTION_DIATONIC, M5.INVERSIONS, M5.VOICE_LEADING
 M6.BASS_SOPRANO, M6.TWO_VOICE, M6.FOUR_VOICE
-M7.REAL_MELODY, M7.REAL_HARMONY
-M8.MINOR_MODE, M8.CHROMATIC_DEGREES, M8.MODAL, M8.EXTENDED_HARMONY
+M8.MODAL, M8.EXTENDED_HARMONY
 ```
 
-Note: `M8.MINOR_MODE` — minor is deliberately not in Phase 1. Minor introduces mode ambiguity (natural/harmonic/melodic) that complicates degree labeling and would double the Phase 1 surface for no pedagogical gain at the beginner stage.
+**Superseded reserved identifiers.** `M8.MINOR_MODE` and `M8.CHROMATIC_DEGREES` were reserved for a
+Phase 8 that would have carried minor mode and the chromatic degrees. Both shipped earlier instead, in
+Phase 2, as the `M10` and `M11` chains — minor was deferred from Phase 1 only to limit surface area,
+not because it was advanced (`20-PHASE-2-SPEC.md` §1). The two identifiers still exist as constants in
+`SkillIds` and must not be deleted or repointed: §1's deprecate-don't-recycle rule means a shipped
+string is never reassigned, and these are shipped. They are simply dead — nothing will ever be built
+under them. `M8.MODAL` and `M8.EXTENDED_HARMONY` remain genuinely reserved.

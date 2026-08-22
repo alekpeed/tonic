@@ -26,6 +26,14 @@ internal object SettingsKeys {
     val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
     val DIAGNOSTIC_COMPLETED = booleanPreferencesKey("diagnostic_completed")
     val MODULE2_INTRO_SEEN = booleanPreferencesKey("module2_intro_seen")
+    val MODULE9_INTRO_SEEN = booleanPreferencesKey("module9_intro_seen")
+    val MODULE10_INTRO_SEEN = booleanPreferencesKey("module10_intro_seen")
+    val MODULE11_INTRO_SEEN = booleanPreferencesKey("module11_intro_seen")
+    val MODULE12_INTRO_SEEN = booleanPreferencesKey("module12_intro_seen")
+    val MIXED_MODE_INTRO_SEEN = booleanPreferencesKey("mixed_mode_intro_seen")
+    val SUNG_RESPONSE_ENABLED = booleanPreferencesKey("sung_response_enabled")
+    val SUNG_OCTAVE_AGNOSTIC = booleanPreferencesKey("sung_octave_agnostic")
+    val SUNG_RESPONSE_INTRO_SEEN = booleanPreferencesKey("sung_response_intro_seen")
     val DAILY_REMINDER_ENABLED = booleanPreferencesKey("daily_reminder_enabled")
     val DAILY_REMINDER_TIME = stringPreferencesKey("daily_reminder_time")
 }
@@ -73,6 +81,38 @@ internal class SettingsRepositoryImpl
             dataStore.edit { it[SettingsKeys.MODULE2_INTRO_SEEN] = seen }
         }
 
+        override suspend fun setModule9IntroSeen(seen: Boolean) {
+            dataStore.edit { it[SettingsKeys.MODULE9_INTRO_SEEN] = seen }
+        }
+
+        override suspend fun setModule10IntroSeen(seen: Boolean) {
+            dataStore.edit { it[SettingsKeys.MODULE10_INTRO_SEEN] = seen }
+        }
+
+        override suspend fun setModule11IntroSeen(seen: Boolean) {
+            dataStore.edit { it[SettingsKeys.MODULE11_INTRO_SEEN] = seen }
+        }
+
+        override suspend fun setModule12IntroSeen(seen: Boolean) {
+            dataStore.edit { it[SettingsKeys.MODULE12_INTRO_SEEN] = seen }
+        }
+
+        override suspend fun setSungResponseEnabled(enabled: Boolean) {
+            dataStore.edit { it[SettingsKeys.SUNG_RESPONSE_ENABLED] = enabled }
+        }
+
+        override suspend fun setSungOctaveAgnostic(enabled: Boolean) {
+            dataStore.edit { it[SettingsKeys.SUNG_OCTAVE_AGNOSTIC] = enabled }
+        }
+
+        override suspend fun setSungResponseIntroSeen(seen: Boolean) {
+            dataStore.edit { it[SettingsKeys.SUNG_RESPONSE_INTRO_SEEN] = seen }
+        }
+
+        override suspend fun setMixedModeIntroSeen(seen: Boolean) {
+            dataStore.edit { it[SettingsKeys.MIXED_MODE_INTRO_SEEN] = seen }
+        }
+
         override suspend fun setDiagnosticCompleted(completed: Boolean) {
             dataStore.edit { it[SettingsKeys.DIAGNOSTIC_COMPLETED] = completed }
         }
@@ -109,6 +149,15 @@ private fun Preferences.toAppSettings(): AppSettings {
         onboardingCompleted = this[SettingsKeys.ONBOARDING_COMPLETED] ?: defaults.onboardingCompleted,
         diagnosticCompleted = this[SettingsKeys.DIAGNOSTIC_COMPLETED] ?: defaults.diagnosticCompleted,
         module2IntroSeen = this[SettingsKeys.MODULE2_INTRO_SEEN] ?: defaults.module2IntroSeen,
+        module9IntroSeen = this[SettingsKeys.MODULE9_INTRO_SEEN] ?: defaults.module9IntroSeen,
+        module10IntroSeen = this[SettingsKeys.MODULE10_INTRO_SEEN] ?: defaults.module10IntroSeen,
+        module11IntroSeen = this[SettingsKeys.MODULE11_INTRO_SEEN] ?: defaults.module11IntroSeen,
+        module12IntroSeen = this[SettingsKeys.MODULE12_INTRO_SEEN] ?: defaults.module12IntroSeen,
+        mixedModeIntroSeen = this[SettingsKeys.MIXED_MODE_INTRO_SEEN] ?: defaults.mixedModeIntroSeen,
+        sungResponseEnabled = this[SettingsKeys.SUNG_RESPONSE_ENABLED] ?: defaults.sungResponseEnabled,
+        sungOctaveAgnostic = this[SettingsKeys.SUNG_OCTAVE_AGNOSTIC] ?: defaults.sungOctaveAgnostic,
+        sungResponseIntroSeen =
+            this[SettingsKeys.SUNG_RESPONSE_INTRO_SEEN] ?: defaults.sungResponseIntroSeen,
         dailyReminderEnabled = this[SettingsKeys.DAILY_REMINDER_ENABLED] ?: defaults.dailyReminderEnabled,
         dailyReminderTime = this[SettingsKeys.DAILY_REMINDER_TIME],
     )

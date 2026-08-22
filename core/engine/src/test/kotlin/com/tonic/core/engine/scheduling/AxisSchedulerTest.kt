@@ -21,7 +21,11 @@ class AxisSchedulerTest {
         val before = state.levels.toMap()
         repeat(3) { state = AxisScheduler.update(state, correct = true) }
         val active = state.activeAxis!!
-        for (axis in DifficultyAxis.entries) {
+        // RECOGNITION_AXES, not entries, as of Phase 2 Stage 2.0: the scheduler's level map holds the
+        // axes of the node's own scope, and a prediction axis is deliberately absent from a recognition
+        // node's state rather than present at 0 (docs/20-PHASE-2-SPEC.md §4 change 3). Same six axes
+        // asserted as before for every Phase 1 node.
+        for (axis in DifficultyAxis.RECOGNITION_AXES) {
             if (axis != active) {
                 assertEquals(before.getValue(axis), state.levels.getValue(axis), "$axis moved while inactive")
             }
