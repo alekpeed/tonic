@@ -8,7 +8,18 @@ from absolute zero. See `docs/00-README.md` for the full spec set and
 ## Building
 
 Requires JDK 17+ and the Android SDK (`ANDROID_HOME` or `local.properties`
-pointing at it — platforms 35/36 and matching build-tools).
+pointing at it — platform 35 and matching build-tools).
+
+If you do not have one, including in a sandbox that was assumed not to be able
+to have one:
+
+```bash
+scripts/android-sdk.sh
+```
+
+It installs exactly the two packages CI installs, pinned to match, and writes
+`sdk.dir` into `local.properties` (gitignored) so `./gradlew` works in a fresh
+shell. Idempotent, roughly 1.5 GB, a few minutes cold.
 
 One command that builds, lints (ktlint), and runs every JVM-level test —
 the fast, no-emulator subset covering `:core:model`, `:core:curriculum`,
@@ -44,8 +55,8 @@ To auto-fix formatting instead of just checking it:
 ./gradlew ktlintFormat
 ```
 
-Both of those need the Android SDK. To check style without it — useful in a
-sandbox that has no SDK, and much faster than waiting for CI:
+Both of those need the Android SDK. To check style without one — much faster
+than a full build, and the first thing to run before any push:
 
 ```
 scripts/ktlint.sh            # check
@@ -107,6 +118,9 @@ is uploaded as an artifact on every run, pass or fail.
 
 The development sandboxes for this project have no physical Android device, no
 emulator (`/dev/kvm` is unavailable, so the AVD can't boot), and no display.
+They *can* compile and run the whole JVM suite — see `scripts/android-sdk.sh`;
+the long-standing belief that they could not was never tested and turned out to
+be false. The gap is a device, not a toolchain.
 Everything that can be verified without one is verified in CI — JVM unit tests,
 property-based tests, simulation tests, Robolectric-backed Android-dependent
 tests, ktlint, `assembleDebug`/`assembleRelease` (R8) builds.

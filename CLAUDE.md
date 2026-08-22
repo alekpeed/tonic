@@ -151,11 +151,15 @@ Do not, without explicit chat approval:
 - Report what you built, what you verified, and what you did not verify. State uncertainty explicitly.
 - **Lint locally before pushing: `scripts/ktlint.sh`.** It needs no Android SDK and takes seconds, and
   its ktlint version is pinned to match CI's. Style violations otherwise cost a full CI round each.
-- **The build is verifiable in CI, so verify it there.** `.github/workflows/verify.yml` runs
-  `scripts/verify.sh` on every push and pull request, on a runner that has the Android SDK. Development
-  sandboxes for this project generally do not, so "I could not run the build" is not a reason to leave a
-  change unverified — push the branch and read the run. Never report green without a source for it:
-  either a local `verify.sh` exit code or a passing CI run.
+- **Build locally first, then verify in CI.** `scripts/android-sdk.sh` installs the SDK the gate needs;
+  after that `scripts/verify.sh` runs here, and a compile error costs seconds instead of a CI round.
+  This was long assumed impossible in this project's sandboxes — it is not, and that assumption is what
+  most of `docs/21-HANDOFF.md` §6 and §7 are consequences of.
+  `.github/workflows/verify.yml` still runs `scripts/verify.sh` on every push and pull request and
+  remains the authoritative signal: it runs on a known-clean machine and checks things a local run does
+  not (the committed Room schemas, the APK signature). So "I could not run the build" is not a reason to
+  leave a change unverified, and neither is a green local run on its own. Never report green without a
+  source for it: either a local `verify.sh` exit code or a passing CI run, and say which.
 - When you finish a phase, produce a short delta report: files added, decisions made, deviations from spec (with reasons), open questions.
 - Do not claim something works if you have not run it.
 
