@@ -1,6 +1,7 @@
 package com.tonic.core.audio.capture
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
 import android.media.AudioFormat
@@ -73,7 +74,24 @@ class AudioRecordMicrophoneSource
             return withContext(Dispatchers.IO) { readWindow(maxDurationMs) }
         }
 
+        /**
+         * Suppressed because lint cannot see the check, not because there isn't one.
+         *
+         * `MissingPermission` fires on the `AudioRecord` constructor below. The permission *is*
+         * verified — [isAvailable] is read at the top of [record], and again on the line before the
+         * constructor here so the guard sits where a reader looking at the risky call will find it —
+         * but the check happens through a property getter and lint's dataflow does not follow it.
+         *
+         * The second half of lint's own advice is satisfied too: it asks that revocable-permission
+         * calls "be prepared to handle the calls throwing an exception if the user rejects the request
+         * at runtime," which is exactly what the `SecurityException` branch is for. Permission can be
+         * revoked between the check and the constructor, and on a real phone eventually will be.
+         */
+        @SuppressLint("MissingPermission")
         private suspend fun readWindow(maxDurationMs: Long): CapturedAudio {
+            // Re-read rather than trusting the caller's check: this is the last line before the
+            // microphone is opened, and it is the one a reader will look for.
+            if (!isAvailable) return CapturedAudio.empty(SAMPLE_RATE)
             val minBuffer = AudioRecord.getMinBufferSize(SAMPLE_RATE, CHANNEL_CONFIG, ENCODING)
             if (minBuffer <= 0) return CapturedAudio.empty(SAMPLE_RATE)
 
