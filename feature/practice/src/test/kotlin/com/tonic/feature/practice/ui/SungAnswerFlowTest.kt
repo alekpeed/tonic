@@ -5,14 +5,10 @@ import com.tonic.core.audio.capture.CapturedAudio
 import com.tonic.core.model.attempts.InputMethod
 import com.tonic.core.model.music.Tuning
 import com.tonic.core.model.state.AppSettings
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.test.resetMain
-import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.withTimeout
-import org.junit.After
-import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import kotlin.math.pow
@@ -30,9 +26,7 @@ import kotlin.test.assertTrue
  */
 @RunWith(AndroidJUnit4::class)
 class SungAnswerFlowTest {
-    @Before fun setUp() = Dispatchers.setMain(Dispatchers.Default)
-
-    @After fun tearDown() = Dispatchers.resetMain()
+    @get:Rule val mainDispatcher = MainDispatcherRule()
 
     private fun fixture(): PracticeFixture =
         PracticeFixture(AppSettings(module2IntroSeen = true, sungResponseEnabled = true)).also {

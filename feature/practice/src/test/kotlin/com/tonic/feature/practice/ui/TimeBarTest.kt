@@ -2,14 +2,10 @@ package com.tonic.feature.practice.ui
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.tonic.core.model.state.AppSettings
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.test.resetMain
-import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.withTimeout
-import org.junit.After
-import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import kotlin.test.assertEquals
@@ -23,9 +19,7 @@ import kotlin.test.assertEquals
  */
 @RunWith(AndroidJUnit4::class)
 class TimeBarTest {
-    @Before fun setUp() = Dispatchers.setMain(Dispatchers.Default)
-
-    @After fun tearDown() = Dispatchers.resetMain()
+    @get:Rule val mainDispatcher = MainDispatcherRule()
 
     private companion object {
         const val TIMEOUT_MS = 10_000L

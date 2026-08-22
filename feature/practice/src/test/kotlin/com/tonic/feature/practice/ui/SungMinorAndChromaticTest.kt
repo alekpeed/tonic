@@ -11,15 +11,11 @@ import com.tonic.core.model.ids.SkillIds
 import com.tonic.core.model.items.Item
 import com.tonic.core.model.music.Tuning
 import com.tonic.core.model.state.AppSettings
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.test.resetMain
-import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.withTimeout
-import org.junit.After
-import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.time.Instant
@@ -44,9 +40,7 @@ import kotlin.test.assertTrue
  */
 @RunWith(AndroidJUnit4::class)
 class SungMinorAndChromaticTest {
-    @Before fun setUp() = Dispatchers.setMain(Dispatchers.Default)
-
-    @After fun tearDown() = Dispatchers.resetMain()
+    @get:Rule val mainDispatcher = MainDispatcherRule()
 
     private fun fixtureAt(target: SkillId): PracticeFixture {
         val fixture =

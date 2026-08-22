@@ -32,6 +32,34 @@ Every generator and engine function is pure and seeded (`CLAUDE.md` §5). Test i
 
 A flaky test in this project is a bug in the test or a determinism violation in the code. Do not add retries. Find it.
 
+### 3a. View-model tests and `Dispatchers.Main`
+
+One bug in this class has now been found twice, and the second time it was a CI failure rather than a
+suspicion. A view model whose scope is never cancelled keeps running coroutines on `Dispatchers.Main`
+after its test returns; `resetMain()` then swaps the dispatcher out from under them and the run fails
+inside `TestMainDispatcher` with "Dispatchers.Main is used concurrently with setting it". It depends on
+nothing but timing, so it fires under load and passes on the retry — the shape of failure that gets
+called a flake and is not one.
+
+**A view-model test must cancel its view models before it puts `Main` back.** In `:feature:practice`
+that ordering lives in `MainDispatcherRule`, so no test writes it: the rule sets `Main`, drains every
+`PracticeFixture` built during the test, and only then resets. `PracticeViewModelTest` carries the
+original diagnosis and its own equivalent for the view models it builds directly.
+
+Two details that look incidental and are not. The rule class is `public`, because JUnit finds a rule by
+reflection over a public getter and an `internal` property's getter is name-mangled — an internal rule
+is a rule that silently never runs. And `clear()` *joins* the cancelled scope rather than only
+cancelling it, because cancellation returns before the coroutine has finished unwinding, and that
+window is precisely what `resetMain()` loses the race to.
+
+`FixtureTeardownTest` asserts both of those hold, because a teardown that quietly does nothing leaves
+every test in the package as racy as before while the suite stays green.
+
+The same `setMain`/`resetMain` pair still appears without this protection in the view-model tests of
+`:app`, `:feature:diagnostic`, `:feature:progress` and `:feature:settings`. Those view models do less
+long-running work, so the window is narrower, but the bug is the same one and the fix is the same
+shape.
+
 ## 4. Property-based testing
 
 Use property tests for the generators. The properties that matter:
