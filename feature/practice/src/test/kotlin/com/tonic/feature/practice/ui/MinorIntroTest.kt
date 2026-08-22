@@ -54,19 +54,22 @@ class MinorIntroTest {
         master(SkillIds.M9_NODES_IN_ORDER)
     }
 
+    /**
+     * The screen a learner gets is the one for the module they are actually in. Still in major, so the
+     * major screen - never minor's, which explains a distinction they have not met.
+     */
     @Test
-    fun `a learner still working through major is never shown the minor explanation`() =
+    fun `a learner still working through major is shown the major explanation, not the minor one`() =
         runBlocking {
-            val fixture = PracticeFixture(AppSettings(module2IntroSeen = true))
+            val fixture = PracticeFixture(AppSettings())
             fixture.viewModel.startIfNeeded()
-            val state = withTimeout(TIMEOUT_MS) { fixture.viewModel.uiState.first { it.item != null } }
+            val state = withTimeout(TIMEOUT_MS) { fixture.viewModel.uiState.first { it.showIntro } }
 
-            assertEquals(IntroKind.NONE, state.introKind)
-            assertEquals(false, state.showIntro)
+            assertEquals(IntroKind.M2, state.introKind)
         }
 
     @Test
-    fun `reaching minor for the first time shows the minor explanation, not the major one`() =
+    fun `reaching minor shows the minor explanation, not the major one`() =
         runBlocking {
             val fixture = PracticeFixture(AppSettings(module2IntroSeen = true))
             fixture.masterEverythingBeforeMinor()
@@ -81,21 +84,23 @@ class MinorIntroTest {
             )
         }
 
+    /**
+     * A stale `module10IntroSeen` from before the seen-once rule was dropped must not suppress the
+     * screen. Every install that ran an earlier build carries those flags set, so this is the case the
+     * maintainer actually hit: M12's screen stayed hidden through session ends and a session-data
+     * clear alike, because a persisted flag - not the session - was what remembered.
+     */
     @Test
-    fun `dismissing the minor explanation marks only minor as seen`() =
+    fun `a stale seen-flag from an older build does not suppress the minor explanation`() =
         runBlocking {
-            // Marking both would silently rob a learner of an explanation they never received.
-            val fixture = PracticeFixture(AppSettings(module2IntroSeen = false))
+            val fixture =
+                PracticeFixture(AppSettings(module2IntroSeen = true, module10IntroSeen = true))
             fixture.masterEverythingBeforeMinor()
 
             fixture.viewModel.startIfNeeded()
-            withTimeout(TIMEOUT_MS) { fixture.viewModel.uiState.first { it.showIntro } }
-            fixture.viewModel.onIntroDismissed()
+            val state = withTimeout(TIMEOUT_MS) { fixture.viewModel.uiState.first { it.showIntro } }
 
-            val settings =
-                withTimeout(TIMEOUT_MS) { fixture.settingsRepository.settings.first { it.module10IntroSeen } }
-            assertTrue(settings.module10IntroSeen)
-            assertEquals(false, settings.module2IntroSeen, "the major explanation was never shown here")
+            assertEquals(IntroKind.M10, state.introKind)
         }
 
     @Test
@@ -108,8 +113,9 @@ class MinorIntroTest {
             val fixture = PracticeFixture(AppSettings(module2IntroSeen = true))
             fixture.masterAllOfMajor()
 
-            fixture.viewModel.startIfNeeded()
-            val state = withTimeout(TIMEOUT_MS) { fixture.viewModel.uiState.first { it.item != null } }
+            // Past the explanation the M9 node now raises - routing is this test's subject, not intros.
+            fixture.startPastIntro(TIMEOUT_MS)
+            val state = fixture.viewModel.uiState.value
 
             assertEquals(
                 SkillIds.M9_MODE_ID_CADENCE,
@@ -125,8 +131,8 @@ class MinorIntroTest {
             val fixture = PracticeFixture(AppSettings(module2IntroSeen = true, module10IntroSeen = true))
             fixture.masterEverythingBeforeMinor()
 
-            fixture.viewModel.startIfNeeded()
-            val state = withTimeout(TIMEOUT_MS) { fixture.viewModel.uiState.first { it.item != null } }
+            fixture.startPastIntro(TIMEOUT_MS)
+            val state = fixture.viewModel.uiState.value
             val item = state.recognitionItem!!
 
             assertEquals(com.tonic.core.model.music.Mode.MINOR, item.mode)

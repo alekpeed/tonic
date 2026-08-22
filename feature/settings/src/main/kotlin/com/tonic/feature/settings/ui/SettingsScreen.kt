@@ -99,8 +99,6 @@ fun SettingsScreen(
             onDailyReminderChanged = viewModel::onDailyReminderChanged,
             discardResult = uiState.discardResult,
             onDiscardSavedSession = viewModel::onDiscardSavedSession,
-            explanationsReset = uiState.explanationsReset,
-            onShowExplanationsAgain = viewModel::onShowExplanationsAgain,
             exportResult = uiState.exportResult,
             onExportDataRequested = viewModel::onExportDataRequested,
             debugJumpTargets = uiState.debugJumpTargets,
@@ -124,8 +122,6 @@ private fun SettingsContent(
     onDailyReminderChanged: (Boolean, String?) -> Unit,
     discardResult: DiscardResult? = null,
     onDiscardSavedSession: () -> Unit = {},
-    explanationsReset: Boolean = false,
-    onShowExplanationsAgain: () -> Unit = {},
     exportResult: ExportResult? = null,
     onExportDataRequested: () -> Unit = {},
     debugJumpTargets: List<SkillId> = emptyList(),
@@ -292,31 +288,6 @@ private fun SettingsContent(
             }
         }
 
-        item {
-            SettingsSection(stringResource(R.string.settings_explanations_heading)) {
-                Text(
-                    text = stringResource(R.string.settings_explanations_body),
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                Spacer(modifier = Modifier.height(TonicSpacing.sm))
-                TextButton(
-                    onClick = onShowExplanationsAgain,
-                    modifier = Modifier.testTag("settings_show_explanations"),
-                ) {
-                    Text(stringResource(R.string.settings_explanations_reset))
-                }
-                // §2a once more: the press visibly did something.
-                if (explanationsReset) {
-                    Text(
-                        text = stringResource(R.string.settings_explanations_reset_done),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.testTag("settings_explanations_result"),
-                    )
-                }
-            }
-        }
-
         // BuildConfig.DEBUG only - see DebugSkillJumper's KDoc. This whole section, and the tool
         // behind it, is compiled out of a release build; there is no way to reach it in one.
         if (BuildConfig.DEBUG) {
@@ -469,8 +440,6 @@ private fun DailyReminderSection(
     onDailyReminderChanged: (Boolean, String?) -> Unit,
     discardResult: DiscardResult? = null,
     onDiscardSavedSession: () -> Unit = {},
-    explanationsReset: Boolean = false,
-    onShowExplanationsAgain: () -> Unit = {},
 ) {
     val defaultTime = stringResource(R.string.settings_daily_reminder_time_morning)
     SettingsSection(stringResource(R.string.settings_daily_reminder_heading)) {

@@ -152,9 +152,11 @@ makes octave-agnosticism a mitigation against the phase's central risk rather th
 a register tests vocal range, not hearing. `sung_response_intro_seen` is `08-UI-SPEC.md` §3a's per-shape
 flag applied to singing, which is its own task shape — same question, different answer control.
 
-`module9_intro_seen`, `module10_intro_seen`, `module11_intro_seen`, `module12_intro_seen` and `mixed_mode_intro_seen` are the same mechanism for Phase 2's new task shapes (`08-UI-SPEC.md` §3a). One flag per shape, deliberately: having seen the major explanation says nothing about whether a learner has been told what `♭3` means, why a note exists between `4` and `5`, that one exercise runs backwards and its silence is the point, or that the mode is about to stop being announced, and marking them together would rob someone of an explanation they never received.
+`module9_intro_seen`, `module10_intro_seen`, `module11_intro_seen`, `module12_intro_seen` and `mixed_mode_intro_seen` were the same mechanism for Phase 2's task shapes, and are retired on the same terms. The per-shape split they encoded still holds in the code that replaced them: each module has its own explanation, and having met one says nothing about the others.
 
-`module2_intro_seen` records that the Module 2 explanation screen and its worked example have been shown once — `11-ONBOARDING-CLARITY.md` §5: "shown automatically once, on first encounter with that exercise type," and never again automatically. It gates the automatic showing only; the screen stays reachable on demand forever, and recalling it does not depend on or change this flag.
+**`module2_intro_seen` and its Phase 2 siblings are retired: still stored, no longer written or read.** They recorded that a module's explanation screen had been shown once, and gated it from ever showing automatically again. That rule was dropped on 2026-08-22 by the maintainer's instruction — a module's explanation now appears every time the learner enters that module (`08-UI-SPEC.md` §3a, `11-ONBOARDING-CLARITY.md` §5), governed by in-memory state for the current visit and by nothing durable at all.
+
+The keys and their `AppSettings` fields are kept rather than migrated away, so the stored schema stays stable and an install carrying `true` values from an older build needs no migration: nothing consults them. Do not repurpose them, and do not reintroduce a read without changing §3a first.
 
 ---
 

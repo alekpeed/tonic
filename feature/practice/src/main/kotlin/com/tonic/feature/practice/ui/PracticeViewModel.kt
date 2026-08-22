@@ -34,6 +34,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import kotlin.random.Random
 
@@ -69,16 +70,18 @@ class PracticeViewModel
         private var started = false
 
         /**
-         * Explanation kinds already put on screen this session. The engine's per-item playback gate
-         * ([shouldHoldPlaybackFor]) runs off this rather than the persisted seen-flags, because the
-         * DataStore write from [onIntroDismissed] is asynchronous: gating on the flag alone left a
-         * window where the *next* item's audio could be withheld for an explanation that had already
-         * been dismissed — held with nothing ever arriving to release it, a permanently silent item.
-         * A synchronized set claimed at decide-time closes that window. Session-scoped on purpose; the
-         * flags do the across-sessions work.
+         * Explanation kinds already put on screen during this visit to Practice — the *only* thing
+         * limiting how often an explanation appears, now that the module half of [introKindFor] no
+         * longer consults a persisted flag.
+         *
+         * In memory, and that is the design rather than a shortcut. Entering a module means seeing its
+         * explanation, every time (docs/08-UI-SPEC.md §3a): this set makes "entering" mean leaving
+         * Practice and coming back, so the screen does not reappear between items of a module already
+         * entered, and does reappear next time — after ending a session, after a resume, after
+         * anything. It is claimed at decide-time (`add` returning true *is* the claim) so two items
+         * cannot both hold for the same screen.
          */
-        private val introShownThisSession =
-            java.util.Collections.synchronizedSet(mutableSetOf<IntroKind>())
+        private val introShownThisSession: MutableSet<IntroKind> = ConcurrentHashMap.newKeySet()
 
         /**
          * Set by [shouldHoldPlaybackFor] (on the engine's dispatcher, under its mutex) and consumed by
@@ -132,23 +135,13 @@ class PracticeViewModel
             if (started) return
             started = true
             viewModelScope.launch {
-                // docs/11-ONBOARDING-CLARITY.md §1/§5 and docs/08-UI-SPEC.md §3a: shown automatically
-                // exactly once per task shape, before that shape's first item ever plays. Which one is
-                // decided by the node the session is about to resolve to, not by module 2 alone -
-                // otherwise a learner reaching minor would be handed the major explanation, or none.
-                // The session underneath still starts, so dismissing lands on a ready item - but it
-                // starts *silently*. Before this, the first item played while the explanation was still
-                // on screen, so the learner met the sound and the sentence describing it at the same
-                // moment. The engine renders and pre-renders behind the screen and holds only the audio.
-                val settings = settingsRepository.settings.first()
-                gateSettings = settings
-                val kind = introKindFor(resolveSessionStart().first.skillId, settings)
-                if (kind != IntroKind.NONE) {
-                    // Claimed here as well as shown: the engine's playback gate consults the same set,
-                    // so the first item is held because this screen is up, not re-decided.
-                    introShownThisSession.add(kind)
-                    _uiState.update { it.copy(showIntro = true, introKind = kind) }
-                }
+                // No explanation is decided here, deliberately. It is decided by
+                // [shouldHoldPlaybackFor] when the loop actually reaches an item, which is the only
+                // moment the *real* node is known: resolveSessionStart() answers "where would a fresh
+                // session begin", and a resumed session begins wherever it left off instead. Choosing
+                // here also stacked the explanation on top of the resume offer, so a returning learner
+                // read about an exercise before choosing whether to continue into it.
+                gateSettings = settingsRepository.settings.first()
                 // docs/10-TESTING.md §11: "force stop mid-session -> resume offered, no data loss." An
                 // interrupted session is offered back rather than silently replaced with a fresh one -
                 // starting fresh would strand its resume row and re-plan work the user already did.
@@ -162,18 +155,22 @@ class PracticeViewModel
         }
 
         /**
-         * The engine's per-item playback gate — called under its mutex just before an item would play.
+         * The engine's per-item playback gate — called under its mutex just before an item would play,
+         * and the single place an explanation is decided.
          *
-         * Two reasons to hold. An explanation screen is already up (the session's opening intro, or a
-         * recall via [onOpenIntro]): nothing may start sounding underneath it. Or this item's node owes
-         * an explanation not yet shown ([introKindFor]): then this call *claims* it — records the
-         * pending kind for the state collector to put on screen — and the item waits behind it for
-         * [onIntroDismissed]. Per item rather than once at start, because a session that opens on a
-         * familiar node and climbs into `M12` mid-way owes `M12`'s screen at the climb, which is where
-         * the start-time-only version handed the learner a first `M12` item with no explanation at all.
+         * Two reasons to hold. An explanation screen is already up (one this gate raised, or a recall
+         * via [onOpenIntro]): nothing may start sounding underneath it. Or this item's node needs an
+         * explanation not shown yet on this visit ([introKindFor]): then this call *claims* it —
+         * records the pending kind for the state collector to put on screen — and the item waits
+         * behind it for [onIntroDismissed].
+         *
+         * [introShownThisSession] is the whole gate on repetition, and it is deliberately in-memory:
+         * entering a module means seeing its explanation, every time, and only leaving and returning
+         * counts as entering again (docs/08-UI-SPEC.md §3a). Twenty questions deep in `M12` nothing
+         * reappears, because `M12`'s kind is already in the set.
          */
         private fun shouldHoldPlaybackFor(skillId: SkillId): Boolean {
-            val kind = introKindFor(skillId, gateSettings)
+            val kind = introKindFor(skillId, gateSettings, introShownThisSession)
             if (kind != IntroKind.NONE && introShownThisSession.add(kind)) {
                 pendingIntroKind = kind
                 return true
@@ -260,8 +257,13 @@ class PracticeViewModel
         }
 
         /**
-         * Dismisses the explanation and records that it has been shown, so it never appears
-         * automatically again. Recalling it later via [onOpenIntro] deliberately does not touch the flag.
+         * Dismisses the explanation and starts the item waiting behind it.
+         *
+         * Only the sung-response flag is persisted. A module's screen is governed by
+         * [introShownThisSession] alone, so there is nothing durable to write for it — see
+         * [introKindFor] for why that rule changed. The `module*IntroSeen` fields still exist in
+         * [AppSettings] and DataStore (docs/05-DATA-MODEL.md §3) but are no longer written or read;
+         * they are kept rather than migrated away so the stored schema stays stable.
          */
         fun onIntroDismissed() {
             val kind = _uiState.value.introKind
@@ -275,18 +277,8 @@ class PracticeViewModel
                     // hearing it, so they restart from zero or they narrate the wrong moment.
                     _uiState.value.item?.let(::runPlaybackPhaseTimer)
                 }
-                // Only the shape that was actually shown is marked seen. Marking both would silently
-                // rob the learner of an explanation they never received.
-                when (kind) {
-                    IntroKind.M2 -> settingsRepository.setModule2IntroSeen(true)
-                    IntroKind.M9 -> settingsRepository.setModule9IntroSeen(true)
-                    IntroKind.M10 -> settingsRepository.setModule10IntroSeen(true)
-                    IntroKind.M11 -> settingsRepository.setModule11IntroSeen(true)
-                    IntroKind.M12 -> settingsRepository.setModule12IntroSeen(true)
-                    IntroKind.MIXED_MODE -> settingsRepository.setMixedModeIntroSeen(true)
-                    IntroKind.SUNG -> settingsRepository.setSungResponseIntroSeen(true)
-                    IntroKind.NONE -> Unit
-                }
+                // Only the sung screen is once-ever, so it is the only one with anything to record.
+                if (kind == IntroKind.SUNG) settingsRepository.setSungResponseIntroSeen(true)
             }
         }
 
@@ -684,37 +676,42 @@ internal fun moduleIntroKindFor(skillId: SkillId): IntroKind =
     }
 
 /**
- * Which explanation [skillId] still *owes* the learner, or [IntroKind.NONE]. First-encounter only:
- * the module's own screen while unseen, else the sung-response one while due
- * (docs/11-ONBOARDING-CLARITY.md §3/§5, docs/30-PHASE-3-SPEC.md §6.2). Recall on demand
- * ([onOpenIntro]) deliberately does not consult this — recall neither depends on nor changes the
- * seen-once flags.
+ * Which explanation [skillId] calls for. The module's own screen always; the sung-response one when
+ * singing is on and its own first-encounter flag is still unset.
+ *
+ * **The module half deliberately consults no persisted flag.** It used to: each module's screen was
+ * shown once ever, marked seen in DataStore, and never offered again. That is a defensible rule for a
+ * settled learner and it was wrong for this app in its current state, by the maintainer's direct
+ * instruction after live use — the screens became unreachable, in a way nothing on screen explained.
+ * Ending a session did not bring them back. Neither did clearing the saved session, since that is a
+ * different store entirely, so the app looked broken twice over. Entering a module now means seeing
+ * its explanation, every time; [PracticeViewModel.introShownThisSession] keeps it to once per visit,
+ * so it does not reappear between items of a module already entered.
+ *
+ * The sung-response screen keeps its flag. It is not a module — it explains a way of *answering*, can
+ * surface on any node, and is reached only by opting in (docs/30-PHASE-3-SPEC.md §6.1), so "every
+ * time you enter it" has no meaning to hang the rule on.
+ *
+ * Recall on demand ([PracticeViewModel.onOpenIntro]) does not consult this at all — it asks
+ * [moduleIntroKindFor] directly, since recall must produce the current node's screen whether or not
+ * anything is owed.
  */
 internal fun introKindFor(
     skillId: SkillId,
     settings: AppSettings,
+    alreadyShown: Set<IntroKind> = emptySet(),
 ): IntroKind {
     val moduleIntro = moduleIntroKindFor(skillId)
-    val moduleSeen =
-        when (moduleIntro) {
-            IntroKind.M2 -> settings.module2IntroSeen
-            IntroKind.M9 -> settings.module9IntroSeen
-            IntroKind.M10 -> settings.module10IntroSeen
-            IntroKind.M11 -> settings.module11IntroSeen
-            IntroKind.M12 -> settings.module12IntroSeen
-            IntroKind.MIXED_MODE -> settings.mixedModeIntroSeen
-            // Unreachable from moduleIntroKindFor; listed so the when stays exhaustive without an else.
-            IntroKind.NONE, IntroKind.SUNG -> true
-        }
-    if (!moduleSeen) return moduleIntro
+    if (moduleIntro !in alreadyShown) return moduleIntro
 
-    // Checked after the module intros, and deliberately so. Singing is not tied to a node, so it
-    // could surface anywhere - but a learner who has not yet been told what the *exercise* is
-    // should not first be told how to answer it by voice. The module explanation wins; the sung
-    // one arrives at the next opportunity.
-    return if (settings.sungResponseEnabled && !settings.sungResponseIntroSeen) {
-        IntroKind.SUNG
-    } else {
-        IntroKind.NONE
-    }
+    // Checked after the module intro, and deliberately so. Singing is not tied to a node, so it could
+    // surface anywhere - but a learner who has not yet been told what the *exercise* is should not
+    // first be told how to answer it by voice. The module explanation wins; the sung one arrives at
+    // the next item. [alreadyShown] is what sequences those two, since the module half no longer has
+    // a persisted flag to fall through.
+    val sungDue =
+        settings.sungResponseEnabled &&
+            !settings.sungResponseIntroSeen &&
+            IntroKind.SUNG !in alreadyShown
+    return if (sungDue) IntroKind.SUNG else IntroKind.NONE
 }

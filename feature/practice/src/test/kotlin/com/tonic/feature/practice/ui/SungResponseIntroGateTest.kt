@@ -16,47 +16,56 @@ import kotlin.test.assertEquals
  * actually compose something removes that entanglement and is the better structure regardless.
  */
 class SungResponseIntroGateTest {
+    private val singingOn = AppSettings(sungResponseEnabled = true, sungResponseIntroSeen = false)
+
     /**
-     * The gate. Singing is not tied to a node, so this screen could surface anywhere — but a learner who
-     * has not yet been told what the exercise *is* must not first be told how to answer it by voice.
+     * The ordering. Singing is not tied to a node, so this screen could surface anywhere — but a learner
+     * who has not yet been told what the exercise *is* must not first be told how to answer it by voice.
+     * `alreadyShown` is what sequences them, now that the module half has no persisted flag to fall
+     * through: nothing shown yet means the module's screen is what is due.
      */
     @Test
-    fun `the module explanation wins when both are unseen`() {
-        val settings =
-            AppSettings(
-                module2IntroSeen = false,
-                sungResponseEnabled = true,
-                sungResponseIntroSeen = false,
-            )
-        assertEquals(IntroKind.M2, introKindFor(SkillIds.M2_DEG_SET_1, settings))
+    fun `the module explanation wins when nothing has been shown yet`() {
+        assertEquals(IntroKind.M2, introKindFor(SkillIds.M2_DEG_SET_1, singingOn, alreadyShown = emptySet()))
     }
 
     @Test
-    fun `the sung explanation appears once the module one is done and singing is on`() {
-        val settings =
-            AppSettings(
-                module2IntroSeen = true,
-                sungResponseEnabled = true,
-                sungResponseIntroSeen = false,
-            )
-        assertEquals(IntroKind.SUNG, introKindFor(SkillIds.M2_DEG_SET_1, settings))
+    fun `the sung explanation follows once the module one is on screen`() {
+        assertEquals(
+            IntroKind.SUNG,
+            introKindFor(SkillIds.M2_DEG_SET_1, singingOn, alreadyShown = setOf(IntroKind.M2)),
+        )
     }
 
     /** Default off, so a learner who never opts in never sees it — §6.1. */
     @Test
     fun `it never appears while singing is switched off`() {
-        val settings = AppSettings(module2IntroSeen = true, sungResponseEnabled = false)
-        assertEquals(IntroKind.NONE, introKindFor(SkillIds.M2_DEG_SET_1, settings))
+        val settings = AppSettings(sungResponseEnabled = false)
+        assertEquals(
+            IntroKind.NONE,
+            introKindFor(SkillIds.M2_DEG_SET_1, settings, alreadyShown = setOf(IntroKind.M2)),
+        )
     }
 
+    /**
+     * The sung screen keeps its persisted flag where the module screens lost theirs: it explains a way
+     * of *answering* rather than a module, so "every time you enter it" has nothing to hang on.
+     */
     @Test
-    fun `it does not appear twice`() {
-        val settings =
-            AppSettings(
-                module2IntroSeen = true,
-                sungResponseEnabled = true,
-                sungResponseIntroSeen = true,
-            )
-        assertEquals(IntroKind.NONE, introKindFor(SkillIds.M2_DEG_SET_1, settings))
+    fun `it does not appear twice, across sessions`() {
+        val settings = singingOn.copy(sungResponseIntroSeen = true)
+        assertEquals(
+            IntroKind.NONE,
+            introKindFor(SkillIds.M2_DEG_SET_1, settings, alreadyShown = setOf(IntroKind.M2)),
+        )
+    }
+
+    /** And not twice within one visit either, before its flag has been written. */
+    @Test
+    fun `it does not appear twice within a single visit`() {
+        assertEquals(
+            IntroKind.NONE,
+            introKindFor(SkillIds.M2_DEG_SET_1, singingOn, setOf(IntroKind.M2, IntroKind.SUNG)),
+        )
     }
 }

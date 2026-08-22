@@ -37,27 +37,42 @@ class ModuleIntroKindTest {
     }
 
     /**
-     * The first-encounter gate for the screen this fix un-orphaned: `M9IntroContent` had existed since
-     * Phase 2 Stage 2.2 with nothing dispatching it, so an `M9` node's first item arrived with either
-     * the major explanation or none.
+     * The screen this fix un-orphaned: `M9IntroContent` had existed since Phase 2 Stage 2.2 with
+     * nothing dispatching it, so an `M9` node's item arrived with either the major explanation or none.
      */
     @Test
-    fun `a mode-identification node owes the mode explanation until it has been seen`() {
-        val unseen = AppSettings(module2IntroSeen = true, module9IntroSeen = false)
-        assertEquals(IntroKind.M9, introKindFor(SkillIds.M9_MODE_ID_CADENCE, unseen))
-
-        val seen = unseen.copy(module9IntroSeen = true)
-        assertEquals(IntroKind.NONE, introKindFor(SkillIds.M9_MODE_ID_CADENCE, seen))
+    fun `a mode-identification node calls for the mode explanation`() {
+        assertEquals(IntroKind.M9, introKindFor(SkillIds.M9_MODE_ID_CADENCE, AppSettings()))
     }
 
     /**
-     * The mid-session half of the reported bug, at the gate level: an `M12` node owes its explanation
-     * regardless of which module's screen the session opened with — the major one having been seen
-     * must not swallow it.
+     * No persisted flag suppresses a module's screen any more — the maintainer's rule after live use.
+     * Every one of these flags is set, as it would be on an install carrying an older build's state,
+     * and each node still calls for its own screen.
      */
     @Test
-    fun `an audiation node owes its explanation even when the major one is long seen`() {
-        val settings = AppSettings(module2IntroSeen = true, module12IntroSeen = false)
-        assertEquals(IntroKind.M12, introKindFor(SkillIds.M12_PREDICT_TRIAD, settings))
+    fun `stale seen-flags from an older build suppress nothing`() {
+        val allSeen =
+            AppSettings(
+                module2IntroSeen = true,
+                module9IntroSeen = true,
+                module10IntroSeen = true,
+                module11IntroSeen = true,
+                module12IntroSeen = true,
+                mixedModeIntroSeen = true,
+            )
+        assertEquals(IntroKind.M12, introKindFor(SkillIds.M12_PREDICT_TRIAD, allSeen))
+        assertEquals(IntroKind.M2, introKindFor(SkillIds.M2_DEG_SET_1, allSeen))
+        assertEquals(IntroKind.M9, introKindFor(SkillIds.M9_MODE_ID_CADENCE, allSeen))
+        assertEquals(IntroKind.MIXED_MODE, introKindFor(SkillIds.M10_MIXED_MODE, allSeen))
+    }
+
+    /** Within one visit, an already-shown screen is not re-offered — that is `alreadyShown`'s only job. */
+    @Test
+    fun `a module already entered this visit calls for nothing further`() {
+        assertEquals(
+            IntroKind.NONE,
+            introKindFor(SkillIds.M12_PREDICT_TRIAD, AppSettings(), alreadyShown = setOf(IntroKind.M12)),
+        )
     }
 }

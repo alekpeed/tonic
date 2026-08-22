@@ -9,6 +9,8 @@ import com.tonic.feature.practice.engine.FakeConfusionRepository
 import com.tonic.feature.practice.engine.FakeSessionRepository
 import com.tonic.feature.practice.engine.FakeSkillStateRepository
 import com.tonic.feature.practice.engine.PracticeLoopEngine
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeout
 import java.time.Instant
 
 /**
@@ -45,4 +47,18 @@ internal class PracticeFixture(
         )
     val viewModel =
         PracticeViewModel(engine, audioPlayer, skillStateRepository, sessionRepository, settingsRepository, clock)
+
+    /**
+     * Starts a session and clears the explanation screen the way a person does, leaving a live item.
+     *
+     * Entering a module always raises its explanation now (docs/08-UI-SPEC.md §3a), and that screen
+     * covers the ladder and silences the item behind it. A test that skips it is not exercising the
+     * app's flow: it answers, skips or times an exercise that no learner could have reached.
+     */
+    suspend fun startPastIntro(timeoutMs: Long = 10_000L) {
+        viewModel.startIfNeeded()
+        withTimeout(timeoutMs) { viewModel.uiState.first { it.showIntro || it.item != null } }
+        if (viewModel.uiState.value.showIntro) viewModel.onIntroDismissed()
+        withTimeout(timeoutMs) { viewModel.uiState.first { it.item != null && !it.showIntro } }
+    }
 }

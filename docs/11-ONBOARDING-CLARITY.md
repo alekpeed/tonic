@@ -43,15 +43,14 @@ This supersedes and expands `08-UI-SPEC.md` §3a with concrete required copy con
 
 This is not a one-time patch for Module 2. Before any future module (rhythm, dictation, harmony) plays its first exercise for a first-time user, it must have gone through the same three-step standard in §1, with content specific to that module's mechanic. This requirement is now permanent and belongs in `09-BUILD-PLAN.md`'s acceptance criteria for every future-phase stage that introduces a new exercise type — no stage introducing a new task shape is complete without its explanation screen and worked example.
 
-## 5. Recall, not repetition
+## 5. Re-entry and recall
 
-The explanation is shown automatically once, on first encounter with that exercise type. After that:
+The explanation is shown automatically **every time the learner enters that exercise type** — see `08-UI-SPEC.md` §3a for what "enters" means and why this replaced an earlier once-ever rule. Within a type already entered it does not repeat between items. Alongside that:
 
-- It is never shown again automatically.
 - It is always reachable on demand via a small, low-emphasis help affordance on the practice screen itself (an icon or a text link — implementation detail for `08-UI-SPEC.md`, not this document).
 - Recalling it manually shows the exact same explanation and worked example, not an abbreviated version. If it was clear enough to help the first time, it should still be there intact the tenth time the user forgets and looks it up.
 - Recall shows the explanation for the exercise currently on screen — decided by the node the user is actually on, never by whichever explanation the session happened to open with.
-- Settings carries a "show explanations again" control that clears every seen-once flag, and nothing else. Seen-once protects the learner from re-reading what they know; it must not make a dismissed explanation permanently unrecoverable as a first-run experience — the person testing these screens on a device needs them back.
+- Nothing persistent gates a module's explanation. It is not "used up," so there is no state to clear and no way for it to become unreachable. (The sung-response explanation is the one exception: it describes a way of *answering* rather than a module, is reached only by opting in, and so keeps a once-ever flag.)
 
 ## 6. Answer-button labeling: reconsider the bare numbers
 

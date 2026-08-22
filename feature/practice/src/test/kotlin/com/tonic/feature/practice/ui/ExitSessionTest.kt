@@ -36,8 +36,7 @@ class ExitSessionTest {
     fun `exiting mid-item persists resume state BEFORE the navigation callback runs`() =
         runBlocking {
             val fixture = PracticeFixture(AppSettings(module2IntroSeen = true))
-            fixture.viewModel.startIfNeeded()
-            withTimeout(TIMEOUT_MS) { fixture.viewModel.uiState.first { it.item != null } }
+            fixture.startPastIntro(TIMEOUT_MS)
 
             val exited = CompletableDeferred<Unit>()
             var resumableAtNavigation: Boolean? = null
@@ -61,8 +60,7 @@ class ExitSessionTest {
     fun `the interrupted item is abandoned, never scored, and the session is offered back next launch`() =
         runBlocking {
             val fixture = PracticeFixture(AppSettings(module2IntroSeen = true))
-            fixture.viewModel.startIfNeeded()
-            withTimeout(TIMEOUT_MS) { fixture.viewModel.uiState.first { it.item != null } }
+            fixture.startPastIntro(TIMEOUT_MS)
 
             val exited = CompletableDeferred<Unit>()
             fixture.viewModel.onExitSession { exited.complete(Unit) }

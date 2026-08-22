@@ -2,7 +2,6 @@ package com.tonic.feature.settings.ui
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.tonic.core.model.ids.SkillIds
-import com.tonic.core.model.state.AppSettings
 import com.tonic.core.model.state.LabelStyle
 import com.tonic.core.model.state.ThemeMode
 import com.tonic.core.model.time.Clock
@@ -77,41 +76,6 @@ class SettingsViewModelTest {
             val (viewModel, _) = viewModel()
             val state = viewModel.uiState.first { !it.isLoading }
             assertEquals(LabelStyle.NUMBERS, state.settings.labelStyle)
-        }
-
-    /**
-     * docs/11-ONBOARDING-CLARITY.md §5's addendum: seen-once flags are clearable from Settings, so the
-     * first-run explanations can be revisited as first-run experiences. Every flag, in one press -
-     * missing one would silently leave that module's screen unrecoverable, which is the exact state
-     * this control exists to end.
-     */
-    @Test
-    fun `show explanations again clears every seen-once flag and says so`() =
-        runBlocking {
-            val allSeen =
-                AppSettings(
-                    module2IntroSeen = true,
-                    module9IntroSeen = true,
-                    module10IntroSeen = true,
-                    module11IntroSeen = true,
-                    module12IntroSeen = true,
-                    mixedModeIntroSeen = true,
-                    sungResponseIntroSeen = true,
-                )
-            val (viewModel, repository) = viewModel(FakeSettingsRepository(allSeen))
-            viewModel.uiState.first { !it.isLoading }
-
-            viewModel.onShowExplanationsAgain()
-
-            viewModel.uiState.first { it.explanationsReset }
-            val cleared = repository.settings.value
-            assertFalse(cleared.module2IntroSeen)
-            assertFalse(cleared.module9IntroSeen)
-            assertFalse(cleared.module10IntroSeen)
-            assertFalse(cleared.module11IntroSeen)
-            assertFalse(cleared.module12IntroSeen)
-            assertFalse(cleared.mixedModeIntroSeen)
-            assertFalse(cleared.sungResponseIntroSeen)
         }
 
     @Test

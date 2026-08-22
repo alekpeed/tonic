@@ -43,18 +43,23 @@ class M2IntroTest {
             assertFalse(state.introAnswerRevealed, "the answer must not be visible before it's asked for")
         }
 
+    /**
+     * The rule the maintainer set after live use, replacing seen-once: entering a module means seeing
+     * its explanation, every time. `module2IntroSeen` is deliberately left `true` here — a stale flag
+     * from before the change must not suppress anything.
+     */
     @Test
-    fun `it is never shown automatically once it has been seen`() =
+    fun `it is shown again on a later visit, even once it has been seen before`() =
         runBlocking {
             val fixture = PracticeFixture(AppSettings(module2IntroSeen = true))
             fixture.viewModel.startIfNeeded()
-            // Wait for the loop to actually produce an item, so this isn't just observing an early frame.
-            withTimeout(TIMEOUT_MS) { fixture.viewModel.uiState.first { it.item != null } }
-            assertFalse(fixture.viewModel.uiState.value.showIntro, "§5: never shown again automatically")
+            withTimeout(TIMEOUT_MS) { fixture.viewModel.uiState.first { it.showIntro } }
+            assertTrue(fixture.viewModel.uiState.value.showIntro)
         }
 
+    /** Dismissing it starts the exercise; it does not spend a one-time allowance, because there is none. */
     @Test
-    fun `dismissing it records that it was seen, so the next launch goes straight to practice`() =
+    fun `dismissing it starts practice and does not consume anything`() =
         runBlocking {
             val fixture = PracticeFixture(AppSettings(module2IntroSeen = false))
             fixture.viewModel.startIfNeeded()
@@ -62,18 +67,44 @@ class M2IntroTest {
 
             fixture.viewModel.onIntroDismissed()
 
-            withTimeout(TIMEOUT_MS) {
-                fixture.settingsRepository.settings.first { it.module2IntroSeen }
-            }
+            withTimeout(TIMEOUT_MS) { fixture.viewModel.uiState.first { it.item != null && !it.showIntro } }
             assertFalse(fixture.viewModel.uiState.value.showIntro)
         }
 
+    /** Within one visit it does not come back between items - only leaving and returning counts as entering. */
     @Test
-    fun `the help affordance re-opens the full explanation without un-recording that it was seen`() =
+    fun `it does not reappear on later items of a module already entered`() =
         runBlocking {
-            val fixture = PracticeFixture(AppSettings(module2IntroSeen = true))
+            val fixture = PracticeFixture(AppSettings())
             fixture.viewModel.startIfNeeded()
-            withTimeout(TIMEOUT_MS) { fixture.viewModel.uiState.first { it.item != null } }
+            val first = withTimeout(TIMEOUT_MS) { fixture.viewModel.uiState.first { it.showIntro } }
+            assertEquals(IntroKind.M2, first.introKind)
+            fixture.viewModel.onIntroDismissed()
+
+            val item =
+                withTimeout(TIMEOUT_MS) {
+                    fixture.viewModel.uiState.first { it.item != null && it.inputEnabled }
+                }
+            val answered = item.recognitionItem!!
+            fixture.viewModel.onDegreeSelected(answered.targetDegree)
+            withTimeout(TIMEOUT_MS) {
+                fixture.viewModel.uiState.first { it.item != null && it.item != answered }
+            }
+
+            assertFalse(
+                fixture.viewModel.uiState.value.showIntro,
+                "the module was already entered; the screen belongs to entering, not to every item",
+            )
+        }
+
+    @Test
+    fun `the help affordance re-opens the full explanation at any time`() =
+        runBlocking {
+            val fixture = PracticeFixture(AppSettings())
+            fixture.viewModel.startIfNeeded()
+            withTimeout(TIMEOUT_MS) { fixture.viewModel.uiState.first { it.showIntro } }
+            fixture.viewModel.onIntroDismissed()
+            withTimeout(TIMEOUT_MS) { fixture.viewModel.uiState.first { it.item != null && !it.showIntro } }
 
             fixture.viewModel.onOpenIntro()
 
@@ -81,12 +112,6 @@ class M2IntroTest {
             assertFalse(
                 fixture.viewModel.uiState.value.introAnswerRevealed,
                 "recalling it starts from the same place, not from the answer",
-            )
-            assertTrue(
-                fixture.settingsRepository.settings
-                    .first()
-                    .module2IntroSeen,
-                "recalling it must not reset the flag - that would make it auto-show again",
             )
         }
 

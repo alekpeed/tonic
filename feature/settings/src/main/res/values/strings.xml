@@ -35,11 +35,6 @@
     <string name="settings_discard_session_done">Saved session discarded. Your progress is untouched.</string>
     <string name="settings_discard_session_none">No saved session to discard.</string>
 
-    <string name="settings_explanations_heading">Explanations</string>
-    <string name="settings_explanations_body">Each exercise explains itself the first time you meet it, then stays out of the way. Bring those first-time explanations back here — each will show itself again the next time its exercise comes up.</string>
-    <string name="settings_explanations_reset">Show explanations again</string>
-    <string name="settings_explanations_reset_done">Done. Each explanation will show again on its next exercise.</string>
-
     <!-- Data export - docs/20-PHASE-2-SPEC.md §6. Local only: the app has no network permission, so
          the file goes wherever the user puts it and nowhere else. Framed as "yours", because it is. -->
     <string name="settings_data_heading">Your data</string>

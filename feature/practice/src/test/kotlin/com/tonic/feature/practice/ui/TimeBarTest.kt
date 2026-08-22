@@ -35,8 +35,7 @@ class TimeBarTest {
     fun `the bar advances with the wall clock while no items are answered, and caps at full`() =
         runBlocking {
             val fixture = PracticeFixture(AppSettings(module2IntroSeen = true, sessionLengthMinutes = 5))
-            fixture.viewModel.startIfNeeded()
-            withTimeout(TIMEOUT_MS) { fixture.viewModel.uiState.first { it.item != null } }
+            fixture.startPastIntro(TIMEOUT_MS)
             assertEquals(0f, fixture.viewModel.uiState.value.timeFraction, "nothing elapsed yet")
 
             // Half the 5-minute budget passes with the user just sitting on the first item.

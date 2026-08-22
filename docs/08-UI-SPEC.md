@@ -26,7 +26,7 @@ The user is listening, not reading. The screen's job is to stay out of the way.
 | Practice | `practice` | The core loop |
 | Session summary | `summary/{sessionId}` | What happened, what's next |
 | Progress | `progress` | Mastery map, per-degree accuracy, confusion view |
-| Settings | `settings` | Label style, tuning, session length, theme, reminder opt-in, discard saved session (clears only the resumable session — never placement or skill progress), show explanations again (clears every first-run explanation's seen-once flag, and nothing else — `11-ONBOARDING-CLARITY.md` §5), export your data (`20-PHASE-2-SPEC.md` §6) |
+| Settings | `settings` | Label style, tuning, session length, theme, reminder opt-in, discard saved session (clears only the resumable session — never placement or skill progress), export your data (`20-PHASE-2-SPEC.md` §6) |
 
 No bottom navigation bar with four tabs. Home is the hub; Progress and Settings are reachable from it. The app has one job and the navigation should reflect that.
 
@@ -78,13 +78,17 @@ The ladder should not need to scroll, and at the node a user is actually on it d
 2. One worked example in real audio — the same renderer and player the exercise itself uses — played through end to end with the correct answer shown and explained, before the user is asked to answer anything.
 3. A dismiss/start button. Nothing else.
 
-**What it must not be:** a gate. There is no comprehension check, no quiz, no forced repeat viewing, and no requirement to finish it before practicing. It is shown automatically exactly once per task shape, tracked by its own persisted flag (`05-DATA-MODEL.md` §3), and the session underneath is already starting behind it so dismissing lands on a ready item rather than a spinner.
+**What it must not be:** a gate. There is no comprehension check, no quiz, no forced repeat viewing, and no requirement to finish it before practicing. The session underneath is already starting behind it, so dismissing lands on a ready item rather than a spinner.
 
-**When it appears:** on the first *encounter* with the shape, wherever that falls — which may be mid-session, when the plan climbs onto a new module's node, not only at a session's start. Deciding once at session start was a real defect: a session opening on a familiar node and reaching M12 partway through presented the learner's first audiation item with no explanation at all.
+**When it appears: every time the learner enters that module.** Not once ever — every time. Opening a session in it, resuming a session in it, or the plan climbing onto its node partway through all count as entering, and each raises the screen. Within a module already entered it does not reappear between items; only leaving practice and coming back counts as entering again.
+
+This replaces an earlier once-ever rule, by the maintainer's direct instruction after live use (2026-08-22), and the reason is worth keeping. Once-ever was tracked by persisted flags, so a screen dismissed on any past build became permanently unreachable, with nothing on screen saying so. Ending a session did not bring it back; neither did clearing the saved session, because that is a different store. The app read as having deleted its own instructions. A learner who does not need the screen dismisses it in one tap; a learner who does need it cannot get it back at all, and the second failure is far worse than the first.
+
+Consequence, accepted deliberately: a returning learner sees their current module's explanation at the start of essentially every session. The screens are therefore held to `11-ONBOARDING-CLARITY.md` §9.4's brevity requirement more strictly than before, and dismissing must always be one tap from the top of the screen.
 
 **Audio while it is up:** none. The session starting behind the screen refers to loading — the covered item renders and pre-renders, but its audio is withheld until the screen is dismissed. Playing it underneath, which the first implementation did, hands the user the sound and the sentence explaining the sound in the same instant, and teaches neither. Reported from live use on every module.
 
-**Recall:** every screen that introduces a task shape carries a small, low-emphasis help affordance that reopens the explanation on demand, permanently. Recall shows the identical explanation and worked example, never an abbreviated version, and never touches the seen-once flag — `11-ONBOARDING-CLARITY.md` §5. A user who forgets on their tenth session gets exactly what they got on their first.
+**Recall:** every screen that introduces a task shape carries a small, low-emphasis help affordance that reopens the explanation on demand, permanently. Recall shows the identical explanation and worked example, never an abbreviated version, and always the one for the module the learner is currently on — `11-ONBOARDING-CLARITY.md` §5. A user who forgets on their tenth session gets exactly what they got on their first.
 
 **Acceptance:** a build stage that introduces a new task shape is not complete without this screen, and "the code works" does not satisfy it. This applies to every future module and phase (`11-ONBOARDING-CLARITY.md` §4, `20-PHASE-2-SPEC.md` §5.1), and belongs in the acceptance criteria of any `09-BUILD-PLAN.md` stage that adds one.
 

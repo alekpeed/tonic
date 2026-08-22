@@ -168,30 +168,4 @@ class SettingsViewModel
         ) {
             viewModelScope.launch { settingsRepository.setDailyReminder(enabled, if (enabled) time else null) }
         }
-
-        /**
-         * Clears every explanation's seen-once flag, so each first-run screen shows itself again on its
-         * next encounter — docs/11-ONBOARDING-CLARITY.md §5's addendum. The seen-once rule protects a
-         * learner from re-reading what they already know; it also made a dismissed explanation
-         * permanently unrecoverable as a *first-run experience*, which the maintainer needs when
-         * checking those screens on a device. Clears the flags and nothing else: no progress, no
-         * attempts, no settings are touched.
-         *
-         * Individual setters rather than one repository-level reset, deliberately: the flags are the
-         * same ones [com.tonic.feature.practice.ui.PracticeViewModel.onIntroDismissed] writes, so this
-         * cannot drift from the set that actually gates the screens without failing to compile.
-         */
-        fun onShowExplanationsAgain() {
-            viewModelScope.launch {
-                settingsRepository.setModule2IntroSeen(false)
-                settingsRepository.setModule9IntroSeen(false)
-                settingsRepository.setModule10IntroSeen(false)
-                settingsRepository.setModule11IntroSeen(false)
-                settingsRepository.setModule12IntroSeen(false)
-                settingsRepository.setMixedModeIntroSeen(false)
-                settingsRepository.setSungResponseIntroSeen(false)
-                // docs/08-UI-SPEC.md §2a: the press always says what happened.
-                _uiState.update { it.copy(explanationsReset = true) }
-            }
-        }
     }
