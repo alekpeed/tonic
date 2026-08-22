@@ -15,9 +15,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withContext
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -52,7 +54,23 @@ import kotlin.test.assertTrue
  */
 @RunWith(AndroidJUnit4::class)
 class SungPredictionTest {
-    @Before fun setUp() = Dispatchers.setMain(Dispatchers.Default)
+    /**
+     * Virtual time for the ViewModel's phase delays — the reference, the one-to-five second audiation
+     * gap and the feedback pauses are all `delay()` on `viewModelScope`, which is `Dispatchers.Main`.
+     * This class measured 29.9 seconds across its five tests before the change, and none of that wall
+     * clock was testing anything.
+     *
+     * **What deliberately stays on real time.** `PracticeLoopEngine` holds its own
+     * `CoroutineScope(SupervisorJob() + Dispatchers.Default)` and writes attempts to it
+     * fire-and-forget, so nothing here can schedule or advance that work — a wait for a persisted
+     * attempt has to be a real wait ([awaitAttempt]). Getting this backwards is the trap the whole
+     * conversion turns on: inside `runTest`, `withTimeout` is measured in *virtual* time and fires the
+     * instant nothing else is scheduled, so a virtual poll for a real write times out before the write
+     * can land.
+     */
+    private val dispatcher = StandardTestDispatcher()
+
+    @Before fun setUp() = Dispatchers.setMain(dispatcher)
 
     @After fun tearDown() = Dispatchers.resetMain()
 
@@ -103,17 +121,18 @@ class SungPredictionTest {
      */
     private suspend fun PracticeFixture.livePredictionItem(): Item.PredictionItem {
         viewModel.startIfNeeded()
-        withTimeout(TIMEOUT_MS) { viewModel.uiState.first { it.item != null } }
-        return withTimeout(TIMEOUT_MS) {
-            var found: Item.PredictionItem? = null
-            while (found == null) {
-                if (viewModel.uiState.value.showIntro) viewModel.onIntroDismissed()
-                val state = viewModel.uiState.value
-                found = state.predictionItem?.takeIf { state.inputEnabled }
-                if (found == null) delay(20)
-            }
-            found
+        viewModel.uiState.first { it.item != null }
+        // No withTimeout here: it would be a virtual-time deadline over work that is partly real, and
+        // runTest's own real-time limit already bounds a genuine hang. The delay below is virtual,
+        // which is exactly what lets the phase timer's seconds pass in microseconds.
+        var found: Item.PredictionItem? = null
+        while (found == null) {
+            if (viewModel.uiState.value.showIntro) viewModel.onIntroDismissed()
+            val state = viewModel.uiState.value
+            found = state.predictionItem?.takeIf { state.inputEnabled }
+            if (found == null) delay(POLL_MS)
         }
+        return found
     }
 
     /**
@@ -133,9 +152,20 @@ class SungPredictionTest {
         }
     }
 
+    /**
+     * Waits for the engine's fire-and-forget write, on a real dispatcher because that write is real.
+     *
+     * `withContext(Dispatchers.Default)` rather than a bare loop: inside `runTest` a delay on the test
+     * dispatcher is virtual, so this poll would spin through its entire budget without a millisecond
+     * passing for the coroutine actually doing the writing.
+     */
     private suspend fun PracticeFixture.awaitAttempt() {
-        withTimeout(TIMEOUT_MS) {
-            while (attemptRepository.all.isEmpty()) delay(10)
+        withContext(Dispatchers.Default) {
+            var waited = 0L
+            while (attemptRepository.all.isEmpty() && waited < REAL_WAIT_MS) {
+                delay(POLL_MS)
+                waited += POLL_MS
+            }
         }
     }
 
@@ -149,7 +179,7 @@ class SungPredictionTest {
      */
     @Test
     fun `the microphone opens inside the gap and closes before the note sounds`() =
-        runBlocking {
+        runTest(dispatcher) {
             val fixture = fixture()
             val phasesAtCapture = mutableListOf<PlaybackPhase>()
             fixture.microphoneSource.onRecord = {
@@ -180,7 +210,7 @@ class SungPredictionTest {
      */
     @Test
     fun `the audiated pitch rides along on the attempt without becoming the answer`() =
-        runBlocking {
+        runTest(dispatcher) {
             val fixture = fixture()
             fixture.singTheStatedDegree()
             val item = fixture.livePredictionItem()
@@ -208,7 +238,7 @@ class SungPredictionTest {
      */
     @Test
     fun `holding the right note does not make a wrong judgment correct`() =
-        runBlocking {
+        runTest(dispatcher) {
             val fixture = fixture()
             fixture.singTheStatedDegree()
             val item = fixture.livePredictionItem()
@@ -235,7 +265,7 @@ class SungPredictionTest {
      */
     @Test
     fun `an unreadable gap is scored exactly as a tap-only attempt`() =
-        runBlocking {
+        runTest(dispatcher) {
             val fixture = fixture()
             // The default capture is empty, which is what a silent learner and a failed mic both produce.
             val item = fixture.livePredictionItem()
@@ -256,7 +286,7 @@ class SungPredictionTest {
      */
     @Test
     fun `no microphone opens when singing is off`() =
-        runBlocking {
+        runTest(dispatcher) {
             val fixture = fixture(sungEnabled = false)
             val item = fixture.livePredictionItem()
 
@@ -281,7 +311,10 @@ class SungPredictionTest {
         }
 
     private companion object {
-        const val TIMEOUT_MS = 30_000L
         const val A4_MIDI = 69
+        const val POLL_MS = 20L
+
+        /** Real milliseconds allowed for the engine's own scope to land a write. Generous; it takes single digits. */
+        const val REAL_WAIT_MS = 10_000L
     }
 }

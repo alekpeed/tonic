@@ -71,12 +71,39 @@ all of Phase 2, this branch's explanation-screen overhaul, and **every stage of 
 on measurements no test in this repository can take — see §5. Do not read "all seven stages green" as
 "Phase 3 is done."
 
-⚠️ **CI got slower and it was me.** Run #41 took 11m22s against a 5–9 minute norm. The sung tests
-added this session drive the real practice loop with real `delay()` — reference audio, a one-to-five
-second audiation gap, then the note, per item, and several review items before the target node comes
-up. Seven such tests at a 30-second timeout each is minutes of wall clock. It is correct and it is
-expensive, in a repo where CI is also the compiler. Driving those flows on a virtual-time dispatcher
-is the fix and is not done.
+⚠️ **CI got slower; measured, it is mostly not what I first said.** A green run went from 7m40s
+(#35) to 11m20s (#43). I attributed that to this session's sung tests and was wrong — that claim stood
+in this file for two commits before anyone measured it.
+
+Run #43 added a per-test timing listener (root `build.gradle.kts`), so the numbers are now in every
+log: `grep '\[slow-test\]' verify.log`. What it says:
+
+| | |
+|---|---|
+| Tests taking ≥1s | 44, totalling **3m44s** |
+| Of which added this session | **37.8s** — `SungPredictionTest` 29.9s, `SungMinorAndChromaticTest` 7.8s |
+| Largest single class | `PracticeViewModelTest`, **44s**, pre-existing |
+
+The rest of the increase is compilation, kapt, lint and kover over roughly 1,400 new lines, plus tests
+under the 1s threshold. Do not compare against run #37's 7m38s: that build **failed at lint** and
+never ran the full suite.
+
+**Where virtual time would actually pay.** Every test that drives the practice loop through real
+playback delays: `PracticeViewModelTest` (44s), `SungPredictionTest` (29.9s), `SungAnswerFlowTest`
+(23.3s), `PracticeLoopEngineTest` (16.9s), `SungMinorAndChromaticTest` (7.8s), `M2IntroTest` and
+`M2SessionTraceTest` (4.7s each) — about **2m11s**, most of it pre-existing.
+
+⚠️ **The hazard, for whoever attempts it.** `PracticeLoopEngine` holds
+`CoroutineScope(SupervisorJob() + Dispatchers.Default)`, hardcoded, and persistence is fire-and-forget
+on it. Under `runTest` a `withTimeout` is measured in *virtual* time and fires instantly when nothing
+else is scheduled, so a test polling for a persisted attempt will time out before the real write
+lands. Virtual time belongs on `Dispatchers.Main` for the ViewModel's phase delays; any wait on engine
+work has to stay on a real dispatcher. Converting one class at a time and reading the timing line is
+the way to do it — not all six at once.
+
+The Compose and Robolectric classes near the top of the list (`DegreeLadderLayoutTest` 15s,
+`AnswerAreaTest` 14.8s, `DiagnosticDebugSkipTest` 13.3s) are startup charged to whichever test runs
+first. Virtual time does nothing for those.
 
 **Verified in CI:**
 
