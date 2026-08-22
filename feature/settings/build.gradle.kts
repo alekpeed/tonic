@@ -96,6 +96,11 @@ dependencies {
     kapt(libs.hilt.compiler)
     implementation(libs.hilt.navigation.compose)
 
+    // The microphone permission request in SungResponseSection. rememberLauncherForActivityResult is
+    // the only way to ask from a composable, and this is the only module that asks — :app has carried
+    // the same catalog entry since Stage 1.0.
+    implementation(libs.activity.compose)
+
     testImplementation(libs.junit.jupiter.api)
     testImplementation(kotlin("test-junit5"))
     testRuntimeOnly(libs.junit.jupiter.engine)

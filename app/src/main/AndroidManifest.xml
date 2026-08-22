@@ -7,6 +7,19 @@
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!--
+        The only permission this app declares. Optional in the strict sense: every
+        module is fully playable without it, singing is off until the learner turns
+        it on, and denial is an ordinary state rather than an error
+        (docs/30-PHASE-3-SPEC.md 6.1). Declared with maxSdkVersion absent on purpose
+        - it is a runtime permission on every SDK this app supports, requested only
+        at the moment the learner opts in, never at install and never at launch.
+
+        Captured audio is never written anywhere. It exists in memory for one
+        attempt and is discarded (docs/30-PHASE-3-SPEC.md 7).
+    -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
     <application
         android:name=".TonicApplication"
         android:allowBackup="false"

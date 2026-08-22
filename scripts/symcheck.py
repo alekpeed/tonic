@@ -28,6 +28,10 @@ Throwable Comparable Iterable Collection Sequence Result Regex Math System Threa
 Class Object Override JvmInline Volatile Suppress Deprecated JvmStatic JvmField Synchronized
 ArrayDeque Comparator Iterator Enum Function0 Function1 Lazy Random Boolean CharSequence
 T V R E K U Companion Builder Factory Entry Key Value Type Kind State Mode Scope
+ShortArray ByteArray CharArray BooleanArray ShortArray UByte UShort UInt ULong
+IllegalArgumentException IllegalStateException SecurityException RuntimeException NullPointerException
+IndexOutOfBoundsException UnsupportedOperationException NumberFormatException ClassCastException
+NoSuchElementException ArithmeticException ConcurrentModificationException AssertionError Error
 """.split())
 
 ROOT = pathlib.Path("/home/user/tonic")

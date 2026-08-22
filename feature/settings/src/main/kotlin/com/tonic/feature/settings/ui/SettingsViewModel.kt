@@ -158,6 +158,23 @@ class SettingsViewModel
         }
 
         /**
+         * Turns the sung response on or off — docs/30-PHASE-3-SPEC.md §6.1.
+         *
+         * Only ever called with `true` once microphone permission has actually been granted; the
+         * permission request and its explanation live in [SungResponseSection], because they need a
+         * composition to launch from. This setter is deliberately unaware of that: a permission the
+         * app does not hold is caught again at the point of use by `MicrophoneSource.isAvailable`,
+         * which is checked live, so a stale `true` here disables singing rather than breaking it.
+         */
+        fun onSungResponseEnabledChanged(enabled: Boolean) {
+            viewModelScope.launch { settingsRepository.setSungResponseEnabled(enabled) }
+        }
+
+        fun onSungOctaveAgnosticChanged(enabled: Boolean) {
+            viewModelScope.launch { settingsRepository.setSungOctaveAgnostic(enabled) }
+        }
+
+        /**
          * [enabled]/[time] must agree - docs/05-DATA-MODEL.md §3 - which is why this is one setter, not
          * two: a composable flipping the toggle on picks a default time in the same call, and flipping it
          * off always clears the time, so the two never drift out of sync.

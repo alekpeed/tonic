@@ -166,6 +166,17 @@ Extends `08-UI-SPEC.md`. All of it applies, including §2a (every screen has a w
 - The request must be preceded by a plain explanation: what the mic is used for, that audio never leaves the device, that it's optional, and that everything works without it.
 - Denying or revoking permission silently disables singing. No nagging, no repeat prompts, no degraded experience elsewhere.
 
+**Built 2026-08-22, in Settings.** The opt-in is a switch in a `Singing` section; pressing it without
+permission raises the app's own explanation first and the system dialog only on confirm. A refusal
+leaves the setting off and is never raised again by the app.
+
+⚠️ **The lesson this stage cost.** `sungResponseEnabled` existed from Stage 3.3, defaulted to false,
+and had no control anywhere — so Stages 3.1, 3.3 and 3.4 were each built, tested and reported
+complete while being unreachable by any learner. Every one of those stages tests against a fake
+microphone, so none of them could reveal it. **A stage is not done when its tests pass; it is done
+when a person can get to it.** Later stages should state the route a learner takes to the thing being
+built, and check it.
+
 ### 6.2 Explanation and worked example (mandatory)
 
 Per `11-ONBOARDING-CLARITY.md` §1 and §4, before the first sung item:
@@ -209,9 +220,9 @@ Extends `05-DATA-MODEL.md`.
 
 | Stage | Content | Key acceptance criteria |
 |---|---|---|
-| 3.0 | Mic capture + pitch detection, headless | Detection accurate to within a semitone on synthetic and recorded test signals. Runs off main thread. No dropouts. Report measured latency and CPU. |
+| 3.0 | Mic capture + pitch detection, headless | Detection accurate to within a semitone on synthetic and recorded test signals. Runs off main thread. No dropouts. Report measured latency and CPU. **Code complete 2026-08-22** (`AudioRecordMicrophoneSource`, bound in `AudioBindingsModule`); ⚠️ every measurement in this row is still owed and needs a device |
 | 3.1 | Scoring pipeline (§5.2) | Scooping tolerated. "Unclear" never scores as wrong. Ambiguity-band decision implemented per §5.2. Octave-agnostic verified. |
-| 3.2 | Permission flow + explanation + worked example | Full app functionality with permission denied. Explanation reachable. Copy meets `11-ONBOARDING-CLARITY.md` §9.4. |
+| 3.2 | Permission flow + explanation + worked example | Full app functionality with permission denied. Explanation reachable. Copy meets `11-ONBOARDING-CLARITY.md` §9.4. **Built 2026-08-22** — the opt-in, its explanation and the request live in `SungResponseSection`; `SungResponseSectionTest` pins the explanation-before-request ordering |
 | 3.3 | Sung response in `M2` | Tap-only path fully unaffected. Sung and tapped attempts share one `SkillState`. Fallback-to-tap always available. |
 | 3.4 | Sung prediction in `M12` | Sung answer captured during the gap, before the target plays. Cannot be gamed by guessing. **Built 2026-08-22** — see §5.4's four implementation decisions |
 | 3.5 | `M10` and `M11` | Chromatic tolerance bands verified not to produce systematic misreads. |

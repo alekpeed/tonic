@@ -86,9 +86,9 @@ why §5 is unchanged.
 
 | Stage | State |
 |---|---|
-| 3.0 Mic capture + pitch detection | **Half.** `PitchDetector` (MPM) built and measured — worst error 7.69 cents against a 100-cent requirement. Real capture is not built: `MicrophoneSource` is an interface and the bound implementation reports itself unavailable. Latency, CPU, dropouts and recorded-signal accuracy all need hardware. |
+| 3.0 Mic capture + pitch detection | **Code complete, unmeasured.** `PitchDetector` (MPM) built and measured — worst error 7.69 cents against a 100-cent requirement. `AudioRecordMicrophoneSource` written and bound 2026-08-22. ⚠️ Latency, CPU, dropouts and recorded-signal accuracy are all still owed and need hardware — nothing in that class has been observed running. |
 | 3.1 Scoring pipeline | **Built and green.** `DegreeResolver` + `SungResponseAnalyzer`. Ambiguity band decided at 10 cents. |
-| 3.2 Permission + explanation | **Half.** The sung explanation screen exists and is tested. The permission flow is not built — it needs a device. |
+| 3.2 Permission + explanation | **Built.** The sung explanation screen exists and is tested. The opt-in, its explanation and the permission request landed 2026-08-22 in `SungResponseSection`. Only the on-device grant/deny behavior is unobserved. |
 | 3.3 Sung response in `M2` | **Done.** All three acceptance criteria have tests, green in runs #31 and #32. Simulated only — no real microphone in the loop, per §2. |
 | 3.4 Sung prediction in `M12` | **Done.** Both acceptance criteria have tests, green in run #34. The capture window is bounded by arithmetic — 200 ms lead-in, 250 ms guard before the note — so the ordering §5.4 depends on holds without a device to check it. Simulated only, same caveat as 3.3. |
 | 3.5 `M10` and `M11` | **Next up.** Not started. ⚠️ Its open question (can anyone sing chromatically enough to be scored?) needs device measurements, so the stage may not be closeable here. |
@@ -128,6 +128,29 @@ nothing could reach. `IntroDispatchTest` exists because of an earlier instance o
 **Settings' "Show explanations again" was added and then removed** in the same session. It existed to
 work around seen-once; the new rule made it a no-op, and a button that does nothing is worse than no
 button.
+
+---
+
+## 4a. The hole this branch found: three stages built behind a door with no handle
+
+Worth reading before trusting any "done" in this file.
+
+`sungResponseEnabled` shipped in `AppSettings` at Stage 3.3, defaulting to false. Nothing in the app
+could change it. There was no `RECORD_AUDIO` line in the manifest, no permission request anywhere, and
+no `AudioRecord` code at all — `UnavailableMicrophoneSource` was the bound implementation, reporting
+false forever. So Stages 3.1, 3.3 and 3.4 were each built, fully tested, reported complete and
+CI-verified green, and **not one of them could be reached by a person holding the phone.**
+
+Nothing caught it because every sung test uses a fake microphone, which is the right way to test the
+analyzer and the wrong way to learn whether the feature exists. The stage table said "half" for 3.0
+and 3.2 and I read that as "the untestable part is missing"; the reachable part was missing too.
+
+The cause was a defensible-sounding rule applied too widely: Stage 3.0's acceptance criteria are all
+device measurements, so I deferred the stage — including the hundred lines of `AudioRecord` that need
+no device to write. Closed 2026-08-22, before Stage 3.5.
+
+**The rule that replaces it:** a stage is not done when its tests pass, it is done when a learner can
+get to it. State the route, then check the route.
 
 ---
 

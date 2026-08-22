@@ -96,6 +96,8 @@ fun SettingsScreen(
             onSoundEffectsEnabledChanged = viewModel::onSoundEffectsEnabledChanged,
             onThemeModeChanged = viewModel::onThemeModeChanged,
             onReduceMotionChanged = viewModel::onReduceMotionChanged,
+            onSungResponseEnabledChanged = viewModel::onSungResponseEnabledChanged,
+            onSungOctaveAgnosticChanged = viewModel::onSungOctaveAgnosticChanged,
             onDailyReminderChanged = viewModel::onDailyReminderChanged,
             discardResult = uiState.discardResult,
             onDiscardSavedSession = viewModel::onDiscardSavedSession,
@@ -119,6 +121,8 @@ private fun SettingsContent(
     onSoundEffectsEnabledChanged: (Boolean) -> Unit,
     onThemeModeChanged: (ThemeMode) -> Unit,
     onReduceMotionChanged: (Boolean) -> Unit,
+    onSungResponseEnabledChanged: (Boolean) -> Unit,
+    onSungOctaveAgnosticChanged: (Boolean) -> Unit,
     onDailyReminderChanged: (Boolean, String?) -> Unit,
     discardResult: DiscardResult? = null,
     onDiscardSavedSession: () -> Unit = {},
@@ -199,6 +203,18 @@ private fun SettingsContent(
                 checked = settings.reduceMotion,
                 onCheckedChange = onReduceMotionChanged,
                 testTag = "settings_reduce_motion",
+            )
+        }
+
+        // docs/30-PHASE-3-SPEC.md §6.1. Its own section rather than another ToggleSection row,
+        // because turning it on is not a preference change — it asks for a permission, and the
+        // explanation that has to precede that request will not fit in a switch label.
+        item {
+            SungResponseSection(
+                enabled = settings.sungResponseEnabled,
+                octaveAgnostic = settings.sungOctaveAgnostic,
+                onEnabledChanged = onSungResponseEnabledChanged,
+                onOctaveAgnosticChanged = onSungOctaveAgnosticChanged,
             )
         }
 
@@ -475,7 +491,7 @@ private fun DailyReminderSection(
 }
 
 @Composable
-private fun SettingsSection(
+internal fun SettingsSection(
     heading: String,
     content: @Composable () -> Unit,
 ) {
@@ -502,6 +518,8 @@ private fun SettingsContentPreview() {
             onSoundEffectsEnabledChanged = {},
             onThemeModeChanged = {},
             onReduceMotionChanged = {},
+            onSungResponseEnabledChanged = {},
+            onSungOctaveAgnosticChanged = {},
             onDailyReminderChanged = { _, _ -> },
         )
     }
