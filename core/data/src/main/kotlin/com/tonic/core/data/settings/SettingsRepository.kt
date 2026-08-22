@@ -1,5 +1,7 @@
 package com.tonic.core.data.settings
 
+import com.tonic.core.model.rhythm.CalibrationSlot
+import com.tonic.core.model.rhythm.RhythmCalibration
 import com.tonic.core.model.state.AppSettings
 import com.tonic.core.model.state.LabelStyle
 import com.tonic.core.model.state.ThemeMode
@@ -43,6 +45,28 @@ interface SettingsRepository {
 
     /** See [com.tonic.core.model.state.AppSettings.mixedModeIntroSeen]. */
     suspend fun setMixedModeIntroSeen(seen: Boolean)
+
+    /**
+     * Stores one route's measured timing constant — docs/40-PHASE-4-SPEC.md §4.3.
+     *
+     * Per slot, never global. The slot must be the one the run was actually measured on: a constant
+     * measured through the speaker and written to the wired slot is worse than no calibration at all,
+     * because an uncalibrated route blocks and explains itself while a wrongly-calibrated one scores
+     * the learner confidently and wrongly.
+     */
+    suspend fun setRhythmCalibration(
+        slot: CalibrationSlot,
+        calibration: RhythmCalibration,
+    )
+
+    /**
+     * Forgets one route's constant, returning it to the uncalibrated state.
+     *
+     * §4.3 requires a route change to "either re-calibrate or invalidate the stored constant," and this
+     * is the invalidate half. Also what a learner's "calibrate again" reaches if a run then fails —
+     * better to block and say why than to leave a constant nobody trusts silently in force.
+     */
+    suspend fun clearRhythmCalibration(slot: CalibrationSlot)
 
     /** See [com.tonic.core.model.state.AppSettings.sungResponseEnabled]. */
     suspend fun setSungResponseEnabled(enabled: Boolean)

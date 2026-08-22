@@ -7,6 +7,9 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import com.tonic.core.model.rhythm.CalibrationSlot
+import com.tonic.core.model.rhythm.RhythmCalibration
+import com.tonic.core.model.rhythm.RhythmCalibrations
 import com.tonic.core.model.state.AppSettings
 import com.tonic.core.model.state.LabelStyle
 import com.tonic.core.model.state.ThemeMode
@@ -34,6 +37,21 @@ internal object SettingsKeys {
     val SUNG_RESPONSE_ENABLED = booleanPreferencesKey("sung_response_enabled")
     val SUNG_OCTAVE_AGNOSTIC = booleanPreferencesKey("sung_octave_agnostic")
     val SUNG_RESPONSE_INTRO_SEEN = booleanPreferencesKey("sung_response_intro_seen")
+
+    /**
+     * Rhythm calibration, per output route - docs/40-PHASE-4-SPEC.md §4.3. Four keys rather than the
+     * two that section's settings list names: the spread is stored alongside each offset because §4.3
+     * step 5 measures it and then requires tolerance windows to widen for a learner whose taps scatter,
+     * which cannot happen if the number is computed and thrown away. Absent means never calibrated on
+     * that route, which is a state the app acts on rather than a missing value to default.
+     */
+    val RHYTHM_CALIBRATION_OFFSET_SPEAKER = floatPreferencesKey("rhythm_calibration_offset_speaker")
+    val RHYTHM_CALIBRATION_SPREAD_SPEAKER = floatPreferencesKey("rhythm_calibration_spread_speaker")
+    val RHYTHM_CALIBRATION_TAPS_SPEAKER = intPreferencesKey("rhythm_calibration_taps_speaker")
+    val RHYTHM_CALIBRATION_OFFSET_WIRED = floatPreferencesKey("rhythm_calibration_offset_wired")
+    val RHYTHM_CALIBRATION_SPREAD_WIRED = floatPreferencesKey("rhythm_calibration_spread_wired")
+    val RHYTHM_CALIBRATION_TAPS_WIRED = intPreferencesKey("rhythm_calibration_taps_wired")
+
     val DAILY_REMINDER_ENABLED = booleanPreferencesKey("daily_reminder_enabled")
     val DAILY_REMINDER_TIME = stringPreferencesKey("daily_reminder_time")
 }
@@ -97,6 +115,27 @@ internal class SettingsRepositoryImpl
             dataStore.edit { it[SettingsKeys.MODULE12_INTRO_SEEN] = seen }
         }
 
+        override suspend fun setRhythmCalibration(
+            slot: CalibrationSlot,
+            calibration: RhythmCalibration,
+        ) {
+            val keys = calibrationKeys(slot)
+            dataStore.edit {
+                it[keys.offset] = calibration.offsetMs.toFloat()
+                it[keys.spread] = calibration.spreadMs.toFloat()
+                it[keys.taps] = calibration.tapsUsed
+            }
+        }
+
+        override suspend fun clearRhythmCalibration(slot: CalibrationSlot) {
+            val keys = calibrationKeys(slot)
+            dataStore.edit {
+                it.remove(keys.offset)
+                it.remove(keys.spread)
+                it.remove(keys.taps)
+            }
+        }
+
         override suspend fun setSungResponseEnabled(enabled: Boolean) {
             dataStore.edit { it[SettingsKeys.SUNG_RESPONSE_ENABLED] = enabled }
         }
@@ -132,6 +171,57 @@ internal class SettingsRepositoryImpl
         }
     }
 
+/** The three keys one [CalibrationSlot] is stored under. */
+private class CalibrationKeys(
+    val offset: Preferences.Key<Float>,
+    val spread: Preferences.Key<Float>,
+    val taps: Preferences.Key<Int>,
+)
+
+/**
+ * Slot to keys, in one place.
+ *
+ * One mapping, used by both the write and the clear, so a route can never be written under one slot's
+ * keys and cleared under another's - which would leave a stale constant applying to a route the learner
+ * believes they reset.
+ */
+private fun calibrationKeys(slot: CalibrationSlot): CalibrationKeys =
+    when (slot) {
+        CalibrationSlot.SPEAKER ->
+            CalibrationKeys(
+                SettingsKeys.RHYTHM_CALIBRATION_OFFSET_SPEAKER,
+                SettingsKeys.RHYTHM_CALIBRATION_SPREAD_SPEAKER,
+                SettingsKeys.RHYTHM_CALIBRATION_TAPS_SPEAKER,
+            )
+
+        CalibrationSlot.WIRED ->
+            CalibrationKeys(
+                SettingsKeys.RHYTHM_CALIBRATION_OFFSET_WIRED,
+                SettingsKeys.RHYTHM_CALIBRATION_SPREAD_WIRED,
+                SettingsKeys.RHYTHM_CALIBRATION_TAPS_WIRED,
+            )
+    }
+
+/**
+ * One route's stored calibration, or null if it has never been measured there.
+ *
+ * Keyed on the *offset* being present, not on all three keys. The offset is the constant scoring
+ * applies; a stored offset with a missing spread is a partial write, not an uncalibrated route, and
+ * defaulting the two diagnostic fields is better than discarding a real measurement.
+ */
+private fun Preferences.readCalibration(
+    offsetKey: Preferences.Key<Float>,
+    spreadKey: Preferences.Key<Float>,
+    tapsKey: Preferences.Key<Int>,
+): RhythmCalibration? {
+    val offset = this[offsetKey] ?: return null
+    return RhythmCalibration(
+        offsetMs = offset.toDouble(),
+        spreadMs = (this[spreadKey] ?: 0f).toDouble(),
+        tapsUsed = this[tapsKey] ?: 0,
+    )
+}
+
 private fun Preferences.toAppSettings(): AppSettings {
     val defaults = AppSettings()
     return AppSettings(
@@ -158,6 +248,21 @@ private fun Preferences.toAppSettings(): AppSettings {
         sungOctaveAgnostic = this[SettingsKeys.SUNG_OCTAVE_AGNOSTIC] ?: defaults.sungOctaveAgnostic,
         sungResponseIntroSeen =
             this[SettingsKeys.SUNG_RESPONSE_INTRO_SEEN] ?: defaults.sungResponseIntroSeen,
+        rhythmCalibrations =
+            RhythmCalibrations(
+                speaker =
+                    readCalibration(
+                        SettingsKeys.RHYTHM_CALIBRATION_OFFSET_SPEAKER,
+                        SettingsKeys.RHYTHM_CALIBRATION_SPREAD_SPEAKER,
+                        SettingsKeys.RHYTHM_CALIBRATION_TAPS_SPEAKER,
+                    ),
+                wired =
+                    readCalibration(
+                        SettingsKeys.RHYTHM_CALIBRATION_OFFSET_WIRED,
+                        SettingsKeys.RHYTHM_CALIBRATION_SPREAD_WIRED,
+                        SettingsKeys.RHYTHM_CALIBRATION_TAPS_WIRED,
+                    ),
+            ),
         dailyReminderEnabled = this[SettingsKeys.DAILY_REMINDER_ENABLED] ?: defaults.dailyReminderEnabled,
         dailyReminderTime = this[SettingsKeys.DAILY_REMINDER_TIME],
     )

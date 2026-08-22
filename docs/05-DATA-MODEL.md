@@ -142,10 +142,38 @@ Settings only. No progress data.
 | `sung_response_enabled` | Boolean | `false` |
 | `sung_octave_agnostic` | Boolean | `true` |
 | `sung_response_intro_seen` | Boolean | `false` |
+| `rhythm_calibration_offset_speaker` | Float? | absent |
+| `rhythm_calibration_spread_speaker` | Float? | absent |
+| `rhythm_calibration_taps_speaker` | Int? | absent |
+| `rhythm_calibration_offset_wired` | Float? | absent |
+| `rhythm_calibration_spread_wired` | Float? | absent |
+| `rhythm_calibration_taps_wired` | Int? | absent |
 | `daily_reminder_enabled` | Boolean | `false` |
 | `daily_reminder_time` | String? | null |
 
 `daily_reminder_enabled` defaults to **false**. Opt-in only. See `08-UI-SPEC.md` §7.
+
+The six `rhythm_calibration_*` keys are Phase 4's (`40-PHASE-4-SPEC.md` §4.3), added at Stage 4.1.
+**Absent is a meaningful state, not a missing value with a default.** An uncalibrated route blocks
+tapping and explains why (§9 simulation 6); a calibration read as `0.0` instead would be a claim that
+this device has no output latency, which is never true and is wrong by tens of milliseconds in the
+direction that makes a well-timed learner look like they are rushing. Nothing anywhere substitutes a
+default for an absent offset.
+
+Two deliberate deviations from that spec's own settings list, which names only the two offset keys:
+
+- **The spread is stored too.** §4.3 step 5 measures it and then requires that a learner whose taps
+  scatter gets wider tolerance windows rather than a failure. A number computed and discarded cannot
+  widen anything.
+- **The tap count is stored too.** A constant derived from the bare minimum of six taps and one derived
+  from a full run deserve different confidence, and nothing else in the record distinguishes them.
+
+Absence is keyed on the *offset*. A stored offset with a missing spread is a partial write, not an
+uncalibrated route, and defaulting the two diagnostic fields beats discarding a real measurement.
+
+`SPEAKER` and `WIRED` are the only two slots. USB output shares the wired constant — an assumption
+recorded on `AudioOutputRoute.USB` and in `40-PHASE-4-SPEC.md` §4.3, not a measurement, and if a device
+shows it wrong this grows a third slot and a third pair of keys rather than being quietly repointed.
 
 The three `sung_*` keys are Phase 3's (`30-PHASE-3-SPEC.md` §7). `sung_response_enabled` defaults false
 because §6.1 forbids requesting the microphone from anyone who has not actively opted into singing, and

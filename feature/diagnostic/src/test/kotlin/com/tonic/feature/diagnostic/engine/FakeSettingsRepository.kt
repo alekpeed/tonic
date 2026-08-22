@@ -1,6 +1,8 @@
 package com.tonic.feature.diagnostic.engine
 
 import com.tonic.core.data.settings.SettingsRepository
+import com.tonic.core.model.rhythm.CalibrationSlot
+import com.tonic.core.model.rhythm.RhythmCalibration
 import com.tonic.core.model.state.AppSettings
 import com.tonic.core.model.state.LabelStyle
 import com.tonic.core.model.state.ThemeMode
@@ -66,6 +68,27 @@ class FakeSettingsRepository(
 
     override suspend fun setSungResponseEnabled(enabled: Boolean) {
         settings.value = settings.value.copy(sungResponseEnabled = enabled)
+    }
+
+    override suspend fun setRhythmCalibration(
+        slot: CalibrationSlot,
+        calibration: RhythmCalibration,
+    ) {
+        settings.value =
+            settings.value.copy(
+                rhythmCalibrations = settings.value.rhythmCalibrations.with(slot, calibration),
+            )
+    }
+
+    override suspend fun clearRhythmCalibration(slot: CalibrationSlot) {
+        settings.value =
+            settings.value.copy(
+                rhythmCalibrations =
+                    when (slot) {
+                        CalibrationSlot.SPEAKER -> settings.value.rhythmCalibrations.copy(speaker = null)
+                        CalibrationSlot.WIRED -> settings.value.rhythmCalibrations.copy(wired = null)
+                    },
+            )
     }
 
     override suspend fun setSungOctaveAgnostic(enabled: Boolean) {

@@ -260,7 +260,7 @@ Extends `05-DATA-MODEL.md` and `07-ADAPTIVE-ENGINE.md`.
 
 - New `Item` subtype: `RhythmItem` (pattern, tempo, meter, metronome plan, expected event times).
 - `Attempt` gains rhythm fields: `tapTimestamps`, `calibrationOffsetUsed`, `toleranceUsed`, `perEventAsynchrony`, `extraTaps`, `missedTaps`.
-- New settings: `rhythm_calibration_offset_speaker`, `rhythm_calibration_offset_wired`, `rhythm_audible_tap_feedback` (default off), `rhythm_visual_pulse` (default on).
+- New settings: `rhythm_calibration_offset_speaker`, `rhythm_calibration_offset_wired`, `rhythm_audible_tap_feedback` (default off), `rhythm_visual_pulse` (default on). As built at Stage 4.1 the two calibration keys are six: each slot stores its offset, its spread and its tap count, because §4.3 step 5 measures a spread and then requires it to widen tolerance windows, which a discarded number cannot do. `05-DATA-MODEL.md` §3 carries the reasoning. The two UI settings are Stage 4.5's and are not built.
 - Six new difficulty axes (§5.2), registered as rhythm-specific — the axis scheduler already handles skill-specific axes as of Phase 2's Stage 2.0.
 - Confusion tracking adapts: the "confusion matrix" for rhythm is over *rhythmic figures*, not labels — which patterns get mistaken for which. Same remediation weighting logic applies.
 
@@ -271,7 +271,7 @@ Extends `05-DATA-MODEL.md` and `07-ADAPTIVE-ENGINE.md`.
 | Stage | Content | Key acceptance criteria |
 |---|---|---|
 | 4.0 | Audio backend decision + timing infrastructure | Oboe-vs-AudioTrack decided **with measurements**. Output timestamp accuracy characterized on real hardware. Bluetooth detection working. Report numbers, not assumptions. **Partial as of 2026-08-22** — see below. |
-| 4.1 | Calibration | Median offset stable across repeated runs on one device. Per-route storage. Route-change invalidation. Sanity bounds reject garbage. |
+| 4.1 | Calibration | Median offset stable across repeated runs on one device. Per-route storage. Route-change invalidation. Sanity bounds reject garbage. **Partial as of 2026-08-22** — see below. |
 | 4.2 | Pattern generation + metronome rendering | Deterministic per `(skill, axes, seed)`. All 8 `METRONOME_FADE` levels render correctly. |
 | 4.3 | Scoring pipeline | Pure function of inputs, byte-identical on replay. Windows never overlap. Extra/missed taps distinguished. |
 | 4.4 | Recognition nodes (`*_RECOG`, `DOWNBEAT`) | Complete path, no tapping required anywhere in it. |
@@ -280,6 +280,25 @@ Extends `05-DATA-MODEL.md` and `07-ADAPTIVE-ENGINE.md`.
 | 4.7 | Hardening + acceptance | All prior-phase criteria still met. Determinism holds. Bluetooth path verified on real hardware. |
 
 Same discipline: STOP gate per stage, delta report with production-wiring traces, no advancing on an unverified stage.
+
+**Stage 4.1, what is built and what is not.** Built and CI-verified: `Calibrator`, which is §4.3's six
+steps as one pure function — nearest-beat attribution, the warm-up discard, the median offset, the
+spread as a median absolute deviation, and the sanity bounds, with a typed failure rather than a stored
+constant when a run produces garbage. Per-route storage is real: `RhythmCalibrations` in the model,
+six DataStore keys, and set/clear on `SettingsRepository`, with `ProductionGate` reading the stored
+slots so an uncalibrated route blocks with an explanation. Not done, and not claimed: **the row's first
+criterion**, that the median is stable across repeated runs on one device — nothing in a sandbox can
+produce it, and it is the criterion that decides whether calibration works at all. Also unbuilt: the
+calibration *screen* (§7.1 requires an explanation before it runs), so as with Stage 4.0 nothing here
+is reachable by a learner.
+
+One deviation worth stating. §4.3's sanity bound says an offset "larger than a beat" means failure.
+Under nearest-beat attribution that cannot arise: attribution always picks the nearer beat, so a
+learner tapping on the off-beat is attributed to the *following* beat at an offset approaching half a
+beat, and is rejected as `OFFSET_IMPLAUSIBLE` rather than as an offset larger than a beat. The plausibility check that remains
+is an absolute window plus a fraction-of-a-beat window, whichever is tighter, because one fixed
+millisecond ceiling cannot describe both 40 BPM and 200 BPM. All three of those numbers are reasoned
+rather than measured; what would move them is a real device producing a legitimate constant they reject.
 
 **Stage 4.0, what is built and what is not.** Three of that row's four criteria are device measurements, and this project is developed with no Android SDK and no device (`21-HANDOFF.md` §2). Built and CI-verified: the output-route classification and its fail-safe priority rule, `OutputRouteMonitor` bound to `AudioManager`, the pure `ProductionGate` behind every §4.2/§9-sim-6 block, `OutputTimebase` and the `AudioTrack.getTimestamp()` plumbing that feeds it, and `TapTimeline`. Not done, and not claimed: the backend decision (q1 above), output-timestamp accuracy on hardware (q2), and any observation of the route monitor actually running. **Nothing here is reachable by a learner** — there is no rhythm UI until Stage 4.5, and per `21-HANDOFF.md` §4.1 that is stated rather than left to be discovered. The stage is complete in the sense that its sandbox-doable work is done and green; it is not signed off.
 

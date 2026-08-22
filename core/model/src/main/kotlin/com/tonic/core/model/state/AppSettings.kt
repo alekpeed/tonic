@@ -1,5 +1,7 @@
 package com.tonic.core.model.state
 
+import com.tonic.core.model.rhythm.RhythmCalibrations
+
 /** How scale degrees are displayed — docs/05-DATA-MODEL.md §3 `label_style`. Never changes what's stored as a targetLabel, only how it's shown. */
 enum class LabelStyle { NUMBERS, SOLFEGE }
 
@@ -88,6 +90,17 @@ data class AppSettings(
      * to do, so it is its own task shape and gets its own flag rather than riding on any module's.
      */
     val sungResponseIntroSeen: Boolean = false,
+    /**
+     * The learner's measured timing constants for rhythm production, one per output route —
+     * docs/40-PHASE-4-SPEC.md §4.3, `rhythm_calibration_*`.
+     *
+     * Empty by default, and that is a meaningful state rather than a placeholder: an uncalibrated route
+     * blocks tapping with an explanation (§9 simulation 6), because a missing constant applied as zero
+     * is indistinguishable from a perfectly-calibrated device and wrong by the device's whole output
+     * latency. It sits in settings rather than Room for the same reason everything else here does —
+     * losing it on reinstall costs one short calibration screen, not a learner's progress.
+     */
+    val rhythmCalibrations: RhythmCalibrations = RhythmCalibrations(),
     /** Opt-in only - docs/05-DATA-MODEL.md §3: "defaults to false. Opt-in only." See docs/08-UI-SPEC.md §7. */
     val dailyReminderEnabled: Boolean = false,
     /** `"HH:mm"`, null when [dailyReminderEnabled] is false. */
