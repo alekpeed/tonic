@@ -8,6 +8,7 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.tonic.core.model.music.ScaleDegree
 import com.tonic.core.ui.theme.TonicTheme
@@ -97,7 +98,7 @@ class SungAnswerControlTest {
         var tapped: ScaleDegree? = null
         render(sungAvailable = true, capture = SungCaptureState.IDLE, onDegreeSelected = { tapped = it })
 
-        compose.onNodeWithTag(LADDER_BUTTON).performClick()
+        compose.onNodeWithTag(LADDER_BUTTON).performScrollTo().performClick()
 
         assertEquals(1, tapped?.degree, "§6.3: the fallback is one tap, with no different scoring")
     }
@@ -147,7 +148,7 @@ class SungAnswerControlTest {
         compose.onNodeWithTag("sing_answer").performClick()
         assertTrue(!sang, "a second press during capture must not start a second capture")
 
-        compose.onNodeWithTag(LADDER_BUTTON).performClick()
+        compose.onNodeWithTag(LADDER_BUTTON).performScrollTo().performClick()
         assertEquals(1, tapped?.degree, "§6.3: the buttons are live throughout, including mid-capture")
     }
 }

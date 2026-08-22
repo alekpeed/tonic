@@ -102,6 +102,16 @@ internal fun AnswerArea(
                     reduceMotion = uiState.reduceMotion,
                     onDegreeSelected = onDegreeSelected,
                 )
+                // §6.4's non-scoring readout, only once the answer is in (correctDegree set) - shown
+                // during feedback, never while the learner is still deciding, and never as a grade.
+                val sungCents = uiState.lastSungCents
+                if (sungCents != null && uiState.correctDegree != null) {
+                    Spacer(modifier = Modifier.height(TonicSpacing.sm))
+                    SungAccuracyReadout(
+                        cents = sungCents,
+                        modifier = Modifier.align(Alignment.CenterHorizontally),
+                    )
+                }
             }
     }
 }

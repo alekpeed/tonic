@@ -12,6 +12,7 @@ import com.tonic.core.data.repository.SkillStateRepository
 import com.tonic.core.data.settings.SettingsRepository
 import com.tonic.core.engine.session.DueReview
 import com.tonic.core.engine.session.SkillWorkContext
+import com.tonic.core.model.attempts.InputMethod
 import com.tonic.core.model.ids.SkillId
 import com.tonic.core.model.ids.SkillIds
 import com.tonic.core.model.items.AnswerAlphabet

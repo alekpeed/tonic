@@ -54,6 +54,17 @@ class SungAnswerFlowTest {
         return CapturedAudio(samples, sampleRate)
     }
 
+    /**
+     * A whole octave away from [midi], in whichever direction keeps the result audible to the detector.
+     *
+     * Not simply "an octave down". Items span MIDI 48..84, and `PitchDetector` searches 65..1050 Hz —
+     * so an octave below MIDI 48 is 65.4 Hz, sitting 0.4 Hz above the floor, and an octave above MIDI
+     * 84 is 2093 Hz, well past the ceiling. Either would be a test that passes on most seeds and fails
+     * on the one that generates an extreme register. Shifting toward the middle keeps every case inside
+     * 185..698 Hz while still moving a full octave, which is the property being tested.
+     */
+    private fun octaveShiftFor(midi: Int): Int = if (midi >= MIDDLE_MIDI) -OCTAVE_SEMITONES else OCTAVE_SEMITONES
+
     /** Waits for the answer to land in the log - the write is deliberately off the loop's critical path. */
     private suspend fun PracticeFixture.awaitAttempt() {
         withTimeout(TIMEOUT_MS) {
@@ -154,7 +165,7 @@ class SungAnswerFlowTest {
         runBlocking {
             val fixture = fixture()
             val item = fixture.liveItem()
-            fixture.microphoneSource.nextCapture = tone(item.targetMidi - OCTAVE_SEMITONES)
+            fixture.microphoneSource.nextCapture = tone(item.targetMidi + octaveShiftFor(item.targetMidi))
 
             fixture.viewModel.onSingAnswer()
             fixture.awaitAttempt()
@@ -206,6 +217,9 @@ class SungAnswerFlowTest {
         const val TIMEOUT_MS = 10_000L
         const val A4_MIDI = 69
         const val OCTAVE_SEMITONES = 12
+
+        /** Items span MIDI 48..84; above this, shift down rather than up. See [octaveShiftFor]. */
+        const val MIDDLE_MIDI = 66
 
         /** Generous, but finite: the point is that *some* bound is asked for, not which. */
         const val MAX_REASONABLE_WINDOW_MS = 30_000L

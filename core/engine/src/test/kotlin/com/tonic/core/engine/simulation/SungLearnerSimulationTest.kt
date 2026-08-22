@@ -303,7 +303,7 @@ class SungLearnerSimulationTest {
             )
 
         assertTrue(
-            result.attempts.all { it.inputMethod == InputMethod.TAP && it.sungCents == null },
+            result.allAttempts.all { it.inputMethod == InputMethod.TAP && it.sungCents == null },
             "an attempt that never mentions input method is a tapped one with no pitch data",
         )
         assertTrue(
@@ -332,8 +332,12 @@ class SungLearnerSimulationTest {
     private companion object {
         val SKILL = SkillIds.M2_DEG_SET_1
 
-        /** Enough to fill a mastery window several times over and move the staircase. */
-        const val ITEM_COUNT = 80
+        /**
+         * Sized against what mastery actually needs, not a guess: the window is 30 with at least 5
+         * attempts per degree and a cadence-fade minimum, and every existing masters-normally
+         * simulation runs 200+ items. 80 was enough to move the staircase and not enough to certify.
+         */
+        const val ITEM_COUNT = 240
 
         /** §8 simulation 2's "~50 cents flat", taken at the hardest end of that. */
         const val CONSISTENTLY_FLAT_CENTS = 50.0
