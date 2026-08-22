@@ -93,13 +93,29 @@ playback delays: `PracticeViewModelTest` (44s), `SungPredictionTest` (29.9s), `S
 (23.3s), `PracticeLoopEngineTest` (16.9s), `SungMinorAndChromaticTest` (7.8s), `M2IntroTest` and
 `M2SessionTraceTest` (4.7s each) — about **2m11s**, most of it pre-existing.
 
-⚠️ **The hazard, for whoever attempts it.** `PracticeLoopEngine` holds
-`CoroutineScope(SupervisorJob() + Dispatchers.Default)`, hardcoded, and persistence is fire-and-forget
-on it. Under `runTest` a `withTimeout` is measured in *virtual* time and fires instantly when nothing
-else is scheduled, so a test polling for a persisted attempt will time out before the real write
-lands. Virtual time belongs on `Dispatchers.Main` for the ViewModel's phase delays; any wait on engine
-work has to stay on a real dispatcher. Converting one class at a time and reading the timing line is
-the way to do it — not all six at once.
+⚠️ **It was tried on 2026-08-22, and it hung CI. Read this before trying again.**
+
+`SungPredictionTest` was converted as a one-class pilot: `runTest(StandardTestDispatcher())` for the
+ViewModel's phase delays, with the wait for a persisted attempt left on `Dispatchers.Default` because
+`PracticeLoopEngine` writes fire-and-forget to its own hardcoded
+`CoroutineScope(SupervisorJob() + Dispatchers.Default)` that no test scheduler can advance. Run #44
+sat on `Verify` for **37 minutes** and had to be killed by pushing a revert. The conversion is
+reverted; the measurement listener and the corrected figures above are not.
+
+Two mistakes are in that pilot, and the second is the likely killer:
+
+1. `withTimeout` was removed because under `runTest` it is a *virtual*-time deadline that fires the
+   instant nothing else is scheduled — true, and a real hazard for any wait on real work.
+2. What replaced it was an **unbounded** `while (found == null) { delay(POLL_MS) }`. In virtual time
+   that is not a poll, it is an infinite loop: every iteration schedules more work, so the scheduler
+   never idles, `runTest`'s real-time limit is starved, and the JVM spins until the runner is killed.
+
+So the rule is not "drop `withTimeout`". It is: **every virtual-time loop needs a virtual-time bound**
+(an iteration cap or a deadline checked against `currentTime`), and **every wait on engine work needs
+a real-time bound on a real dispatcher**. The two cannot be the same mechanism.
+
+Whoever picks this up: convert one class, and do not push it without a bound on both loops. 29.9s is
+not worth a 37-minute runner.
 
 The Compose and Robolectric classes near the top of the list (`DegreeLadderLayoutTest` 15s,
 `AnswerAreaTest` 14.8s, `DiagnosticDebugSkipTest` 13.3s) are startup charged to whichever test runs
