@@ -141,6 +141,21 @@ class PracticeLoopEngine
          */
         private val pendingAdaptations = java.util.concurrent.ConcurrentLinkedQueue<Attempt>()
 
+        /**
+         * Suppresses playback of the first item only — docs/08-UI-SPEC.md §3a.
+         *
+         * The explanation screen is shown *over* a session that has already started, so that dismissing
+         * it lands on a ready item rather than a spinner. That was right about the loading and wrong
+         * about the sound: the first item's audio played underneath the screen, so a learner reading
+         * "you'll hear a short sequence of chords" heard exactly that while still reading the sentence
+         * explaining it. The explanation and the thing it explains arrived at the same moment, which is
+         * the one arrangement guaranteed to teach neither.
+         *
+         * So the session still starts, renders, and pre-renders behind the screen. Only the playing
+         * waits, until [releaseHeldPlayback].
+         */
+        private var playbackHeld = false
+
         /** Starts a new session. [rootSeed] is the caller's responsibility (docs/04-ARCHITECTURE.md §4) - freshly randomized for a new session, fixed for a replay. */
         suspend fun start(
             currentNode: SkillWorkContext,
@@ -148,8 +163,10 @@ class PracticeLoopEngine
             sessionLengthMinutes: Int,
             rootSeed: Long,
             now: Instant,
+            holdPlayback: Boolean = false,
         ) = loopMutex.withLock {
             resetSessionState()
+            this.playbackHeld = holdPlayback
             this.rootSeed = rootSeed
 
             val plan = SessionComposer.compose(currentNode, dueReviews, sessionLengthMinutes, rootSeed, now)
@@ -173,48 +190,51 @@ class PracticeLoopEngine
          * slot that was interrupted is re-presented rather than skipped, because its attempt was recorded
          * `isAbandoned` and deliberately never scored (docs/06-AUDIO-ENGINE.md §8).
          */
-        suspend fun resume(session: Session) =
-            loopMutex.withLock {
-                val resumeState =
-                    requireNotNull(session.resumeState) { "resume() needs a session carrying a ResumeState" }
-                resetSessionState()
+        suspend fun resume(
+            session: Session,
+            holdPlayback: Boolean = false,
+        ) = loopMutex.withLock {
+            val resumeState =
+                requireNotNull(session.resumeState) { "resume() needs a session carrying a ResumeState" }
+            resetSessionState()
+            this.playbackHeld = holdPlayback
 
-                val plan = resumeState.plan
-                this.rootSeed = plan.rootSeed
-                this.sessionPlan = plan
-                this.itemsPlanned = plan.plannedSlots.size
-                this.itemsCompleted = session.completedItemCount
-                this.lastScoredPlannedIndex = resumeState.completedSlotIndex
+            val plan = resumeState.plan
+            this.rootSeed = plan.rootSeed
+            this.sessionPlan = plan
+            this.itemsPlanned = plan.plannedSlots.size
+            this.itemsCompleted = session.completedItemCount
+            this.lastScoredPlannedIndex = resumeState.completedSlotIndex
 
-                val firstRemaining = resumeState.completedSlotIndex + 1
-                plan.plannedSlots.drop(firstRemaining).forEachIndexed { offset, slot ->
-                    queue.addLast(UpcomingWork.Regular(slot, firstRemaining + offset))
-                }
-                // Item seeds are a pure function of (rootSeed, index), so continuing the index sequence
-                // reproduces exactly the items the interrupted run would have played next.
-                this.nextItemIndex = firstRemaining
-                this.sessionId = requireNotNull(session.id) { "a resumable session must be persisted" }
-
-                // The session-length promise survives the interruption: the stored remaining budget picks
-                // up where it left off. Rows written before the field existed fall back to an estimate
-                // from the remaining plan at the composer's own planning rate.
-                val now = clock.now()
-                val remainingSeconds =
-                    resumeState.budgetRemainingSeconds
-                        ?: ((plan.plannedSlots.size - firstRemaining) * SECONDS_PER_PLANNED_ITEM_ESTIMATE)
-                sessionDeadline = now.plusSeconds(remainingSeconds.coerceAtLeast(MIN_RESUMED_BUDGET_SECONDS))
-                _state.update {
-                    it.copy(
-                        sessionId = sessionId,
-                        itemsCompleted = itemsCompleted,
-                        sessionStartedAt = now,
-                        sessionEndsAt = sessionDeadline,
-                    )
-                }
-
-                beginAudioSession()
-                advance()
+            val firstRemaining = resumeState.completedSlotIndex + 1
+            plan.plannedSlots.drop(firstRemaining).forEachIndexed { offset, slot ->
+                queue.addLast(UpcomingWork.Regular(slot, firstRemaining + offset))
             }
+            // Item seeds are a pure function of (rootSeed, index), so continuing the index sequence
+            // reproduces exactly the items the interrupted run would have played next.
+            this.nextItemIndex = firstRemaining
+            this.sessionId = requireNotNull(session.id) { "a resumable session must be persisted" }
+
+            // The session-length promise survives the interruption: the stored remaining budget picks
+            // up where it left off. Rows written before the field existed fall back to an estimate
+            // from the remaining plan at the composer's own planning rate.
+            val now = clock.now()
+            val remainingSeconds =
+                resumeState.budgetRemainingSeconds
+                    ?: ((plan.plannedSlots.size - firstRemaining) * SECONDS_PER_PLANNED_ITEM_ESTIMATE)
+            sessionDeadline = now.plusSeconds(remainingSeconds.coerceAtLeast(MIN_RESUMED_BUDGET_SECONDS))
+            _state.update {
+                it.copy(
+                    sessionId = sessionId,
+                    itemsCompleted = itemsCompleted,
+                    sessionStartedAt = now,
+                    sessionEndsAt = sessionDeadline,
+                )
+            }
+
+            beginAudioSession()
+            advance()
+        }
 
         /**
          * Called by the UI when the app is genuinely backgrounded (a real `ON_STOP`, not a configuration
@@ -415,6 +435,7 @@ class PracticeLoopEngine
          * replay still increments [Attempt.replayCount], so reliance on the reminder is visible in
          * diagnostics rather than penalized.
          */
+
         suspend fun replay() =
             loopMutex.withLock {
                 val current = pending ?: return@withLock
@@ -438,6 +459,21 @@ class PracticeLoopEngine
                     }
                 audioPlayer.play(buffer)
                 Unit
+            }
+
+        /**
+         * Plays the item that was prepared while [playbackHeld] suppressed it, and lifts the hold.
+         *
+         * Not counted as a replay: [Attempt.replayCount] means "how many times the user asked to hear it
+         * again", and this is the first time they are hearing it at all. Idempotent and a no-op when
+         * nothing is held, so a second dismiss cannot start the audio twice.
+         */
+        suspend fun releaseHeldPlayback() =
+            loopMutex.withLock {
+                if (!playbackHeld) return@withLock
+                playbackHeld = false
+                val current = pending ?: return@withLock
+                audioPlayer.play(current.buffer)
             }
 
         /**
@@ -718,7 +754,9 @@ class PracticeLoopEngine
 
             pending = rendered
             replayCountForCurrent = 0
-            audioPlayer.play(rendered.buffer)
+            if (!playbackHeld) {
+                audioPlayer.play(rendered.buffer)
+            }
             // Snapshot taken *here*, at a fixed point in program order under the mutex, and handed to
             // the coroutine - so what the next item generates from no longer depends on when that
             // coroutine happens to get scheduled.

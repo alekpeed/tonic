@@ -106,7 +106,10 @@ class PracticeViewModel
                 // exactly once per task shape, before that shape's first item ever plays. Which one is
                 // decided by the node the session is about to resolve to, not by module 2 alone -
                 // otherwise a learner reaching minor would be handed the major explanation, or none.
-                // The session underneath still starts, so dismissing lands on a ready item.
+                // The session underneath still starts, so dismissing lands on a ready item - but it
+                // starts *silently*. Before this, the first item played while the explanation was still
+                // on screen, so the learner met the sound and the sentence describing it at the same
+                // moment. The engine renders and pre-renders behind the screen and holds only the audio.
                 val settings = settingsRepository.settings.first()
                 val kind = introKindFor(resolveSessionStart().first.skillId, settings)
                 if (kind != IntroKind.NONE) {
@@ -129,7 +132,7 @@ class PracticeViewModel
             val session = _uiState.value.resumableSession ?: return
             _uiState.update { it.copy(resumableSession = null, isLoading = true) }
             viewModelScope.launch {
-                engine.resume(session)
+                engine.resume(session, holdPlayback = _uiState.value.showIntro)
                 observeEngineAndSettings()
             }
         }
@@ -197,6 +200,10 @@ class PracticeViewModel
             val kind = _uiState.value.introKind
             _uiState.update { it.copy(showIntro = false, introAnswerRevealed = false) }
             viewModelScope.launch {
+                // The first item was prepared but deliberately not played while the screen was up. This
+                // is where the exercise actually begins - on Start, not on arrival.
+                audioPlayer.stop()
+                engine.releaseHeldPlayback()
                 // Only the shape that was actually shown is marked seen. Marking both would silently
                 // rob the learner of an explanation they never received.
                 when (kind) {
@@ -258,6 +265,7 @@ class PracticeViewModel
                 sessionLengthMinutes = settings.sessionLengthMinutes,
                 rootSeed = Random.nextLong(),
                 now = clock.now(),
+                holdPlayback = _uiState.value.showIntro,
             )
             observeEngineAndSettings()
         }

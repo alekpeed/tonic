@@ -77,6 +77,79 @@ class PracticeLoopEngineTest {
         }
     }
 
+    /**
+     * docs/08-UI-SPEC.md §3a. The explanation screen is shown over a session that has already started,
+     * so dismissing it lands on a ready item rather than a spinner - but the first item used to *play*
+     * underneath it, so the learner heard the chords while still reading the sentence explaining what
+     * the chords were for. The explanation and the thing it explains arrived together, which teaches
+     * neither. Reported from live use on every module.
+     *
+     * Held means held: rendered, queued, pre-rendering the next one, and silent.
+     */
+    @Test
+    fun `a held session prepares the first item without playing it`() =
+        runBlocking {
+            val fixture = Fixture()
+            fixture.engine.start(
+                freshNode(),
+                dueReviews = emptyList(),
+                sessionLengthMinutes = 5,
+                rootSeed = 1L,
+                now = Instant.EPOCH,
+                holdPlayback = true,
+            )
+
+            assertNotNull(fixture.engine.state.value.recognitionItem, "the item must still be prepared")
+            assertEquals(0, fixture.audioPlayer.playedBuffers.size, "nothing may play while the intro is up")
+        }
+
+    /** And the exercise begins on Start: the prepared item plays then, exactly once. */
+    @Test
+    fun `releasing the hold plays the prepared item once`() =
+        runBlocking {
+            val fixture = Fixture()
+            fixture.engine.start(
+                freshNode(),
+                dueReviews = emptyList(),
+                sessionLengthMinutes = 5,
+                rootSeed = 1L,
+                now = Instant.EPOCH,
+                holdPlayback = true,
+            )
+            fixture.engine.releaseHeldPlayback()
+
+            assertEquals(1, fixture.audioPlayer.playedBuffers.size)
+
+            // A second dismiss must not restart it - the hold is lifted, not re-armed.
+            fixture.engine.releaseHeldPlayback()
+            assertEquals(1, fixture.audioPlayer.playedBuffers.size)
+        }
+
+    /** The hold is for the first item only: once lifted, the loop plays normally again. */
+    @Test
+    fun `later items play normally after the hold is lifted`() =
+        runBlocking {
+            val fixture = Fixture()
+            fixture.engine.start(
+                freshNode(),
+                dueReviews = emptyList(),
+                sessionLengthMinutes = 5,
+                rootSeed = 1L,
+                now = Instant.EPOCH,
+                holdPlayback = true,
+            )
+            fixture.engine.releaseHeldPlayback()
+            val afterFirst = fixture.audioPlayer.playedBuffers.size
+
+            val item = assertNotNull(fixture.engine.state.value.recognitionItem)
+            fixture.engine.submitAnswer(item.targetDegree.canonicalLabel, latencyMs = 100)
+
+            assertTrue(
+                fixture.audioPlayer.playedBuffers.size > afterFirst,
+                "the second item must play on its own, with no further release",
+            )
+        }
+
     @Test
     fun `starting a session generates and plays the first item`() =
         runBlocking {
