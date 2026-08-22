@@ -16,6 +16,7 @@ import com.tonic.core.engine.session.DueReview
 import com.tonic.core.engine.session.SessionComposer
 import com.tonic.core.engine.session.SkillWorkContext
 import com.tonic.core.model.attempts.Attempt
+import com.tonic.core.model.attempts.InputMethod
 import com.tonic.core.model.ids.SkillId
 import com.tonic.core.model.items.AxisChange
 import com.tonic.core.model.items.DifficultyAxis
@@ -388,11 +389,19 @@ class PracticeLoopEngine
          * `autoAdvance = false`, does that work, then calls [proceedToNextItem] itself. [pending] stays
          * valid the whole time — only [advance] clears it — so [playIncorrectContrast] can still reach
          * the item that was just answered.
+         *
+         * [inputMethod] and [sungCents] are carried onto the [Attempt] and go no further
+         * (docs/30-PHASE-3-SPEC.md §2 and §7). Nothing below this line branches on either: a sung
+         * answer is scored by *which degree it resolved to*, exactly as a tapped one is, because
+         * anything else would make the app measure singing rather than hearing (§3).
+         * `SungDataIsNeverAdaptiveTest` holds that line from the other side, at replay.
          */
         suspend fun submitAnswer(
             responseLabel: String,
             latencyMs: Long = 0,
             autoAdvance: Boolean = true,
+            inputMethod: InputMethod = InputMethod.TAP,
+            sungCents: Int? = null,
         ) = loopMutex.withLock {
             val current = pending ?: return@withLock
             val correctLabel = PracticeItems.correctLabel(current.item)
@@ -400,7 +409,16 @@ class PracticeLoopEngine
             // requiring its direction (docs/20-PHASE-2-SPEC.md §8.1 decision 3). Identical to equality
             // for every other node and item type.
             val correct = PracticeItems.isCorrect(current.item, responseLabel)
-            val attempt = buildAttempt(current, responseLabel, correct, isAbandoned = false, latencyMs)
+            val attempt =
+                buildAttempt(
+                    current,
+                    responseLabel,
+                    correct,
+                    isAbandoned = false,
+                    latencyMs,
+                    inputMethod = inputMethod,
+                    sungCents = sungCents,
+                )
 
             // docs/04-ARCHITECTURE.md §5: "Persist attempts asynchronously and do not block the loop on
             // them." Only the durable write leaves the loop. The adaptive half is deferred to the next
@@ -885,6 +903,8 @@ class PracticeLoopEngine
             correct: Boolean,
             isAbandoned: Boolean,
             latencyMs: Long,
+            inputMethod: InputMethod = InputMethod.TAP,
+            sungCents: Int? = null,
         ): Attempt =
             Attempt(
                 skillId = rendered.slot.skillId,
@@ -904,6 +924,8 @@ class PracticeLoopEngine
                 isWarmup = rendered.slot.isWarmup,
                 isAbandoned = isAbandoned,
                 isIndependenceCheckProbe = rendered.isIndependenceProbe,
+                inputMethod = inputMethod,
+                sungCents = sungCents,
             )
 
         /**
