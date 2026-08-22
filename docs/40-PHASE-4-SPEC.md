@@ -120,7 +120,7 @@ Design requirements:
 - **Median, not mean.** One distracted tap must not skew the constant.
 - **Spread is diagnostic, not scored.** A large spread means either an inconsistent user or an unstable device path; either way, tolerance windows should widen rather than the user being failed.
 - **Re-calibrate on output route change.** Plugging in headphones changes the offset. Detect the route change and either re-calibrate or invalidate the stored constant.
-- **Calibration is per output route**, not global. Store separately for speaker and wired output.
+- **Calibration is per output route**, not global. Store separately for speaker and wired output. ⚠️ USB output shares the wired constant as of Stage 4.0. That grouping is an assumption, not a measurement — a USB DAC's latency is its own — and it is grouped only because inventing a third stored constant before anyone has measured a USB device would be adding schema on a guess. Confirm or split it here, with a device.
 - ⚠️ **Sanity bounds.** An implausible measured offset (negative beyond a threshold, or larger than a beat) means calibration failed — re-prompt rather than storing garbage.
 
 ### 4.4 Determinism under real time
@@ -270,7 +270,7 @@ Extends `05-DATA-MODEL.md` and `07-ADAPTIVE-ENGINE.md`.
 
 | Stage | Content | Key acceptance criteria |
 |---|---|---|
-| 4.0 | Audio backend decision + timing infrastructure | Oboe-vs-AudioTrack decided **with measurements**. Output timestamp accuracy characterized on real hardware. Bluetooth detection working. Report numbers, not assumptions. |
+| 4.0 | Audio backend decision + timing infrastructure | Oboe-vs-AudioTrack decided **with measurements**. Output timestamp accuracy characterized on real hardware. Bluetooth detection working. Report numbers, not assumptions. **Partial as of 2026-08-22** — see below. |
 | 4.1 | Calibration | Median offset stable across repeated runs on one device. Per-route storage. Route-change invalidation. Sanity bounds reject garbage. |
 | 4.2 | Pattern generation + metronome rendering | Deterministic per `(skill, axes, seed)`. All 8 `METRONOME_FADE` levels render correctly. |
 | 4.3 | Scoring pipeline | Pure function of inputs, byte-identical on replay. Windows never overlap. Extra/missed taps distinguished. |
@@ -280,6 +280,8 @@ Extends `05-DATA-MODEL.md` and `07-ADAPTIVE-ENGINE.md`.
 | 4.7 | Hardening + acceptance | All prior-phase criteria still met. Determinism holds. Bluetooth path verified on real hardware. |
 
 Same discipline: STOP gate per stage, delta report with production-wiring traces, no advancing on an unverified stage.
+
+**Stage 4.0, what is built and what is not.** Three of that row's four criteria are device measurements, and this project is developed with no Android SDK and no device (`21-HANDOFF.md` §2). Built and CI-verified: the output-route classification and its fail-safe priority rule, `OutputRouteMonitor` bound to `AudioManager`, the pure `ProductionGate` behind every §4.2/§9-sim-6 block, `OutputTimebase` and the `AudioTrack.getTimestamp()` plumbing that feeds it, and `TapTimeline`. Not done, and not claimed: the backend decision (q1 above), output-timestamp accuracy on hardware (q2), and any observation of the route monitor actually running. **Nothing here is reachable by a learner** — there is no rhythm UI until Stage 4.5, and per `21-HANDOFF.md` §4.1 that is stated rather than left to be discovered. The stage is complete in the sense that its sandbox-doable work is done and green; it is not signed off.
 
 ### Required simulations
 
@@ -292,7 +294,7 @@ Same discipline: STOP gate per stage, delta report with production-wiring traces
 
 ## 10. Open questions before Stage 4.0
 
-1. **Oboe/NDK vs. `AudioTrack`** — inherited from Phase 3 if unanswered there. Decide with measurements on real hardware.
+1. **Oboe/NDK vs. `AudioTrack`** — inherited from Phase 3 if unanswered there. Decide with measurements on real hardware. ⚠️ **Still open, and deliberately so.** At Stage 4.0 the maintainer instructed that `AudioTrack` stays for now and that the backend-agnostic parts of the stage be built rather than the phase stalling on a measurement the development sandbox cannot produce. That is a decision to defer, not an answer to this question: nothing has been measured. `06-AUDIO-ENGINE.md` §1 records it and states what would reverse it. Stage 4.1 needs a device anyway, and is where this gets settled.
 2. **Whether Android's reported output latency is trustworthy** (§4.2) or whether calibration must derive everything empirically.
 3. **Interleaving rhythm with pitch in one session** (§2) — pedagogically attractive (variety, and the contextual-interference literature favors it), but it doubles the explanation burden per session and risks the app feeling scattered. ⚠️ Decide with real usage evidence from Phase 2/3.
 4. **Audible tap feedback default** (§7.2).

@@ -7,6 +7,8 @@ import com.tonic.core.audio.focus.AudioFocusManager
 import com.tonic.core.audio.focus.AudioInterruptions
 import com.tonic.core.audio.player.AudioPlayer
 import com.tonic.core.audio.player.AudioTrackPlayer
+import com.tonic.core.audio.route.AudioManagerOutputRouteMonitor
+import com.tonic.core.audio.route.OutputRouteMonitor
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -34,4 +36,15 @@ internal abstract class AudioBindingsModule {
      */
     @Binds
     abstract fun bindMicrophoneSource(impl: AudioRecordMicrophoneSource): MicrophoneSource
+
+    /**
+     * Output-route reporting, for Phase 4's production gate - docs/40-PHASE-4-SPEC.md §4.2.
+     *
+     * Bound from the stage it is written in rather than the stage it is first consumed in. That is the
+     * direct correction of docs/21-HANDOFF.md §4.1: three Phase 3 stages shipped complete and green
+     * behind a binding that reported "unavailable" forever, and nothing caught it because every test
+     * used a fake. A production binding that exists is a thing a device can be pointed at.
+     */
+    @Binds
+    abstract fun bindOutputRouteMonitor(impl: AudioManagerOutputRouteMonitor): OutputRouteMonitor
 }

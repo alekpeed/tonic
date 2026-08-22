@@ -2,9 +2,11 @@ package com.tonic.core.audio.player
 
 import android.media.AudioAttributes
 import android.media.AudioFormat
+import android.media.AudioTimestamp
 import android.media.AudioTrack
 import android.os.Process
 import com.tonic.core.audio.synth.PcmBuffer
+import com.tonic.core.model.rhythm.OutputTimebase
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -40,6 +42,11 @@ import javax.inject.Singleton
  * 3. **The buffer is primed before the transport starts.** Starting an empty track and racing to
  *    fill it under-runs on the first frames — "under-runs are audible and destroy the exercise."
  *
+ * Since Phase 4 it also reports *when the audio is being heard*, through [PlaybackTimebaseSource] —
+ * property 1 above restated as a number the caller can use. See docs/40-PHASE-4-SPEC.md §4.1: a tap
+ * can only be scored against the sound the learner actually heard, and the gap between `write` and
+ * "heard" is precisely what [PlayoutMonitor] already exists to respect.
+ *
  * **Still unverified by an automated test.** [PlayoutMonitor]'s decision logic is unit-tested, but
  * nothing here exercises a real `AudioTrack`: this module is built in an environment with no device
  * or emulator (no `/dev/kvm`), and the unit-test android.jar returns stub values. The manual
@@ -48,9 +55,20 @@ import javax.inject.Singleton
 @Singleton
 class AudioTrackPlayer
     @Inject
-    constructor() : AudioPlayer {
+    constructor() :
+    AudioPlayer,
+        PlaybackTimebaseSource {
         private val _state = MutableStateFlow(PlaybackState.IDLE)
         override val state: StateFlow<PlaybackState> = _state.asStateFlow()
+
+        private val _timebase = MutableStateFlow<OutputTimebase?>(null)
+        override val timebase: StateFlow<OutputTimebase?> = _timebase.asStateFlow()
+
+        /**
+         * Reused rather than allocated per reading. `getTimestamp` fills a caller-owned object, and it
+         * is only ever touched from the single playback thread — see [playbackDispatcher].
+         */
+        private val timestampScratch = AudioTimestamp()
 
         private val playbackDispatcher =
             Executors
@@ -113,6 +131,7 @@ class AudioTrackPlayer
             Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_AUDIO)
             var track: AudioTrack? = null
             try {
+                _timebase.value = null
                 val stereo = toInterleavedStereo(buffer.samples)
                 val totalFrames = buffer.samples.size
                 track = buildTrack(buffer.sampleRate)
@@ -126,11 +145,21 @@ class AudioTrackPlayer
                     val written = track.write(stereo, offset, stereo.size - offset, AudioTrack.WRITE_BLOCKING)
                     if (written <= 0) break
                     offset += written
+                    // Read here as well as in awaitPlayout, because a blocking write returns only when
+                    // the buffer drains: for a clip longer than the track buffer, everything below this
+                    // loop happens near the *end* of playback. A rhythm item needs a timebase while the
+                    // count-in is still sounding, not after the last bar.
+                    readTimebase(track, buffer.sampleRate)
                 }
 
-                val playedOut = !stopRequested.get() && awaitPlayout(track, totalFrames, buffer.durationMs)
+                val playedOut =
+                    !stopRequested.get() &&
+                        awaitPlayout(track, totalFrames, buffer.durationMs, buffer.sampleRate)
                 _state.value = if (playedOut) PlaybackState.COMPLETED else PlaybackState.STOPPED
             } finally {
+                // The reading described a track that is about to be released; keeping it would let a
+                // later caller extrapolate frame positions of audio that is no longer playing.
+                _timebase.value = null
                 synchronized(trackLock) {
                     currentTrack = null
                     track?.let {
@@ -200,9 +229,11 @@ class AudioTrackPlayer
             track: AudioTrack,
             totalFrames: Int,
             durationMs: Double,
+            sampleRate: Int,
         ): Boolean {
             val monitor = PlayoutMonitor(totalFrames, PlayoutMonitor.pollsFor(durationMs, POLL_INTERVAL_MS))
             while (!stopRequested.get()) {
+                readTimebase(track, sampleRate)
                 when (monitor.observe(track.playbackHeadPosition)) {
                     PlayoutMonitor.Verdict.DONE -> return true
                     PlayoutMonitor.Verdict.GIVE_UP -> return false
@@ -210,6 +241,35 @@ class AudioTrackPlayer
                 }
             }
             return false
+        }
+
+        /**
+         * Publishes one `AudioTrack.getTimestamp` reading, if the platform has one to give.
+         *
+         * Silent when it does not, which is the normal state for the first frames of a clip:
+         * `getTimestamp` returns false until enough audio has actually reached the output. Callers see
+         * that as a null [timebase] and wait, per [PlaybackTimebaseSource.timebase].
+         *
+         * `nanoTime` here is `CLOCK_MONOTONIC`, the same clock `System.nanoTime` reads and the same one
+         * a tap is stamped with (docs/40-PHASE-4-SPEC.md §4.4). If those two ever diverge, every
+         * measurement becomes the distance between two clocks rather than between a sound and a finger.
+         *
+         * The frame-position guard is not defensive padding: [OutputTimebase] requires a non-negative
+         * position and throws otherwise, and this runs on the audio thread, where an exception would
+         * take the clip down with it.
+         */
+        private fun readTimebase(
+            track: AudioTrack,
+            sampleRate: Int,
+        ) {
+            val read = runCatching { track.getTimestamp(timestampScratch) }.getOrDefault(false)
+            if (!read || timestampScratch.framePosition < 0) return
+            _timebase.value =
+                OutputTimebase(
+                    framePosition = timestampScratch.framePosition,
+                    presentationNanos = timestampScratch.nanoTime,
+                    sampleRate = sampleRate,
+                )
         }
 
         /** Mono -> stereo by sample duplication — docs/06-AUDIO-ENGINE.md §2. */

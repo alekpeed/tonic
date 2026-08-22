@@ -34,6 +34,12 @@ kover {
                     // fact about hardware. Excluding the package instead would have quietly dropped
                     // the three types that a test can actually hold to account.
                     "com.tonic.core.audio.capture.AudioRecordMicrophoneSource",
+                    // Same rule, same shape: AudioManagerOutputRouteMonitor is a getDevices() call and
+                    // a callback registration, and every property worth asserting about it - what a
+                    // phone lists, which device wins, whether the callback fires on unplug - is a fact
+                    // about hardware. The classification and priority rule it delegates to,
+                    // AudioDeviceRouting, is pure and stays covered.
+                    "com.tonic.core.audio.route.AudioManagerOutputRouteMonitor",
                 )
             }
         }

@@ -14,6 +14,10 @@ Reasons, in order of weight:
 
 Not `MediaPlayer` (no sample-accurate scheduling), not `SoundPool` (sample-based), not `ExoPlayer` (wrong tool). Not Oboe/NDK **in Phase 1**: Oboe's value is low round-trip latency for input-driven interaction, and Phase 1 has no tap-timing or mic input. Phase 4 (rhythm) will require revisiting this. Architect `AudioPlayer` behind an interface so the backend can be swapped without touching callers.
 
+**Revisited at Phase 4 Stage 4.0, and `AudioTrack` stays — for now, and on an explicit maintainer instruction rather than on a measurement.** `30-PHASE-3-SPEC.md` §9 q1 and `40-PHASE-4-SPEC.md` §10 q1 both ask for this to be decided "with measurements, not assumption," and no measurement exists: this project is developed in a sandbox with no Android SDK and no device, so the numbers that would settle it cannot be produced here. The decision taken was therefore to *not decide yet* and to build the part of Stage 4.0 that does not depend on the answer — output-route detection, the production gate, and the output timebase below, all of which are backend-agnostic. The interface this section demanded in Phase 1 is what makes that possible; it was written for exactly this moment and had gone unused until now.
+
+Consequence to keep in view: **an unmeasured decision is not a closed question.** `40-PHASE-4-SPEC.md` §10 q1 stays open, and Stage 4.1's calibration work — which needs a device anyway — is where it gets measured and either confirmed or reversed. What would reverse it is output latency high enough, or jittery enough, that §4.3's calibration constant is not stable across runs on one device.
+
 **Rendering is pure; playback is not.** All synthesis functions take parameters and return `FloatArray`. They are unit-testable on the JVM with no device. Only the thin `AudioPlayer` wrapper touches Android.
 
 ## 2. Signal chain
@@ -92,6 +96,34 @@ Requirements:
 - Buffer size: at least `getMinBufferSize` × 2. Under-runs are audible and destroy the exercise.
 - **Pre-render the next item while the current one awaits an answer.** Rendering is cheap but not free, and the gap between answer and next item must feel instant.
 - Full item audio is rendered to a single contiguous buffer before playback begins. Do not stream-generate mid-item; a hiccup mid-cadence corrupts the exercise.
+
+### 7a. Output timing (Phase 4)
+
+```kotlin
+interface PlaybackTimebaseSource {
+    val timebase: StateFlow<OutputTimebase?>
+}
+```
+
+Rhythm production has to score a tap against the sound the learner *heard*, not against the moment `play()` was called — `40-PHASE-4-SPEC.md` §4.1. `AudioTrackPlayer` therefore also implements `PlaybackTimebaseSource`, publishing `AudioTrack.getTimestamp()` readings as an `OutputTimebase` (frame index ↔ monotonic nanoseconds ↔ sample rate) that converts any frame of the clip to the instant it is heard.
+
+Requirements, all of them learned from the failure modes the rest of this section already records:
+
+- **Separate interface, not a widened `AudioPlayer`.** Every existing caller plays audio and none of them care what time it is. Only rhythm does.
+- **Null is the normal early state.** `getTimestamp` reports nothing until enough frames have reached the output. A caller waits for a non-null reading; treating absence as zero places every event at the `play()` call, which is the error §4.1 exists to describe.
+- **Read during the write loop, not only after it.** A blocking write returns when the buffer drains, so a clip longer than the track buffer would otherwise produce its first reading near the end of playback. A rhythm item needs a timebase while the count-in is still sounding.
+- **One clock.** `AudioTimestamp.nanoTime` is `CLOCK_MONOTONIC`, and taps must be stamped from the same clock. Mixing in a wall-clock reading anywhere produces a difference that looks like latency and is not.
+- **Cleared when playback ends.** A reading that outlives its track lets a caller extrapolate frame positions of audio that is no longer playing.
+
+⚠️ **How far these readings can be trusted is unmeasured** — `40-PHASE-4-SPEC.md` §10 q2, in as many words. The arithmetic is correct given a correct reading; whether readings are correct is a device question. Until it is answered, what scoring actually rests on is §4.3's calibration, which derives the offset empirically from the learner's own taps. The timebase is the cross-check, not the source of truth.
+
+### 7b. Output route
+
+Bluetooth output is disqualifying for tapping — `40-PHASE-4-SPEC.md` §4.2 — so the app has to know where its audio is going. `OutputRouteMonitor` reports the current `AudioOutputRoute` as a `StateFlow`, backed by `AudioManager.getDevices(GET_DEVICES_OUTPUTS)` and an `AudioDeviceCallback`; the classification and the priority rule are pure and live in `:core:model`, so the untestable surface is one platform call.
+
+A `StateFlow` rather than a getter because §4.3 requires acting on the *change*: plugging in headphones changes the offset, and a value that has to be polled is one that gets read at the start of an item and believed for the rest of it.
+
+The priority rule when several outputs are connected is **fail-safe, not a claim about Android's routing table**: external outputs outrank the built-in speaker, and among external outputs the ones that cannot be timed on outrank the ones that can. When it is wrong, it blocks a learner who could have tapped and tells them why, rather than scoring a learner whose sound is 200 ms late. ⚠️ It is unverified on hardware; Stage 4.1 should cross-check it against `AudioTrack.getRoutedDevice()` with a device in hand.
 
 ## 8. Audio focus and interruptions
 

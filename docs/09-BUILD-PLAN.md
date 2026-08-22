@@ -221,12 +221,12 @@ Acceptance: all Phase 1 success criteria in `01-PRODUCT-SPEC.md` §5 demonstrabl
 
 ## Later phases (do not start without instruction)
 
-Phases 2 and 3 have left this table — 2 is built (`20-PHASE-2-SPEC.md`) and 3 is specified
-(`30-PHASE-3-SPEC.md`). What remains below has no spec yet, only a name and a reason.
+Phases 2, 3 and 4 have left this table — 2 and 3 are built (`20-PHASE-2-SPEC.md`, `30-PHASE-3-SPEC.md`)
+and 4 is specified and started (`40-PHASE-4-SPEC.md`, Stage 4.0 partial: see that file's §9). What
+remains below has no spec yet, only a name and a reason.
 
 | Phase | Content | Notes |
 |---|---|---|
-| 4 | Rhythm (M3) | **Requires revisiting the audio backend** — low-latency input likely means Oboe/NDK, plus round-trip latency calibration |
 | 5 | Melodic dictation (M4) | |
 | 6 | Harmony and harmonic dictation (M5, M6) | Bass-line first |
 | 8 | Advanced/modal (M8), desktop build | |
