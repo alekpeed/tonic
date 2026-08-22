@@ -25,8 +25,20 @@ class FakeMicrophoneSource(
     /** Every window length asked for, so a test can assert capture is bounded rather than open-ended. */
     val requestedWindowsMs = mutableListOf<Long>()
 
+    /**
+     * Run at the moment [record] is entered, before it returns.
+     *
+     * `M12`'s capture starts itself inside the audiation gap rather than on a button press, and the
+     * whole claim of docs/30-PHASE-3-SPEC.md §5.4 is about *when* it runs relative to the note that
+     * sounds. A test can only check that by observing the app at the instant the microphone opens,
+     * which is what this hook is for — asserting on state afterward would be asking a question about
+     * the past.
+     */
+    var onRecord: () -> Unit = {}
+
     override suspend fun record(maxDurationMs: Long): CapturedAudio {
         requestedWindowsMs += maxDurationMs
+        onRecord()
         return nextCapture
     }
 

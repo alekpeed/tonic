@@ -150,12 +150,20 @@ object SimulationHarness {
      * `M12.*` — prediction, judged by [PredictionMasteryEvaluator] and staircased over the *prediction*
      * axes. The responder sees the gap level, because that is what §7's simulation 6 is about: mastery
      * at `PREDICT_GAP` ≥ 2 means holding a note across a real silence, not across an echo.
+     *
+     * @param sungCentsFor what the learner audiated on item `i`, in cents from the degree that was
+     *   named, or null for an item they did not sing into — docs/30-PHASE-3-SPEC.md §5.4. Stamped onto
+     *   the attempt and otherwise ignored, exactly as the app does it: the sung prediction supplements
+     *   the button and never scores, so a simulation that let it reach the responder or the evaluator
+     *   would be modeling an app that does not exist. Its only purpose here is to let a test assert
+     *   that a whole run's worth of perfect audiation moves nothing.
      */
     fun runPrediction(
         skill: SkillId,
         itemCount: Int,
         responder: PredictionResponder,
         seedBase: Long = 1L,
+        sungCentsFor: (Int) -> Int? = { null },
     ): BinarySimulationResult {
         var axisState = AxisSchedulerState.forScope(DifficultyAxis.Scope.PREDICTION)
         var genHistory = GenerationHistory()
@@ -193,6 +201,7 @@ object SimulationHarness {
                     targetMidi = item.soundedMidi,
                     timbre = item.timbre.name,
                     correct = correct,
+                    sungCents = sungCentsFor(i),
                 )
             axisState = AxisScheduler.update(axisState, correct)
             val window = attempts.takeLast(PredictionMasteryEvaluator.WINDOW_SIZE)
@@ -212,6 +221,7 @@ object SimulationHarness {
         targetMidi: Int,
         timbre: String,
         correct: Boolean = target == response,
+        sungCents: Int? = null,
     ) = Attempt(
         skillId = skill,
         sessionId = 1L,
@@ -227,6 +237,7 @@ object SimulationHarness {
         timbreId = timbre,
         cadenceFadeLevel = 0,
         timestamp = Instant.EPOCH.plusSeconds(index.toLong()),
+        sungCents = sungCents,
     )
 }
 

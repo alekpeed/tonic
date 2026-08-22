@@ -130,7 +130,31 @@ which §2 forbids in as many words.
 
 Supplementing also keeps the sung signal honest as *evidence about* the judgment rather than a
 substitute for it: a learner who sings the right pitch and then misreports the direction has a
-specific, diagnosable problem, and collapsing the two would hide it. Decide before Stage 3.4.
+specific, diagnosable problem, and collapsing the two would hide it.
+
+**Built in Stage 3.4, 2026-08-22.** Four decisions the above did not settle:
+
+1. **The capture starts itself**, as soon as the audiation gap opens, with no button to press. Every
+   other sung answer in the app is opened by tapping "Sing"; here the gap is 1–5 seconds and *is* the
+   exercise, so requiring a press would substitute a manual task for the thing being measured, and at
+   `PREDICT_GAP` level 0 there is not time for both. The learner has already opted in globally (§6.1)
+   and the explanation says the app listens during the silence.
+2. **The window is bounded by arithmetic, not by the microphone.** A 200 ms lead-in lets the cadence's
+   release decay before the mic opens; a 250 ms tail guard closes it before the note sounds. §6.5's
+   "reference audio and the answer window should not overlap" is met by separating them in time, which
+   needs no echo cancellation and no device to verify. A gap too short to hold a usable window yields
+   no sung evidence rather than a stream of unreadable captures — the learner is scored identically.
+3. **`inputMethod` stays `TAP` on every `M12` attempt**, because it records how the *scoring* answer
+   arrived and on a prediction item that is always the button. `sungCents` is what marks the row as
+   sung. Recording `SUNG` would make the column mean one thing on `M2` and another on `M12`, and would
+   imply a sung mastery path §2 forbids from existing.
+4. **`sungCents` is measured from the degree that was named**, not from whichever degree the voice
+   landed nearest. The analyzer's own reading answers the right question for `M2`, where the nearest
+   degree *is* the answer, and the wrong one here: a learner who held `5` when asked for `3` would
+   otherwise appear to have sung almost perfectly.
+
+The consequence worth stating plainly: on `M12` a sung pitch can never make an answer right or wrong.
+It is recorded beside the judgment and read by nobody who decides anything.
 
 ## 6. UI and UX
 
@@ -159,6 +183,13 @@ Every sung item must offer a one-tap fallback to answer by tapping instead, alwa
 
 - **Correct/incorrect** — identical treatment to tapped answers.
 - **A separate, clearly non-scoring pitch readout** — "you were about a quarter-tone flat." Informational, framed neutrally, never a grade, never in the mastery window.
+- **On a prediction item, the readout also names the degree that was held** — "You sang 5" — for a
+  correct answer and an incorrect one alike. This is the one thing the button cannot express: whether
+  the note being judged against was the note that was asked for. §5.4's diagnosability argument cuts
+  both ways, and a learner who audiated the wrong degree entirely can only act on that if told. The
+  cents line is shown only when the named degree *was* held: attached to someone who sang a different
+  degree it would report a large number about the wrong question, which reads as a harsh grade on a
+  voice that is not being marked.
 - ⚠️ **Real-time visual pitch feedback while singing** (a moving indicator showing where your voice is relative to the target): valuable for learning to sing in tune, but it turns the exercise into a *matching* task rather than a *recall* task if shown before the answer is committed. **Decision: no real-time feedback during the answer window.** Show it after, as review. Revisit only with evidence.
 
 ### 6.5 Environment
@@ -182,7 +213,7 @@ Extends `05-DATA-MODEL.md`.
 | 3.1 | Scoring pipeline (§5.2) | Scooping tolerated. "Unclear" never scores as wrong. Ambiguity-band decision implemented per §5.2. Octave-agnostic verified. |
 | 3.2 | Permission flow + explanation + worked example | Full app functionality with permission denied. Explanation reachable. Copy meets `11-ONBOARDING-CLARITY.md` §9.4. |
 | 3.3 | Sung response in `M2` | Tap-only path fully unaffected. Sung and tapped attempts share one `SkillState`. Fallback-to-tap always available. |
-| 3.4 | Sung prediction in `M12` | Sung answer captured during the gap, before the target plays. Cannot be gamed by guessing. |
+| 3.4 | Sung prediction in `M12` | Sung answer captured during the gap, before the target plays. Cannot be gamed by guessing. **Built 2026-08-22** — see §5.4's four implementation decisions |
 | 3.5 | `M10` and `M11` | Chromatic tolerance bands verified not to produce systematic misreads. |
 | 3.6 | Hardening + acceptance | Every Phase 1/2 criterion still met. No audio persisted. `sungCents` provably unread by the engine. |
 
@@ -196,6 +227,12 @@ Same discipline throughout: STOP gate per stage, delta report with production-wi
 4. **Tap-only user** — never grants mic permission. Must reach full mastery, including every independence check, identically to a Phase 2 user.
 5. **Mixed-input user** — alternates tapping and singing. Both feed one `SkillState` coherently; no double-counting, no split progression.
 6. **Guessing predictor (sung)** — sings random pitches on `M12`. Must never be certified.
+   ⚠️ Note what this does and does not prove once §5.4 is decided as *supplement*: sung pitches never
+   reach scoring, so a random singer who also guesses the button is refused by d-prime, which Phase 2
+   already establishes. The case actually at risk is the inverse — a learner **singing the named degree
+   perfectly and guessing the judgment**, who has not mastered a node whose whole question is the
+   comparison. `SungPredictionSimulationTest` runs both, plus a third check that perfect audiation
+   leaves a competent learner's mastery timeline identical item for item.
 
 ## 9. Open questions before Stage 3.0
 

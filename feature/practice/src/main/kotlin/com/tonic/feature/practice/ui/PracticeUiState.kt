@@ -2,6 +2,7 @@ package com.tonic.feature.practice.ui
 
 import com.tonic.core.model.items.AxisChange
 import com.tonic.core.model.items.Item
+import com.tonic.core.model.music.AudiatedPitch
 import com.tonic.core.model.music.Mode
 import com.tonic.core.model.music.ScaleDegree
 import com.tonic.core.model.state.LabelStyle
@@ -99,6 +100,16 @@ data class PracticeUiState(
      * Cleared on every new item. Null for a tapped answer.
      */
     val lastSungCents: Int? = null,
+    /**
+     * What the learner sang into this prediction item's audiation gap — docs/30-PHASE-3-SPEC.md §5.4.
+     *
+     * Null until a pitch has been captured *and* resolved, which is also its value for every item type
+     * that has no gap to sing into. It is deliberately not an answer: §5.4 decided the sung prediction
+     * "supplements the judgment, it does not replace it," so this sits here until the learner presses
+     * one of the three buttons, and rides along on the attempt that button produces. Nothing in the
+     * loop consults it to decide anything, and [PracticeViewModel.onLabelSelected] is the only reader.
+     */
+    val audiatedPitch: AudiatedPitch? = null,
 ) {
     /** The ladder's contents. Empty for an item type that does not answer with a degree, such as `M9`. */
     val activeDegrees: List<ScaleDegree>
@@ -111,6 +122,10 @@ data class PracticeUiState(
     /** The mode-identification item, when that is what is on screen. */
     val modeItem: Item.ModeIdentificationItem?
         get() = item as? Item.ModeIdentificationItem
+
+    /** The prediction item, when that is what is on screen — the audiation gap and its capture need the concrete type. */
+    val predictionItem: Item.PredictionItem?
+        get() = item as? Item.PredictionItem
 }
 
 /**

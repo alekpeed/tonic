@@ -17,6 +17,7 @@ import com.tonic.core.model.ids.SkillId
 import com.tonic.core.model.ids.SkillIds
 import com.tonic.core.model.items.AnswerAlphabet
 import com.tonic.core.model.items.Item
+import com.tonic.core.model.music.AudiatedPitch
 import com.tonic.core.model.music.ScaleDegree
 import com.tonic.core.model.music.SungAnswer
 import com.tonic.core.model.music.UnclearReason
@@ -170,11 +171,16 @@ class PracticeViewModel
          * no degraded experience); and the item has a pitch to sing at all. `M9` fails the last one:
          * its answer is major-or-minor, so there is nothing to produce, and offering to listen would
          * be asking for something that cannot be an answer.
+         *
+         * `M12` passes it, and means something different by it. On a recognition item singing *is* the
+         * answer; on a prediction item it is evidence gathered during the gap while the answer stays
+         * the three-button judgment (§5.4). Both are "this item has a pitch to sing," which is why one
+         * flag serves both, but the two paths diverge immediately after — see [captureAudiation].
          */
         private fun sungAvailableFor(item: Item?): Boolean =
             gateSettings.sungResponseEnabled &&
                 microphoneSource.isAvailable &&
-                item is Item.FunctionalRecognitionItem
+                (item is Item.FunctionalRecognitionItem || item is Item.PredictionItem)
 
         /**
          * The engine's per-item playback gate — called under its mutex just before an item would play,
@@ -456,6 +462,9 @@ class PracticeViewModel
                             sungResponseAvailable = sungAvailableFor(loopState.currentItem),
                             sungCapture = if (itemChanged) SungCaptureState.IDLE else it.sungCapture,
                             lastSungCents = if (itemChanged) null else it.lastSungCents,
+                            // Evidence belongs to the item it was sung into. Carrying it across would
+                            // attach one item's audiation to the next item's attempt.
+                            audiatedPitch = if (itemChanged) null else it.audiatedPitch,
                             // Raised in the *same* update as the item it explains, not one after.
                             //
                             // The playback gate held this item silent for an explanation the learner
@@ -524,6 +533,11 @@ class PracticeViewModel
                     _uiState.update { it.copy(phase = PlaybackPhase.REFERENCE, inputEnabled = false) }
                     delay(item.referencePlan.sequentialDurationMs + item.timing.gapAfterReferenceMs)
                     _uiState.update { it.copy(phase = PlaybackPhase.AUDIATION_GAP) }
+                    // Launched rather than awaited, so the gap keeps its own schedule: the note must
+                    // sound when the rendered buffer says it does, whatever the microphone is doing.
+                    // A child of this job, so skipping the item or an audio interruption cancels the
+                    // capture with everything else rather than leaving a microphone running.
+                    if (sungAvailableFor(item)) launch { captureAudiation(item) }
                     delay(item.gapBeforeSoundedNoteMs)
                     _uiState.update { it.copy(phase = PlaybackPhase.TARGET) }
                     delay(item.timing.targetDurationMs)
@@ -664,6 +678,80 @@ class PracticeViewModel
         }
 
         /**
+         * Listens for the audiated degree inside the silent gap — docs/30-PHASE-3-SPEC.md §5.4.
+         *
+         * **The window closes before the note sounds, and that is the entire point of this feature.**
+         * §5.4: "sing the degree during the gap, before the note plays... You cannot fake this — either
+         * you produced the right pitch from an internal representation or you didn't." A capture that
+         * ran a moment past the gap would be recording a learner who has already heard the answer, and
+         * the evidence would be worth nothing — it would look exactly like audiation while being
+         * imitation. [audiationCaptureWindowMs] is what keeps the two apart, and
+         * `SungPredictionCaptureTest` asserts the arithmetic rather than trusting this comment.
+         *
+         * **It starts on its own**, with no button to press first. Every other sung answer in the app
+         * is opened by the learner tapping "Sing", but here the gap is one to five seconds long and is
+         * itself the exercise: asking someone to find and press a control during it would replace the
+         * thing being measured with a manual task, and at `PREDICT_GAP` level 0 there is not time to do
+         * both. The learner has already opted in globally (§6.1), the explanation screen has already
+         * said the app listens during the silence, and no audio is kept (§7).
+         *
+         * **Nothing here can produce a wrong answer.** An unreadable capture leaves [PracticeUiState.audiatedPitch]
+         * null and the attempt is recorded exactly as a tap-only learner's would be. §6.5: "an unusable
+         * signal produces 'unclear,' never 'wrong'" — and on this path it does not even produce
+         * "unclear" to the learner mid-gap, because interrupting an audiation exercise to report a
+         * microphone problem would break the silence the exercise is made of.
+         */
+        private suspend fun captureAudiation(item: Item.PredictionItem) {
+            val windowMs = audiationCaptureWindowMs(item.gapBeforeSoundedNoteMs) ?: return
+            delay(AUDIATION_CAPTURE_LEAD_IN_MS)
+            _uiState.update { it.copy(sungCapture = SungCaptureState.LISTENING) }
+            val captured = microphoneSource.record(windowMs)
+            _uiState.update { it.copy(sungCapture = SungCaptureState.IDLE) }
+            if (captured.isEmpty) return
+
+            val answer =
+                SungResponseAnalyzer.analyze(
+                    buffer = captured.samples,
+                    sampleRate = captured.sampleRate,
+                    tonic = item.key,
+                    mode = item.mode,
+                    alphabet = item.activeDegrees,
+                    a4Hz = gateSettings.referenceA4Hz.toDouble(),
+                )
+            if (answer !is SungAnswer.Resolved) return
+            _uiState.update {
+                // Guarded on the item still being the one that was sung into. The capture outlives no
+                // gap by design, but a skip landing in the microseconds between `record` returning and
+                // this update would otherwise staple the old item's audiation to the new one.
+                if (it.predictionItem !== item) {
+                    it
+                } else {
+                    it.copy(audiatedPitch = AudiatedPitch.from(answer, item.statedDegree, item.mode))
+                }
+            }
+        }
+
+        /**
+         * How long to listen inside a gap of [gapMs], or null when the gap cannot hold a usable window.
+         *
+         * Both guards are silence, not padding. The lead-in lets the reference chord's release decay
+         * before the microphone opens, and the tail guard closes it well before the sounded note begins
+         * — docs/30-PHASE-3-SPEC.md §6.5: "reference audio and the answer window should not overlap; if
+         * they must, echo cancellation is required." Keeping them apart in time is the version of that
+         * which needs no echo cancellation and no device to verify.
+         *
+         * Returning null rather than a short window matters at `PREDICT_GAP` level 0. If the guards ever
+         * grow, or a future level shortens the gap, the honest outcome is no sung evidence for that
+         * item — the learner still answers with the buttons and is scored identically. A window too
+         * short to hold a sustained note would instead produce a stream of unreadable captures, which
+         * costs battery to learn nothing.
+         */
+        private fun audiationCaptureWindowMs(gapMs: Long): Long? {
+            val window = gapMs - AUDIATION_CAPTURE_LEAD_IN_MS - AUDIATION_CAPTURE_TAIL_GUARD_MS
+            return window.takeIf { it >= MIN_AUDIATION_CAPTURE_MS }
+        }
+
+        /**
          * A non-degree answer — `M9`'s major/minor, `M12`'s matched/too-low/too-high.
          *
          * Deliberately not routed through [onDegreeSelected]: there is no degree to select, no ladder
@@ -674,10 +762,25 @@ class PracticeViewModel
          */
         fun onLabelSelected(label: String) {
             if (!_uiState.value.inputEnabled) return
+            // Read before the update below, and carried onto the attempt without being consulted:
+            // docs/30-PHASE-3-SPEC.md §5.4's "both are recorded; the button answer is what scores."
+            // [label] decides `correct`; this only ever lands in a column.
+            val audiated = _uiState.value.audiatedPitch
             _uiState.update { it.copy(selectedAnswerLabel = label, inputEnabled = false) }
 
             viewModelScope.launch {
-                engine.submitAnswer(label, autoAdvance = false)
+                engine.submitAnswer(
+                    label,
+                    autoAdvance = false,
+                    // TAP even when the learner sang, and deliberately so. `inputMethod` records how
+                    // the *scoring* answer arrived, and on a prediction item that is always the button
+                    // — §5.4 rules out the sung pitch replacing it, because a node whose mastery meant
+                    // "produce the pitch" for singers and "spot the mismatch" for everyone else would
+                    // be two skills wearing one name, which §2 forbids outright. The singing is
+                    // recorded beside the answer, in `sungCents`, not as the answer.
+                    inputMethod = InputMethod.TAP,
+                    sungCents = audiated?.centsFromStated,
+                )
                 val feedback = engine.state.value.lastFeedback ?: return@launch
                 _uiState.update { it.copy(correctAnswerLabel = feedback.correctLabel) }
                 if (_uiState.value.hapticsEnabled) _hapticEvents.tryEmit(Unit)
@@ -751,7 +854,11 @@ class PracticeViewModel
             return currentContext to dueReviews
         }
 
-        private companion object {
+        // Internal rather than private so tests can assert against the real timing constants instead
+        // of restating them. `SungPredictionTest` checks that the audiation capture window plus its
+        // guards fits inside the gap; duplicating the numbers there would make that check pass by
+        // construction the moment either constant moved, which is exactly when it needs to fail.
+        internal companion object {
             const val CORRECT_FEEDBACK_MS = 300L
             const val INCORRECT_FLASH_SETTLE_MS = 250L
 
@@ -776,6 +883,40 @@ class PracticeViewModel
              * if it is structurally impossible to violate.
              */
             const val SUNG_CAPTURE_WINDOW_MS = 3_000L
+
+            /**
+             * Silence held at the start of an `M12` audiation gap before the microphone opens.
+             *
+             * The rendered item is one contiguous buffer — reference, silence, note (`PracticeItems`)
+             * — so the cadence's release is still decaying into the room when the gap's clock starts.
+             * Opening the microphone into that tail would hand the analyzer the app's own chord to
+             * measure, and it would resolve confidently to a degree the learner never sang.
+             */
+            const val AUDIATION_CAPTURE_LEAD_IN_MS = 200L
+
+            /**
+             * Silence held at the end of the gap, after the microphone closes and before the note sounds.
+             *
+             * The load-bearing constant of Stage 3.4. §5.4's claim is that a sung prediction "cannot be
+             * faked" *because* it is committed before the answer is audible; if capture and playback
+             * ever overlapped, the app would be recording imitation and filing it as audiation. Sized
+             * for scheduling jitter rather than for acoustics — the two events are ordered by
+             * arithmetic, and this is the margin that keeps the ordering true when a coroutine is
+             * dispatched late on a busy device.
+             */
+            const val AUDIATION_CAPTURE_TAIL_GUARD_MS = 250L
+
+            /**
+             * The shortest gap capture worth opening a microphone for.
+             *
+             * `SungResponseAnalyzer` discards [SungResponseAnalyzer.ONSET_SKIP_MS] of approach and then
+             * needs [SungResponseAnalyzer.MIN_SUSTAINED_FRAMES] of steady tone, so a window under about
+             * a third of a second cannot produce a reading whatever the learner does. At the shortest
+             * gap the app generates — one second, `PREDICT_GAP` level 0 — the guards leave 550 ms,
+             * which clears this comfortably; the check exists so that a future shorter level degrades
+             * to "no sung evidence" instead of to a run of unreadable captures.
+             */
+            const val MIN_AUDIATION_CAPTURE_MS = 400L
 
             /** Long enough to read across the item change; short enough to be gone before the next answer. */
             const val SKIP_NOTICE_MS = 1_600L

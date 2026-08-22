@@ -24,8 +24,11 @@ import androidx.compose.ui.text.style.TextAlign
 import com.tonic.core.curriculum.graph.SkillGraph
 import com.tonic.core.model.items.AnswerAlphabet
 import com.tonic.core.model.items.Item
+import com.tonic.core.model.music.AudiatedPitch
 import com.tonic.core.model.music.Mode
 import com.tonic.core.model.music.ScaleDegree
+import com.tonic.core.model.state.LabelStyle
+import com.tonic.core.ui.components.PlaybackPhase
 import com.tonic.core.ui.labels.displayLabel
 import com.tonic.core.ui.ladder.DegreeLadder
 import com.tonic.core.ui.theme.TonicSpacing
@@ -185,6 +188,21 @@ private fun PredictionAnswerArea(
                     },
         )
 
+        // docs/30-PHASE-3-SPEC.md §5.4: an invitation, during the gap, and only while the gap lasts.
+        // There is no button — the capture runs itself (see PracticeViewModel.captureAudiation) — so
+        // this line's only job is to make sure the learner is not singing into what looks like a dead
+        // screen. §6.4 rules out anything more: no meter, no moving indicator, nothing that would let
+        // them hunt for the pitch instead of recalling it.
+        if (uiState.sungResponseAvailable && uiState.phase == PlaybackPhase.AUDIATION_GAP) {
+            Text(
+                text = stringResource(R.string.m12_sung_listening),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().testTag("m12_sung_listening"),
+            )
+        }
+
         Spacer(modifier = Modifier.height(TonicSpacing.sm))
 
         for (label in AnswerAlphabet.MatchDirection.labels) {
@@ -199,6 +217,60 @@ private fun PredictionAnswerArea(
             )
             Spacer(modifier = Modifier.height(TonicSpacing.sm))
         }
+
+        if (uiState.sungResponseAvailable && uiState.correctAnswerLabel != null) {
+            AudiationReadout(
+                audiated = uiState.audiatedPitch,
+                labelStyle = uiState.labelStyle,
+            )
+        }
+    }
+}
+
+/**
+ * What the learner sang into the gap, told back to them after the answer — docs/30-PHASE-3-SPEC.md §6.4.
+ *
+ * **Not a second verdict.** The attempt was scored on the button and is already resolved by the time
+ * this appears; §5.4 is explicit that the sung pitch supplements the judgment rather than replacing
+ * it, so nothing here says right or wrong, and it is deliberately shown for a correct answer and an
+ * incorrect one alike. What it adds is the one thing the button cannot express: whether the note being
+ * judged against was the note that was asked for. §5.4 calls that out as the reason to keep the two
+ * apart — "a learner who sings the right pitch and then misreports the direction has a specific,
+ * diagnosable problem" — and a learner who audiated `5` when told `3` has a different one, which they
+ * can only act on if someone tells them it happened.
+ *
+ * The cents readout appears only when the right degree was held, because [SungAccuracyReadout]'s copy
+ * ("about 40 cents below that note") describes a voice missing a note it was aiming at. Attached to a
+ * learner who held the wrong degree entirely it would report a large number about the wrong question,
+ * which reads as a harsh grade on singing — exactly what §3 mitigation 4 exists to prevent.
+ */
+@Composable
+private fun AudiationReadout(
+    audiated: AudiatedPitch?,
+    labelStyle: LabelStyle,
+) {
+    Spacer(modifier = Modifier.height(TonicSpacing.sm))
+    if (audiated == null) {
+        // Said out loud rather than left blank. The learner sang and heard nothing back; silence would
+        // read as the app having judged it, which is the one thing that did not happen (§6.5).
+        Text(
+            text = stringResource(R.string.m12_sung_not_caught),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().testTag("m12_sung_not_caught"),
+        )
+        return
+    }
+    Text(
+        text = stringResource(R.string.m12_sung_held, audiated.degree.displayLabel(labelStyle)),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.fillMaxWidth().testTag("m12_sung_held"),
+    )
+    if (audiated.heldStatedDegree) {
+        SungAccuracyReadout(cents = audiated.centsFromStated)
     }
 }
 

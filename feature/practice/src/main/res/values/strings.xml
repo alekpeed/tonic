@@ -193,4 +193,20 @@
     <string name="sung_readout_on_pitch">You were on pitch.</string>
     <string name="sung_readout_flat">You were about %1$d cents below that note.</string>
     <string name="sung_readout_sharp">You were about %1$d cents above that note.</string>
+
+    <!--
+      M12's sung prediction — docs/30-PHASE-3-SPEC.md §5.4 and §6.4.
+
+      The listening line is a statement about the app, phrased so it cannot be read as a demand:
+      §2 forbids any copy implying singing is the real or advanced way to answer, and a learner who
+      says nothing into the gap has done nothing wrong. "If you want to" carries that, and the app
+      still listens either way rather than waiting on a decision.
+
+      The held/not-caught lines appear only after the answer is in. They report what happened,
+      never how well it went — the attempt was already scored on the button (§5.4), and these say
+      nothing about it in either direction.
+    -->
+    <string name="m12_sung_listening">Sing it out loud too, if you want to.</string>
+    <string name="m12_sung_held">You sang %1$s.</string>
+    <string name="m12_sung_not_caught">No sung note caught that time.</string>
 </resources>
