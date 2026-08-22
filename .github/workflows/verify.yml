@@ -58,6 +58,31 @@ jobs:
       - name: Verify
         run: ./scripts/verify.sh
 
+      # Room writes a schema JSON per database version into core/data/schemas, and
+      # docs/05-DATA-MODEL.md §4 requires those to be committed: they are what
+      # every future migration is validated against, and a MigrationTestHelper
+      # test cannot run without the version it is migrating to. The build
+      # generating one is easy to miss locally, and the failure it causes lands
+      # much later, on whoever writes the next migration. So the build is asked
+      # whether it produced anything not in the repository, and the file is
+      # printed rather than merely named - a schema that has to be regenerated to
+      # be read is a schema nobody reads.
+      - name: Check the Room schemas are committed
+        if: always()
+        run: |
+          set -uo pipefail
+          if [ -z "$(git status --porcelain core/data/schemas)" ]; then
+            echo "Room schemas match the repository."
+            exit 0
+          fi
+          echo "::error::The build produced Room schema files that are not committed. Commit them - docs/05-DATA-MODEL.md §4."
+          git status --porcelain core/data/schemas
+          for f in $(git status --porcelain core/data/schemas | awk '{print $2}'); do
+            echo "----- $f -----"
+            cat "$f"
+          done
+          exit 1
+
       # "Every build signs identically" is a promise, so it is checked rather than
       # assumed. The APK's certificate is compared against the committed debug
       # keystore's; if they ever diverge - a reverted signingConfig, a rotated

@@ -34,6 +34,8 @@ The append-only event log. Everything else is derivable from this table; treat i
 | `isWarmup` | Boolean | Recorded but excluded from mastery evaluation and the staircase — `07-ADAPTIVE-ENGINE.md` §8 |
 | `isAbandoned` | Boolean | Interruption/session kill (incoming call, headphone unplug, backgrounded, rotated) discarded the item rather than scoring it — excluded from every adaptive computation |
 | `isIndependenceCheckProbe` | Boolean | One of the 30 forced-`CADENCE_FADE`-L6 `M2.INDEPENDENCE_CHECK` probes (`03-CURRICULUM.md` §5.6). Still folded into axis-level replay (a failed check lowers `CADENCE_FADE`, and that has to survive a rebuild the same way any other axis move does) but excluded from the ordinary mastery window and FSRS review-block accumulation |
+| `inputMethod` | String | `TAP` or `SUNG` — how the answer was given (`30-PHASE-3-SPEC.md` §4). Added in schema v2, defaulting to `TAP`: before Phase 3 the degree ladder was the only way to answer anything, so for every earlier row that is a statement of fact, not a guess. Recorded, never adapted on — §2 makes sung and tapped attempts one `SkillState` |
+| `sungCents` | Int? | Signed deviation of the sung pitch from the answered degree; negative is flat. Null for every tapped attempt and for a sung one whose pitch could not be read. **For display and analysis only** (`30-PHASE-3-SPEC.md` §7) — never read by `Staircase`, `AxisScheduler`, `MasteryEvaluator` or `ConfusionTracker`, the same guarantee `replayCount` has and for the same reason. `SungDataIsNeverAdaptiveTest` asserts it by replaying one history twice and demanding an identical `SkillState` |
 
 Indices: `(skillId, timestamp)`, `(sessionId)`, `(skillId, targetLabel, responseLabel)`.
 
@@ -164,7 +166,16 @@ The keys and their `AppSettings` fields are kept rather than migrated away, so t
 
 - Room `exportSchema = true`. Schema JSON committed to the repo.
 - Every schema change ships an explicit `Migration`. `fallbackToDestructiveMigration()` is **forbidden** — losing a user's ear training progress is unacceptable and unrecoverable.
-- Every migration gets a `MigrationTestHelper` test that loads a real prior-version database and verifies the upgrade.
+- Every migration gets a `MigrationTestHelper` test that loads a real prior-version database and verifies the upgrade. The test must write rows at the old version and read them back after — asserting the migration *ran* is not the same as asserting the data *survived it*, and only the second one matters.
+- Migrations live in `core/data/.../db/Migrations.kt` and every one is registered in `Migrations.ALL`, which `DatabaseModule` passes to the builder. A migration that exists but was never registered passes its own test and crashes on a device, so the migration tests include one case that goes through `Room.databaseBuilder` with that list rather than naming a migration directly.
+- CI fails the build if a run generates schema JSON that is not committed, and prints the file. Schemas are only useful if they are in the repo before the next migration needs them.
+
+### Version history
+
+| Version | Change |
+|---|---|
+| 1 | Initial schema |
+| 2 | `attempts` gains `inputMethod` and `sungCents` for Phase 3's optional sung response (`30-PHASE-3-SPEC.md` §7). Two added columns, both defaulted; the append-only log is never rewritten |
 
 ---
 
