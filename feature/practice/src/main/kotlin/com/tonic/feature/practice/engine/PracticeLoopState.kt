@@ -1,5 +1,6 @@
 package com.tonic.feature.practice.engine
 
+import com.tonic.core.model.ids.SkillId
 import com.tonic.core.model.items.AxisChange
 import com.tonic.core.model.items.Item
 
@@ -11,6 +12,14 @@ data class PracticeLoopState(
      * itself no longer needs to know which it is holding (see [PracticeItems]).
      */
     val currentItem: Item? = null,
+    /**
+     * The skill node [currentItem] belongs to. The item itself deliberately does not carry this — an
+     * item is a pure function of its generation inputs — but the UI needs it to decide *which*
+     * explanation a moment belongs to: which screen the help affordance recalls, and whether the node
+     * the loop just moved onto owes the learner an unseen first-run explanation
+     * (docs/11-ONBOARDING-CLARITY.md §3/§5).
+     */
+    val currentSkillId: SkillId? = null,
     /** True while [currentItem] is one of the 30 forced-L6 `M2.INDEPENDENCE_CHECK` probes, not ordinary practice. */
     val isIndependenceCheckProbe: Boolean = false,
     val itemsCompleted: Int = 0,

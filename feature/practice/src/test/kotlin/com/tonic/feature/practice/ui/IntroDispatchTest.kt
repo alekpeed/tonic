@@ -43,6 +43,16 @@ class IntroDispatchTest {
     }
 
     @Test
+    fun `the mode-identification node gets the mode explanation`() {
+        // M9IntroContent sat built, previewed and tested since Phase 2 Stage 2.2 with no dispatch line
+        // reaching it - the exact half-wired shape this class's KDoc describes, found while fixing the
+        // recall path. This case is what keeps it wired.
+        render(IntroKind.M9)
+        compose.onNodeWithTag("m9_intro_start").assertExists()
+        compose.onNodeWithTag("m2_intro_start").assertDoesNotExist()
+    }
+
+    @Test
     fun `the minor node gets the minor explanation`() {
         render(IntroKind.M10)
         compose.onNodeWithTag("m10_intro_start").assertExists()

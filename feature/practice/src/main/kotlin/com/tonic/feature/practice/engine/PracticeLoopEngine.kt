@@ -142,28 +142,34 @@ class PracticeLoopEngine
         private val pendingAdaptations = java.util.concurrent.ConcurrentLinkedQueue<Attempt>()
 
         /**
-         * Suppresses playback of the first item only — docs/08-UI-SPEC.md §3a.
+         * Asked, per item, whether an explanation screen needs this item's audio withheld —
+         * docs/08-UI-SPEC.md §3a and docs/11-ONBOARDING-CLARITY.md §3.
          *
          * The explanation screen is shown *over* a session that has already started, so that dismissing
          * it lands on a ready item rather than a spinner. That was right about the loading and wrong
-         * about the sound: the first item's audio played underneath the screen, so a learner reading
-         * "you'll hear a short sequence of chords" heard exactly that while still reading the sentence
+         * about the sound: the item's audio played underneath the screen, so a learner reading "you'll
+         * hear a short sequence of chords" heard exactly that while still reading the sentence
          * explaining it. The explanation and the thing it explains arrived at the same moment, which is
          * the one arrangement guaranteed to teach neither.
          *
-         * So the session still starts, renders, and pre-renders behind the screen. Only the playing
-         * waits, until [releaseHeldPlayback].
+         * A per-item predicate rather than a start-time boolean, because the first version was a
+         * boolean and that shape *was* the bug's second half: it could only describe the item the
+         * session opened on, so a session that opened on a familiar node and climbed into `M12`
+         * mid-way played `M12`'s first item under `M12`'s explanation. The caller decides — it is the
+         * one that knows which explanations exist and which have been seen; this loop only knows that
+         * a held item still renders, still pre-renders its successor, and stays silent until
+         * [releaseHeldPlayback].
          */
-        private var playbackHeld = false
+        private var holdPlaybackFor: (SkillId) -> Boolean = { false }
 
         /**
-         * The buffer withheld by [playbackHeld], waiting for [releaseHeldPlayback].
+         * The buffer withheld by [holdPlaybackFor], waiting for [releaseHeldPlayback].
          *
-         * Separate from the flag because the two answer different questions: the flag says "withhold the
-         * next item you prepare", and this says "here is the one that was withheld". Collapsing them
-         * into the flag alone is what the first attempt did, and it silenced the *whole session* rather
-         * than the first item - the flag stayed set, so every later item was suppressed too. Caught by
-         * an existing test that counts buffers through a contrast sequence.
+         * Separate from the predicate because the two answer different questions: the predicate says
+         * "withhold the item you are about to present", and this says "here is the one that was
+         * withheld". Collapsing them into one flag is what the first attempt did, and it silenced the
+         * *whole session* rather than the first item - the flag stayed set, so every later item was
+         * suppressed too. Caught by an existing test that counts buffers through a contrast sequence.
          */
         private var heldBuffer: PcmBuffer? = null
 
@@ -174,10 +180,10 @@ class PracticeLoopEngine
             sessionLengthMinutes: Int,
             rootSeed: Long,
             now: Instant,
-            holdPlayback: Boolean = false,
+            holdPlaybackFor: (SkillId) -> Boolean = { false },
         ) = loopMutex.withLock {
             resetSessionState()
-            this.playbackHeld = holdPlayback
+            this.holdPlaybackFor = holdPlaybackFor
             this.rootSeed = rootSeed
 
             val plan = SessionComposer.compose(currentNode, dueReviews, sessionLengthMinutes, rootSeed, now)
@@ -203,12 +209,12 @@ class PracticeLoopEngine
          */
         suspend fun resume(
             session: Session,
-            holdPlayback: Boolean = false,
+            holdPlaybackFor: (SkillId) -> Boolean = { false },
         ) = loopMutex.withLock {
             val resumeState =
                 requireNotNull(session.resumeState) { "resume() needs a session carrying a ResumeState" }
             resetSessionState()
-            this.playbackHeld = holdPlayback
+            this.holdPlaybackFor = holdPlaybackFor
 
             val plan = resumeState.plan
             this.rootSeed = plan.rootSeed
@@ -281,7 +287,7 @@ class PracticeLoopEngine
             lastPresentedLevels = null
             lastPresentedSkill = null
             sessionDeadline = null
-            playbackHeld = false
+            holdPlaybackFor = { false }
             heldBuffer = null
             queue.clear()
         }
@@ -332,7 +338,7 @@ class PracticeLoopEngine
             pausedByTransientLoss = reason == InterruptionReason.TRANSIENT_FOCUS_LOSS
             discardPending()
             persistResumeState()
-            _state.update { it.copy(currentItem = null, isPaused = true) }
+            _state.update { it.copy(currentItem = null, currentSkillId = null, isPaused = true) }
         }
 
         /** Stops audio and records the pending item as abandoned, if there is one. Leaves the queue untouched. */
@@ -475,17 +481,20 @@ class PracticeLoopEngine
             }
 
         /**
-         * Plays the item that was prepared while [playbackHeld] suppressed it, and lifts the hold.
+         * Plays the item that was prepared while [holdPlaybackFor] suppressed it, and lifts the hold.
          *
          * Not counted as a replay: [Attempt.replayCount] means "how many times the user asked to hear it
          * again", and this is the first time they are hearing it at all. Idempotent and a no-op when
-         * nothing is held, so a second dismiss cannot start the audio twice.
+         * nothing is held, so a second dismiss cannot start the audio twice. Returns whether anything
+         * actually played, so the caller can restart its playback captions from zero for the item the
+         * learner is only now beginning to hear.
          */
-        suspend fun releaseHeldPlayback() =
+        suspend fun releaseHeldPlayback(): Boolean =
             loopMutex.withLock {
-                val buffer = heldBuffer ?: return@withLock
+                val buffer = heldBuffer ?: return@withLock false
                 heldBuffer = null
                 audioPlayer.play(buffer)
+                true
             }
 
         /**
@@ -713,6 +722,7 @@ class PracticeLoopEngine
             _state.update {
                 it.copy(
                     currentItem = null,
+                    currentSkillId = null,
                     isFinished = true,
                     itemsCompleted = itemsCompleted,
                     itemsPlanned = itemsPlanned,
@@ -766,9 +776,7 @@ class PracticeLoopEngine
 
             pending = rendered
             replayCountForCurrent = 0
-            if (playbackHeld) {
-                // Consumed here: the hold covers the item it was armed for and no other.
-                playbackHeld = false
+            if (holdPlaybackFor(rendered.slot.skillId)) {
                 heldBuffer = rendered.buffer
             } else {
                 audioPlayer.play(rendered.buffer)
@@ -782,6 +790,7 @@ class PracticeLoopEngine
             _state.update {
                 it.copy(
                     currentItem = rendered.item,
+                    currentSkillId = rendered.slot.skillId,
                     isIndependenceCheckProbe = rendered.isIndependenceProbe,
                     itemsCompleted = itemsCompleted,
                     itemsPlanned = itemsPlanned,

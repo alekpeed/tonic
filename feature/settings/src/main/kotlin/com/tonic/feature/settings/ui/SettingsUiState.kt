@@ -9,6 +9,8 @@ data class SettingsUiState(
     val isLoading: Boolean = true,
     /** Outcome of the last "discard saved session" press, for §2a's visible confirmation. Null until pressed. */
     val discardResult: DiscardResult? = null,
+    /** True once "show explanations again" has cleared the seen-once flags — §2a's visible confirmation. */
+    val explanationsReset: Boolean = false,
     /**
      * Set when the user has asked for an export and the document is ready to be written. The screen
      * consumes it by launching the system's create-document picker; the write itself happens there,

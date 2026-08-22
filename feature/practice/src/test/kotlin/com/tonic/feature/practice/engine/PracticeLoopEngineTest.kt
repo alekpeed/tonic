@@ -90,13 +90,14 @@ class PracticeLoopEngineTest {
     fun `a held session prepares the first item without playing it`() =
         runBlocking {
             val fixture = Fixture()
+            val introOpen = true
             fixture.engine.start(
                 freshNode(),
                 dueReviews = emptyList(),
                 sessionLengthMinutes = 5,
                 rootSeed = 1L,
                 now = Instant.EPOCH,
-                holdPlayback = true,
+                holdPlaybackFor = { introOpen },
             )
 
             assertNotNull(fixture.engine.state.value.recognitionItem, "the item must still be prepared")
@@ -108,13 +109,14 @@ class PracticeLoopEngineTest {
     fun `releasing the hold plays the prepared item once`() =
         runBlocking {
             val fixture = Fixture()
+            val introOpen = true
             fixture.engine.start(
                 freshNode(),
                 dueReviews = emptyList(),
                 sessionLengthMinutes = 5,
                 rootSeed = 1L,
                 now = Instant.EPOCH,
-                holdPlayback = true,
+                holdPlaybackFor = { introOpen },
             )
             fixture.engine.releaseHeldPlayback()
 
@@ -130,14 +132,18 @@ class PracticeLoopEngineTest {
     fun `later items play normally after the hold is lifted`() =
         runBlocking {
             val fixture = Fixture()
+            var introOpen = true
             fixture.engine.start(
                 freshNode(),
                 dueReviews = emptyList(),
                 sessionLengthMinutes = 5,
                 rootSeed = 1L,
                 now = Instant.EPOCH,
-                holdPlayback = true,
+                holdPlaybackFor = { introOpen },
             )
+            // Dismissal in the ViewModel closes the intro *and* releases - both, in that order, or the
+            // gate would hold the next item for a screen no longer on it.
+            introOpen = false
             fixture.engine.releaseHeldPlayback()
             val afterFirst = fixture.audioPlayer.playedBuffers.size
 

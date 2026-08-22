@@ -10,10 +10,12 @@ import com.tonic.core.data.repository.SkillStateRepository
 import com.tonic.core.data.settings.SettingsRepository
 import com.tonic.core.engine.session.DueReview
 import com.tonic.core.engine.session.SkillWorkContext
+import com.tonic.core.model.ids.SkillId
 import com.tonic.core.model.ids.SkillIds
 import com.tonic.core.model.items.AnswerAlphabet
 import com.tonic.core.model.items.Item
 import com.tonic.core.model.music.ScaleDegree
+import com.tonic.core.model.state.AppSettings
 import com.tonic.core.model.state.MasteryState
 import com.tonic.core.model.time.Clock
 import com.tonic.core.ui.components.PlaybackPhase
@@ -66,6 +68,31 @@ class PracticeViewModel
         private var timeTickerJob: Job? = null
         private var started = false
 
+        /**
+         * Explanation kinds already put on screen this session. The engine's per-item playback gate
+         * ([shouldHoldPlaybackFor]) runs off this rather than the persisted seen-flags, because the
+         * DataStore write from [onIntroDismissed] is asynchronous: gating on the flag alone left a
+         * window where the *next* item's audio could be withheld for an explanation that had already
+         * been dismissed — held with nothing ever arriving to release it, a permanently silent item.
+         * A synchronized set claimed at decide-time closes that window. Session-scoped on purpose; the
+         * flags do the across-sessions work.
+         */
+        private val introShownThisSession =
+            java.util.Collections.synchronizedSet(mutableSetOf<IntroKind>())
+
+        /**
+         * Set by [shouldHoldPlaybackFor] (on the engine's dispatcher, under its mutex) and consumed by
+         * the state collector (on the main dispatcher) — the handoff that turns "this item's audio was
+         * withheld" into the explanation screen actually appearing. Volatile for exactly that
+         * cross-thread pair.
+         */
+        @Volatile
+        private var pendingIntroKind: IntroKind? = null
+
+        /** The freshest settings snapshot, for [shouldHoldPlaybackFor], which cannot suspend to read the flow. */
+        @Volatile
+        private var gateSettings = AppSettings()
+
         /** The one worked example, generated once and reused for replays so the audio never changes under the narration. */
         private val workedExample by lazy { WorkedExample.generate() }
 
@@ -77,6 +104,9 @@ class PracticeViewModel
 
         /** The mixed-mode counterpart — deliberately a minor item, see [MixedModeWorkedExample]. */
         private val mixedModeWorkedExample by lazy { MixedModeWorkedExample.generate() }
+
+        /** The mode-identification contrast pair, for [IntroKind.M9]'s screen — see [M9WorkedExample]. */
+        private val m9WorkedPair by lazy { M9WorkedExample.pair() }
 
         /** The mixed-mode example's answer, read off the real item and rendered in the learner's own style. */
         val mixedModeExampleAnswer: String
@@ -111,8 +141,12 @@ class PracticeViewModel
                 // on screen, so the learner met the sound and the sentence describing it at the same
                 // moment. The engine renders and pre-renders behind the screen and holds only the audio.
                 val settings = settingsRepository.settings.first()
+                gateSettings = settings
                 val kind = introKindFor(resolveSessionStart().first.skillId, settings)
                 if (kind != IntroKind.NONE) {
+                    // Claimed here as well as shown: the engine's playback gate consults the same set,
+                    // so the first item is held because this screen is up, not re-decided.
+                    introShownThisSession.add(kind)
                     _uiState.update { it.copy(showIntro = true, introKind = kind) }
                 }
                 // docs/10-TESTING.md §11: "force stop mid-session -> resume offered, no data loss." An
@@ -127,12 +161,32 @@ class PracticeViewModel
             }
         }
 
+        /**
+         * The engine's per-item playback gate — called under its mutex just before an item would play.
+         *
+         * Two reasons to hold. An explanation screen is already up (the session's opening intro, or a
+         * recall via [onOpenIntro]): nothing may start sounding underneath it. Or this item's node owes
+         * an explanation not yet shown ([introKindFor]): then this call *claims* it — records the
+         * pending kind for the state collector to put on screen — and the item waits behind it for
+         * [onIntroDismissed]. Per item rather than once at start, because a session that opens on a
+         * familiar node and climbs into `M12` mid-way owes `M12`'s screen at the climb, which is where
+         * the start-time-only version handed the learner a first `M12` item with no explanation at all.
+         */
+        private fun shouldHoldPlaybackFor(skillId: SkillId): Boolean {
+            val kind = introKindFor(skillId, gateSettings)
+            if (kind != IntroKind.NONE && introShownThisSession.add(kind)) {
+                pendingIntroKind = kind
+                return true
+            }
+            return _uiState.value.showIntro
+        }
+
         /** The user accepted the resume offer — continue the interrupted session from its stored plan. */
         fun onResumeSession() {
             val session = _uiState.value.resumableSession ?: return
             _uiState.update { it.copy(resumableSession = null, isLoading = true) }
             viewModelScope.launch {
-                engine.resume(session, holdPlayback = _uiState.value.showIntro)
+                engine.resume(session, holdPlaybackFor = ::shouldHoldPlaybackFor)
                 observeEngineAndSettings()
             }
         }
@@ -187,6 +241,19 @@ class PracticeViewModel
             }
         }
 
+        /**
+         * `M9`'s two labeled examples, each through the same rendering path as a live `M9` item. Two
+         * separate entry points rather than one, because the screen labels each press with the word it
+         * demonstrates - the pairing of word to sound *is* the lesson (see [M9WorkedExample]).
+         */
+        fun onPlayM9MajorExample() {
+            viewModelScope.launch { audioPlayer.play(PracticeItems.renderAudio(m9WorkedPair.first)) }
+        }
+
+        fun onPlayM9MinorExample() {
+            viewModelScope.launch { audioPlayer.play(PracticeItems.renderAudio(m9WorkedPair.second)) }
+        }
+
         /** The reveal is user-driven: the answer is never shown before they've had the chance to listen. */
         fun onRevealWorkedExampleAnswer() {
             _uiState.update { it.copy(introAnswerRevealed = true) }
@@ -200,14 +267,19 @@ class PracticeViewModel
             val kind = _uiState.value.introKind
             _uiState.update { it.copy(showIntro = false, introAnswerRevealed = false) }
             viewModelScope.launch {
-                // The first item was prepared but deliberately not played while the screen was up. This
-                // is where the exercise actually begins - on Start, not on arrival.
+                // The item was prepared but deliberately not played while the screen was up. This is
+                // where the exercise actually begins - on Start, not on arrival.
                 audioPlayer.stop()
-                engine.releaseHeldPlayback()
+                if (engine.releaseHeldPlayback()) {
+                    // The playback captions started with the (silent) item; the learner is only now
+                    // hearing it, so they restart from zero or they narrate the wrong moment.
+                    _uiState.value.item?.let(::runPlaybackPhaseTimer)
+                }
                 // Only the shape that was actually shown is marked seen. Marking both would silently
                 // rob the learner of an explanation they never received.
                 when (kind) {
                     IntroKind.M2 -> settingsRepository.setModule2IntroSeen(true)
+                    IntroKind.M9 -> settingsRepository.setModule9IntroSeen(true)
                     IntroKind.M10 -> settingsRepository.setModule10IntroSeen(true)
                     IntroKind.M11 -> settingsRepository.setModule11IntroSeen(true)
                     IntroKind.M12 -> settingsRepository.setModule12IntroSeen(true)
@@ -221,10 +293,23 @@ class PracticeViewModel
         /**
          * The help affordance - docs/11-ONBOARDING-CLARITY.md §5: "always reachable on demand... the
          * exact same explanation and worked example, not an abbreviated version."
+         *
+         * "The exact same explanation" means the one for the exercise on screen, so the kind is
+         * recomputed from the node the loop is actually on — not left at whatever the session opened
+         * with, which is how recall on an `M12` item once produced the major-recognition screen.
          */
         fun onOpenIntro() {
             audioPlayer.stop()
-            _uiState.update { it.copy(showIntro = true, introAnswerRevealed = false) }
+            val currentKind =
+                engine.state.value.currentSkillId
+                    ?.let(::moduleIntroKindFor)
+            _uiState.update {
+                it.copy(
+                    showIntro = true,
+                    introKind = currentKind ?: it.introKind,
+                    introAnswerRevealed = false,
+                )
+            }
         }
 
         /**
@@ -258,6 +343,7 @@ class PracticeViewModel
 
         private suspend fun beginFreshSession() {
             val settings = settingsRepository.settings.first()
+            gateSettings = settings
             val (currentNode, dueReviews) = resolveSessionStart()
             engine.start(
                 currentNode = currentNode,
@@ -265,7 +351,7 @@ class PracticeViewModel
                 sessionLengthMinutes = settings.sessionLengthMinutes,
                 rootSeed = Random.nextLong(),
                 now = clock.now(),
-                holdPlayback = _uiState.value.showIntro,
+                holdPlaybackFor = ::shouldHoldPlaybackFor,
             )
             observeEngineAndSettings()
         }
@@ -310,6 +396,7 @@ class PracticeViewModel
             startTimeTicker()
             viewModelScope.launch {
                 settingsRepository.settings.collect { settings ->
+                    gateSettings = settings
                     _uiState.update {
                         it.copy(
                             labelStyle = settings.labelStyle,
@@ -342,6 +429,16 @@ class PracticeViewModel
                     }
                     if (itemChanged) {
                         loopState.currentItem?.let(::runPlaybackPhaseTimer)
+                    }
+                    // The playback gate held this item for an explanation the learner hasn't seen -
+                    // put that explanation up now that the (silent) item is current. Claimed with a
+                    // read-and-clear so a later emission cannot show it twice.
+                    val dueIntro = pendingIntroKind
+                    if (dueIntro != null) {
+                        pendingIntroKind = null
+                        _uiState.update {
+                            it.copy(showIntro = true, introKind = dueIntro, introAnswerRevealed = false)
+                        }
                     }
                 }
             }
@@ -564,32 +661,52 @@ class PracticeViewModel
     }
 
 /**
- * Which explanation a node needs, or none. Recalling one on demand ([onOpenIntro]) deliberately
- * does not consult this — docs/11-ONBOARDING-CLARITY.md §5: recall neither depends on nor
- * changes the seen-once flag.
+ * The explanation screen that belongs to [skillId]'s own module, never `NONE` — every node has one
+ * task shape, and every task shape has a screen. This is what the help affordance recalls
+ * (docs/11-ONBOARDING-CLARITY.md §5): recall answers "what is *this* exercise?", so it must be
+ * decided by the node on screen, not by whichever screen a session happened to open with. The first
+ * version of [onOpenIntro] reused the start-time kind, and a learner on an `M12` item who asked for
+ * help was handed the major-recognition explanation — reported from live use as the instruction
+ * screen having been deleted, which from their side is exactly what it looked like.
  *
- * Top-level rather than a member: it reads nothing from the view model, only its two arguments, and
- * lifting it out is what lets the gate be asserted directly rather than through a constructed view
- * model and a fake repository - see SungResponseIntroTest.
+ * Top-level rather than a member: it reads nothing from the view model, only its argument, and
+ * lifting it out is what lets the mapping be asserted directly rather than through a constructed
+ * view model and a fake repository.
+ */
+internal fun moduleIntroKindFor(skillId: SkillId): IntroKind =
+    when (skillId) {
+        SkillIds.M10_MIXED_MODE -> IntroKind.MIXED_MODE
+        in SkillGraph.m12Nodes.map { it.id } -> IntroKind.M12
+        in SkillGraph.m11Nodes.map { it.id } -> IntroKind.M11
+        in SkillGraph.m10Nodes.map { it.id } -> IntroKind.M10
+        in SkillGraph.m9Nodes.map { it.id } -> IntroKind.M9
+        else -> IntroKind.M2
+    }
+
+/**
+ * Which explanation [skillId] still *owes* the learner, or [IntroKind.NONE]. First-encounter only:
+ * the module's own screen while unseen, else the sung-response one while due
+ * (docs/11-ONBOARDING-CLARITY.md §3/§5, docs/30-PHASE-3-SPEC.md §6.2). Recall on demand
+ * ([onOpenIntro]) deliberately does not consult this — recall neither depends on nor changes the
+ * seen-once flags.
  */
 internal fun introKindFor(
-    skillId: com.tonic.core.model.ids.SkillId,
-    settings: com.tonic.core.model.state.AppSettings,
+    skillId: SkillId,
+    settings: AppSettings,
 ): IntroKind {
-    val moduleIntro =
-        when {
-            skillId == SkillIds.M10_MIXED_MODE ->
-                if (settings.mixedModeIntroSeen) IntroKind.NONE else IntroKind.MIXED_MODE
-            skillId in SkillGraph.m12Nodes.map { it.id } ->
-                if (settings.module12IntroSeen) IntroKind.NONE else IntroKind.M12
-            skillId in SkillGraph.m11Nodes.map { it.id } ->
-                if (settings.module11IntroSeen) IntroKind.NONE else IntroKind.M11
-            skillId in SkillGraph.m10Nodes.map { it.id } ->
-                if (settings.module10IntroSeen) IntroKind.NONE else IntroKind.M10
-            settings.module2IntroSeen -> IntroKind.NONE
-            else -> IntroKind.M2
+    val moduleIntro = moduleIntroKindFor(skillId)
+    val moduleSeen =
+        when (moduleIntro) {
+            IntroKind.M2 -> settings.module2IntroSeen
+            IntroKind.M9 -> settings.module9IntroSeen
+            IntroKind.M10 -> settings.module10IntroSeen
+            IntroKind.M11 -> settings.module11IntroSeen
+            IntroKind.M12 -> settings.module12IntroSeen
+            IntroKind.MIXED_MODE -> settings.mixedModeIntroSeen
+            // Unreachable from moduleIntroKindFor; listed so the when stays exhaustive without an else.
+            IntroKind.NONE, IntroKind.SUNG -> true
         }
-    if (moduleIntro != IntroKind.NONE) return moduleIntro
+    if (!moduleSeen) return moduleIntro
 
     // Checked after the module intros, and deliberately so. Singing is not tied to a node, so it
     // could surface anywhere - but a learner who has not yet been told what the *exercise* is

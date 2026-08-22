@@ -26,7 +26,7 @@ The user is listening, not reading. The screen's job is to stay out of the way.
 | Practice | `practice` | The core loop |
 | Session summary | `summary/{sessionId}` | What happened, what's next |
 | Progress | `progress` | Mastery map, per-degree accuracy, confusion view |
-| Settings | `settings` | Label style, tuning, session length, theme, reminder opt-in, discard saved session (clears only the resumable session — never placement or skill progress), export your data (`20-PHASE-2-SPEC.md` §6) |
+| Settings | `settings` | Label style, tuning, session length, theme, reminder opt-in, discard saved session (clears only the resumable session — never placement or skill progress), show explanations again (clears every first-run explanation's seen-once flag, and nothing else — `11-ONBOARDING-CLARITY.md` §5), export your data (`20-PHASE-2-SPEC.md` §6) |
 
 No bottom navigation bar with four tabs. Home is the hub; Progress and Settings are reachable from it. The app has one job and the navigation should reflect that.
 
@@ -79,6 +79,10 @@ The ladder should not need to scroll, and at the node a user is actually on it d
 3. A dismiss/start button. Nothing else.
 
 **What it must not be:** a gate. There is no comprehension check, no quiz, no forced repeat viewing, and no requirement to finish it before practicing. It is shown automatically exactly once per task shape, tracked by its own persisted flag (`05-DATA-MODEL.md` §3), and the session underneath is already starting behind it so dismissing lands on a ready item rather than a spinner.
+
+**When it appears:** on the first *encounter* with the shape, wherever that falls — which may be mid-session, when the plan climbs onto a new module's node, not only at a session's start. Deciding once at session start was a real defect: a session opening on a familiar node and reaching M12 partway through presented the learner's first audiation item with no explanation at all.
+
+**Audio while it is up:** none. The session starting behind the screen refers to loading — the covered item renders and pre-renders, but its audio is withheld until the screen is dismissed. Playing it underneath, which the first implementation did, hands the user the sound and the sentence explaining the sound in the same instant, and teaches neither. Reported from live use on every module.
 
 **Recall:** every screen that introduces a task shape carries a small, low-emphasis help affordance that reopens the explanation on demand, permanently. Recall shows the identical explanation and worked example, never an abbreviated version, and never touches the seen-once flag — `11-ONBOARDING-CLARITY.md` §5. A user who forgets on their tenth session gets exactly what they got on their first.
 

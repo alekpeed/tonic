@@ -100,6 +100,8 @@ fun PracticeScreen(
                     soundedWasLower = viewModel.predictionExampleWasLower,
                 ),
             mixedModeExampleAnswer = viewModel.mixedModeExampleAnswer,
+            onPlayM9Major = viewModel::onPlayM9MajorExample,
+            onPlayM9Minor = viewModel::onPlayM9MinorExample,
         )
         return
     }
@@ -343,8 +345,16 @@ internal fun IntroForKind(
     onStart: () -> Unit,
     predictionExample: PredictionExampleCopy = PredictionExampleCopy(),
     mixedModeExampleAnswer: String = "",
+    onPlayM9Major: () -> Unit = {},
+    onPlayM9Minor: () -> Unit = {},
 ) {
     when (kind) {
+        IntroKind.M9 ->
+            M9IntroContent(
+                onPlayMajor = onPlayM9Major,
+                onPlayMinor = onPlayM9Minor,
+                onStart = onStart,
+            )
         IntroKind.M10 -> M10IntroContent(onPlayExample = onPlayExample, onStart = onStart)
         IntroKind.M11 -> M11IntroContent(onStart = onStart)
         IntroKind.SUNG -> SungResponseIntroContent(onStart = onStart)

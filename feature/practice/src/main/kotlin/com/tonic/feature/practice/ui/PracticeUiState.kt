@@ -110,6 +110,14 @@ enum class IntroKind {
     /** Degree identification in major. */
     M2,
 
+    /**
+     * Mode identification — what "major" and "minor" name, demonstrated as a labeled contrast pair.
+     * The screen ([M9IntroContent]) existed, previewed and tested, since Phase 2 Stage 2.2; this
+     * entry is what finally dispatches it. Its absence was the exact half-wired shape
+     * `IntroDispatchTest`'s KDoc warns about: a correct screen no line of composition ever reached.
+     */
+    M9,
+
     /** Degree identification in minor — what changed, and what `♭3` means. */
     M10,
 
