@@ -156,11 +156,15 @@ class PracticeLoopEngine
          * boolean and that shape *was* the bug's second half: it could only describe the item the
          * session opened on, so a session that opened on a familiar node and climbed into `M12`
          * mid-way played `M12`'s first item under `M12`'s explanation. The caller decides — it is the
-         * one that knows which explanations exist and which have been seen; this loop only knows that
+         * one that knows which explanations exist and which have been shown; this loop only knows that
          * a held item still renders, still pre-renders its successor, and stays silent until
          * [releaseHeldPlayback].
+         *
+         * Given the whole [PlannedSlot] rather than its [SkillId], because whether a slot is *review*
+         * is part of the decision: an interleaved review of an old module is not the learner arriving
+         * somewhere new, and stopping practice to re-explain it would be pure interruption.
          */
-        private var holdPlaybackFor: (SkillId) -> Boolean = { false }
+        private var holdPlaybackFor: (PlannedSlot) -> Boolean = { false }
 
         /**
          * The buffer withheld by [holdPlaybackFor], waiting for [releaseHeldPlayback].
@@ -180,7 +184,7 @@ class PracticeLoopEngine
             sessionLengthMinutes: Int,
             rootSeed: Long,
             now: Instant,
-            holdPlaybackFor: (SkillId) -> Boolean = { false },
+            holdPlaybackFor: (PlannedSlot) -> Boolean = { false },
         ) = loopMutex.withLock {
             resetSessionState()
             this.holdPlaybackFor = holdPlaybackFor
@@ -209,7 +213,7 @@ class PracticeLoopEngine
          */
         suspend fun resume(
             session: Session,
-            holdPlaybackFor: (SkillId) -> Boolean = { false },
+            holdPlaybackFor: (PlannedSlot) -> Boolean = { false },
         ) = loopMutex.withLock {
             val resumeState =
                 requireNotNull(session.resumeState) { "resume() needs a session carrying a ResumeState" }
@@ -776,7 +780,7 @@ class PracticeLoopEngine
 
             pending = rendered
             replayCountForCurrent = 0
-            if (holdPlaybackFor(rendered.slot.skillId)) {
+            if (holdPlaybackFor(rendered.slot)) {
                 heldBuffer = rendered.buffer
             } else {
                 audioPlayer.play(rendered.buffer)

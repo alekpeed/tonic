@@ -17,6 +17,7 @@ import com.tonic.core.model.items.Item
 import com.tonic.core.model.music.ScaleDegree
 import com.tonic.core.model.state.AppSettings
 import com.tonic.core.model.state.MasteryState
+import com.tonic.core.model.state.PlannedSlot
 import com.tonic.core.model.time.Clock
 import com.tonic.core.ui.components.PlaybackPhase
 import com.tonic.core.ui.labels.displayLabel
@@ -168,9 +169,17 @@ class PracticeViewModel
          * entering a module means seeing its explanation, every time, and only leaving and returning
          * counts as entering again (docs/08-UI-SPEC.md §3a). Twenty questions deep in `M12` nothing
          * reappears, because `M12`'s kind is already in the set.
+         *
+         * **A review slot never raises one.** Up to 40% of a session is spaced-repetition review of
+         * older, already-mastered nodes, interleaved among the current node's items
+         * (`SessionComposer`). Those are not the learner entering a module — they are being checked on
+         * one they finished. Treating them as entry would stop practice partway through to re-explain
+         * major-scale degrees to someone working on audiation, once per old module the session happens
+         * to draw from, which is interruption rather than teaching.
          */
-        private fun shouldHoldPlaybackFor(skillId: SkillId): Boolean {
-            val kind = introKindFor(skillId, gateSettings, introShownThisSession)
+        private fun shouldHoldPlaybackFor(slot: PlannedSlot): Boolean {
+            if (slot.isReview) return _uiState.value.showIntro
+            val kind = introKindFor(slot.skillId, gateSettings, introShownThisSession)
             if (kind != IntroKind.NONE && introShownThisSession.add(kind)) {
                 pendingIntroKind = kind
                 return true

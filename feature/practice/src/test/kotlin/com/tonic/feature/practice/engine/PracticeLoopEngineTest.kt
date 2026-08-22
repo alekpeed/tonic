@@ -156,6 +156,40 @@ class PracticeLoopEngineTest {
             )
         }
 
+    /**
+     * Up to 40% of a session is spaced-repetition review of older, already-mastered nodes, interleaved
+     * among the current node's work (`SessionComposer`). A review is not the learner *entering* that
+     * module - they finished it - so the gate must be able to tell the two apart, or practice stops
+     * partway through to re-explain major-scale degrees to someone working on audiation, once per old
+     * module the session happens to draw from.
+     *
+     * The gate is handed the whole slot for exactly this. Asserted here at the engine boundary, since
+     * `isReview` is the engine's own bookkeeping and the caller can only act on what it is given.
+     */
+    @Test
+    fun `the playback gate can tell a review slot from the node being worked`() =
+        runBlocking {
+            val fixture = Fixture()
+            val reviewFlags = mutableListOf<Boolean>()
+            fixture.engine.start(
+                freshNode(),
+                dueReviews = emptyList(),
+                sessionLengthMinutes = 5,
+                rootSeed = 1L,
+                now = Instant.EPOCH,
+                holdPlaybackFor = { slot ->
+                    reviewFlags += slot.isReview
+                    false
+                },
+            )
+
+            assertTrue(reviewFlags.isNotEmpty(), "the gate must be consulted before an item plays")
+            assertFalse(
+                reviewFlags.first(),
+                "a session's own work is not review - marking it so would suppress its explanation",
+            )
+        }
+
     @Test
     fun `starting a session generates and plays the first item`() =
         runBlocking {
