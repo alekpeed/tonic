@@ -67,8 +67,14 @@ internal class PracticeFixture(
      */
     suspend fun startPastIntro(timeoutMs: Long = 10_000L) {
         viewModel.startIfNeeded()
-        withTimeout(timeoutMs) { viewModel.uiState.first { it.showIntro || it.item != null } }
-        if (viewModel.uiState.value.showIntro) viewModel.onIntroDismissed()
-        withTimeout(timeoutMs) { viewModel.uiState.first { it.item != null && !it.showIntro } }
+        // One wait, then one decision, because the item and its explanation now arrive in the same
+        // state emission. The earlier two-phase version sampled `showIntro` between two updates and
+        // could see the item before the screen went up - it then skipped the dismissal and left the
+        // caller running against an explanation that appeared a moment later.
+        withTimeout(timeoutMs) { viewModel.uiState.first { it.item != null } }
+        if (viewModel.uiState.value.showIntro) {
+            viewModel.onIntroDismissed()
+            withTimeout(timeoutMs) { viewModel.uiState.first { !it.showIntro } }
+        }
     }
 }

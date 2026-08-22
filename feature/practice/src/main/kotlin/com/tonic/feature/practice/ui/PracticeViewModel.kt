@@ -431,6 +431,10 @@ class PracticeViewModel
             viewModelScope.launch {
                 engine.state.collect { loopState ->
                     val itemChanged = _uiState.value.item?.seed != loopState.currentItem?.seed
+                    // Claimed before the update, so the explanation this item was held for lands in
+                    // the same emission as the item. See the comment on showIntro below.
+                    val dueIntro = pendingIntroKind
+                    pendingIntroKind = null
                     _uiState.update {
                         it.copy(
                             item = loopState.currentItem,
@@ -452,20 +456,24 @@ class PracticeViewModel
                             sungResponseAvailable = sungAvailableFor(loopState.currentItem),
                             sungCapture = if (itemChanged) SungCaptureState.IDLE else it.sungCapture,
                             lastSungCents = if (itemChanged) null else it.lastSungCents,
+                            // Raised in the *same* update as the item it explains, not one after.
+                            //
+                            // The playback gate held this item silent for an explanation the learner
+                            // has not seen; this is where that explanation goes up. Doing it in a
+                            // second _uiState.update published an intermediate state - item present,
+                            // explanation not yet - and a StateFlow collector can observe it. That is
+                            // the same defect in state form that the original report was about in
+                            // audio form: the exercise arriving before the screen explaining it.
+                            //
+                            // pendingIntroKind is read and cleared above, before the update, because
+                            // update's lambda can re-run under contention and must stay pure.
+                            showIntro = dueIntro != null || it.showIntro,
+                            introKind = dueIntro ?: it.introKind,
+                            introAnswerRevealed = if (dueIntro != null) false else it.introAnswerRevealed,
                         )
                     }
                     if (itemChanged) {
                         loopState.currentItem?.let(::runPlaybackPhaseTimer)
-                    }
-                    // The playback gate held this item for an explanation the learner hasn't seen -
-                    // put that explanation up now that the (silent) item is current. Claimed with a
-                    // read-and-clear so a later emission cannot show it twice.
-                    val dueIntro = pendingIntroKind
-                    if (dueIntro != null) {
-                        pendingIntroKind = null
-                        _uiState.update {
-                            it.copy(showIntro = true, introKind = dueIntro, introAnswerRevealed = false)
-                        }
                     }
                 }
             }

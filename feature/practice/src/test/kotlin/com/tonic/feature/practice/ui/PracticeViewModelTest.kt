@@ -137,7 +137,7 @@ class PracticeViewModelTest {
          */
         suspend fun startAndAwaitFirstItem(): Item.FunctionalRecognitionItem {
             viewModel.startIfNeeded()
-            withTimeout(TIMEOUT_MS) { viewModel.uiState.first { it.showIntro || it.item != null } }
+            withTimeout(TIMEOUT_MS) { viewModel.uiState.first { it.item != null } }
             if (viewModel.uiState.value.showIntro) viewModel.onIntroDismissed()
             return withTimeout(TIMEOUT_MS) {
                 viewModel.uiState.first { it.item != null && it.inputEnabled }.recognitionItem!!
