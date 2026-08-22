@@ -260,7 +260,7 @@ Extends `05-DATA-MODEL.md`.
 | 3.3 | Sung response in `M2` | Tap-only path fully unaffected. Sung and tapped attempts share one `SkillState`. Fallback-to-tap always available. |
 | 3.4 | Sung prediction in `M12` | Sung answer captured during the gap, before the target plays. Cannot be gamed by guessing. **Built 2026-08-22** — see §5.4's four implementation decisions |
 | 3.5 | `M10` and `M11` | Chromatic tolerance bands verified not to produce systematic misreads. **Measured 2026-08-22** — bands reported in §5.5; no misread occurs before the unclear band on any node. `M10`/`M11` need no new wiring: both generate `FunctionalRecognitionItem`, so Stage 3.3's path already serves them |
-| 3.6 | Hardening + acceptance | Every Phase 1/2 criterion still met. No audio persisted. `sungCents` provably unread by the engine. |
+| 3.6 | Hardening + acceptance | Every Phase 1/2 criterion still met. No audio persisted. `sungCents` provably unread by the engine. **Built 2026-08-22** — the second and third criteria are now enforced structurally by `NoAudioPersistedTest` and `SungDataNeverReachesTheEngineTest`; the first is the existing suites, which run unchanged |
 
 Same discipline throughout: STOP gate per stage, delta report with production-wiring traces, no starting the next stage until the current one is verified.
 

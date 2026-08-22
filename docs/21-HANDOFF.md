@@ -92,12 +92,14 @@ why §5 is unchanged.
 | 3.3 Sung response in `M2` | **Done.** All three acceptance criteria have tests, green in runs #31 and #32. Simulated only — no real microphone in the loop, per §2. |
 | 3.4 Sung prediction in `M12` | **Done.** Both acceptance criteria have tests, green in run #34. The capture window is bounded by arithmetic — 200 ms lead-in, 250 ms guard before the note — so the ordering §5.4 depends on holds without a device to check it. Simulated only, same caveat as 3.3. |
 | 3.5 `M10` and `M11` | **Measured and traced.** Needed no new feature code — both modules generate `FunctionalRecognitionItem`, so Stage 3.3's path already serves them, and `SungMinorAndChromaticTest` drives a real session to each and sings into it rather than taking that on trust. `SungToleranceMeasurementTest` reports the bands. The open question turned out to have a false premise — see §4b. |
-| 3.6 Hardening | **Next up.** Not started. |
+| 3.6 Hardening | **Built.** Criteria 2 and 3 are now structural: `NoAudioPersistedTest` scans `:core:data` and `:core:audio` for any route to disk, `SungDataNeverReachesTheEngineTest` fails if any adaptive source file so much as names `sungCents` or `inputMethod`. Criterion 1 is the existing Phase 1/2 suites, unchanged and running. ⚠️ Phase 3 is **not** closeable here — §5's device list is what remains. |
 
-§9's four open questions: two settled and recorded in the spec (ambiguity band; sung prediction
-supplements rather than replaces — and §5.4 now also carries the four implementation decisions Stage
-3.4 had to make on top of that one). Two still open — `AudioRecord` vs Oboe, and chromatic singing
-viability — and **both need device measurements**, so neither can be closed in this environment.
+§9's questions: three settled and recorded in the spec (ambiguity band; sung prediction supplements
+rather than replaces, with §5.4 also carrying Stage 3.4's four implementation decisions; and chromatic
+tolerance, closed in §5.5 on a measurement that showed the question's premise was wrong). One of the
+original four still open, plus a fifth this branch added — see §4b. Still open: `AudioRecord` vs Oboe
+(question 1) and the systematic-offset misread past 55 cents (question 5). **Both need device
+measurements**, so neither can be closed in this environment.
 
 ---
 
