@@ -58,6 +58,40 @@ jobs:
       - name: Verify
         run: ./scripts/verify.sh
 
+      # The APK every run produces, published so it can be installed without a
+      # local Android SDK. `./gradlew build` assembles it as a matter of course;
+      # before this it was built on the runner and thrown away, which meant there
+      # was no way to get the app onto a phone from here at all - and every
+      # remaining Phase 3 criterion needs a real device (30-PHASE-3-SPEC.md §8).
+      #
+      # if: always() because a run that fails lint or one test still produces an
+      # installable APK, and that build is often exactly the one worth holding in
+      # your hand. if-no-files-found: warn because a failure early enough to stop
+      # assembly should not then also fail the upload.
+      - name: Upload debug APK
+        id: apk
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: warn
+          retention-days: 14
+
+      # A link on the run's own summary page, so the APK is one click from the
+      # run rather than something you have to know to scroll for.
+      - name: Link the APK in the run summary
+        if: always() && steps.apk.outputs.artifact-url != ''
+        run: |
+          {
+            echo "### Debug APK"
+            echo
+            echo "[Download app-debug.apk](${{ steps.apk.outputs.artifact-url }})"
+            echo
+            echo "Commit \`${GITHUB_SHA:0:7}\` on \`${GITHUB_REF_NAME}\`."
+            echo "Unzip, then install on a device with developer mode on."
+          } >> "$GITHUB_STEP_SUMMARY"
+
       # verify.sh tails 40 lines on failure, which is often not enough to see
       # which module broke. Keep the whole log either way.
       - name: Upload build log
