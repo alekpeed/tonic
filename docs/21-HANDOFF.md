@@ -4,7 +4,7 @@
 authority. Check every claim here against the repo before relying on it — this file has been stale
 before and will be again.
 
-Branch: `claude/handoff-stage-3-3-verified-d5j1pg`. Head at time of writing: `79cdadf` (run #41, green).
+Branch: `claude/handoff-stage-3-3-verified-d5j1pg`. Head at time of writing: `872dfec` (run #45, green).
 That branch is `claude/review-files-zip-docs-xmro7r` plus this document's correction and Stage 3.4.
 
 ---
@@ -48,6 +48,14 @@ one per round because CI reports only the first: the kover coverage floor, then 
 whose assumption that edit invalidated, then Android Lint's `MissingPermission`, then an
 unresolved reference. #38 and #39 were cancelled by my own pushes on top of in-flight runs.
 
+**Then #44 hung for 37 minutes** on an unverified virtual-time conversion, and had to be killed by
+pushing the revert — see §6. #45 is green on the reverted head.
+
+⚠️ **Do not read run #45's 1m01s as a speedup.** That build was cache-warm
+(`:core:curriculum:test FROM-CACHE`); the 11-minute figures are cold builds. It is also why the Stage
+3.5 band table does not appear in #45's log — those tests never re-executed, so nothing printed. The
+`showStandardStreams` fix is correct and needs a cold run to show it.
+
 **Two lessons, both cheap to apply.**
 
 `ktlint` and `symcheck` do not cover what that commit changed. Neither sees a coverage floor, Android
@@ -63,7 +71,7 @@ failure class as runs #27–#29, caught by nothing.
 
 ## 2. What is actually built and green
 
-Everything through **run #41** (`79cdadf`, this branch's head) is CI-verified green: all of Phase 1,
+Everything through **run #45** (`872dfec`, this branch's head) is CI-verified green: all of Phase 1,
 all of Phase 2, this branch's explanation-screen overhaul, and **every stage of Phase 3, 3.0 through
 3.6**.
 
