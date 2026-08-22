@@ -62,14 +62,6 @@ android {
         unitTests.isIncludeAndroidResources = true
         unitTests.isReturnDefaultValues = true
     }
-
-    // The committed Room schema JSON, put where MigrationTestHelper looks for it. It resolves schemas
-    // through the instrumentation context's assets, which under Robolectric means this module's test
-    // assets - so without this line every migration test fails "cannot find schema", and the only
-    // alternative is an instrumented test, which CLAUDE.md §1 keeps for what genuinely needs a device.
-    sourceSets.getByName("test") {
-        assets.srcDir("$projectDir/schemas")
-    }
 }
 
 kotlin {
