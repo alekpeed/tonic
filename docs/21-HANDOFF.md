@@ -4,7 +4,7 @@
 authority. Check every claim here against the repo before relying on it — this file has been stale
 before and will be again.
 
-Branch: `claude/handoff-stage-3-3-verified-d5j1pg`. Head at time of writing: `e95c17d` (run #34, green).
+Branch: `claude/handoff-stage-3-3-verified-d5j1pg`. Head at time of writing: `79cdadf` (run #41, green).
 That branch is `claude/review-files-zip-docs-xmro7r` plus this document's correction and Stage 3.4.
 
 ---
@@ -40,16 +40,43 @@ And when you make an edit with a script, **assert the intended text is present a
 was a find-and-replace that matched nothing because an earlier replacement in the same script had
 already changed the anchor text. It was pushed unverified.
 
-Runs #31 through #34 were green, and the streak is over — four in a row, including a whole stage
-landed in one push. It ended because those two checks were run before pushing, not because the code
-got simpler. Keep running them.
+Runs #31 through #35 were green — five in a row, including a whole stage landed in one push.
+
+**Then #36, #37 and #40 went red, all from one change.** The commit that made singing reachable added
+new Android APIs, a new module dependency and a manifest edit in one push, and the failures came out
+one per round because CI reports only the first: the kover coverage floor, then `NoNetworkPermissionTest`
+whose assumption that edit invalidated, then Android Lint's `MissingPermission`, then an
+unresolved reference. #38 and #39 were cancelled by my own pushes on top of in-flight runs.
+
+**Two lessons, both cheap to apply.**
+
+`ktlint` and `symcheck` do not cover what that commit changed. Neither sees a coverage floor, Android
+Lint, or a test whose premise a manifest edit just broke. For a change that adds Android APIs, a
+dependency, or a manifest line, expect a round per category and say so rather than predicting green.
+
+`symcheck` also has a structural gap worth knowing: it resolves **top-level** symbols, so
+`SkillIds.M10_NODES_IN_ORDER` — a member that does not exist — passed it clean and cost run #40. Any
+change naming members of an existing object needs those members checked by hand. That is the same
+failure class as runs #27–#29, caught by nothing.
 
 ---
 
 ## 2. What is actually built and green
 
-Everything through **run #34** (`e95c17d`, this branch's head) is CI-verified green: all of Phase 1,
-all of Phase 2, this branch's explanation-screen overhaul, and Stages 3.3 and 3.4 entire.
+Everything through **run #41** (`79cdadf`, this branch's head) is CI-verified green: all of Phase 1,
+all of Phase 2, this branch's explanation-screen overhaul, and **every stage of Phase 3, 3.0 through
+3.6**.
+
+⚠️ **Green here means the logic and the simulated flows, not the phone.** Phase 3's acceptance rests
+on measurements no test in this repository can take — see §5. Do not read "all seven stages green" as
+"Phase 3 is done."
+
+⚠️ **CI got slower and it was me.** Run #41 took 11m22s against a 5–9 minute norm. The sung tests
+added this session drive the real practice loop with real `delay()` — reference audio, a one-to-five
+second audiation gap, then the note, per item, and several review items before the target node comes
+up. Seven such tests at a 30-second timeout each is minutes of wall clock. It is correct and it is
+expensive, in a repo where CI is also the compiler. Driving those flows on a virtual-time dispatcher
+is the fix and is not done.
 
 **Verified in CI:**
 
@@ -64,6 +91,12 @@ all of Phase 2, this branch's explanation-screen overhaul, and Stages 3.3 and 3.
   - `MicrophoneSource` / `CapturedAudio` / `UnavailableMicrophoneSource`
   - `SungAnswerControl`, `onSingAnswer`, `SungAnswerControlTest`, `SungAnswerFlowTest`
 
+- The whole sung path made **reachable** — `AudioRecordMicrophoneSource` bound in place of the
+  unavailable stand-in, `RECORD_AUDIO` in the manifest, and `SungResponseSection` in Settings carrying
+  the opt-in, its explanation and the permission request. See §4a for why this was missing.
+- Stage 3.5's tolerance measurement (`SungToleranceMeasurementTest`) and its wiring trace
+  (`SungMinorAndChromaticTest`), and Stage 3.6's two structural guarantees
+  (`NoAudioPersistedTest`, `SungDataNeverReachesTheEngineTest`).
 - Stage 3.4's sung prediction, added in `e95c17d` and green on its first run:
   - `AudiatedPitch` + `AudiatedPitchTest`
   - `captureAudiation` in `PracticeViewModel`, opening the mic inside the audiation gap
@@ -202,6 +235,12 @@ one (committed debug key, CI-verified), so progress survives updates.
 ---
 
 ## 6. Working notes for whoever picks this up
+
+**Read the measurement reports.** `:core:audio`, `:core:engine` and now `:core:curriculum` set
+`testLogging { showStandardStreams = true }`, without which a `[measure]` line is written and
+discarded. Run #41 went green with Stage 3.5's entire band table invisible for exactly that reason —
+the third time this repository has made that mistake, and the first two are why the other two modules
+carry the setting. `grep '\[measure\]' verify.log` is where the numbers live.
 
 **Tooling that exists and should be used:**
 

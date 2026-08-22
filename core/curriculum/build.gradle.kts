@@ -47,4 +47,13 @@ tasks.test {
     // Gradle does not forward -D to the test JVM on its own, and the switch is useless if it cannot be
     // reached from the command line.
     System.getProperty("tonic.golden.regenerate")?.let { systemProperty("tonic.golden.regenerate", it) }
+
+    // Same reason :core:audio and :core:engine set this, and added after making the identical mistake
+    // their build files already warn about. SungToleranceMeasurementTest's whole deliverable is the
+    // band table it prints (docs/10-TESTING.md §5: measurement runs are "a report, not just a
+    // pass/fail"), and it went green in run #41 with every line of that report discarded - which is
+    // indistinguishable, from the log, from a measurement nobody ever took.
+    testLogging {
+        showStandardStreams = true
+    }
 }
