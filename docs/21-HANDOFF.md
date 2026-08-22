@@ -1,213 +1,157 @@
-# Handoff — 2026-08-21
+# 21 — Handoff
 
-Working state of the `claude/review-files-zip-docs-xmro7r` branch. Written for whoever picks this up
-next, including a future session of mine. Read `CLAUDE.md` first; this covers only what is not already
-in the specs.
+**Written 2026-08-22.** A dated snapshot, not authority. Check every claim here against the repo
+before relying on it — this file has been stale before and will be again.
 
----
-
-## 1. Where things stand
-
-**Phase 2 is code-complete.** All nine stages (2.0–2.8) are built, committed, and pushed. The full
-verification gate is green: build, every test, both golden corpora byte-identical under `--rerun-tasks`.
-
-**Phase 2 has never been verified by a human.** Nothing in Phase 2 has been heard by anyone. Until
-today a tester could not reach any of it — the first mastery gate stood in the way and there was no way
-past it. That is now fixed (§4), and manual verification is the single most valuable next action.
-
-**Phase 3 must not be started without an explicit instruction** (`CLAUDE.md` §2.3). For reference it is
-optional sung response: mic permission, pitch detection, never a gate.
+Branch: `claude/review-files-zip-docs-xmro7r`. Head at time of writing: `8e343ac`.
 
 ---
 
-## 2. Branch and recent history
+## 1. Read this first: the CI record, honestly
 
-Branch: `claude/review-files-zip-docs-xmro7r` (pushed, up to date with origin).
+Runs #25–#30 were red, consecutively. The maintainer's assessment — that this is unacceptable and
+that the app is not complicated enough to justify it — is correct. The causes were:
 
-```
-9e06565  Put the intake skip inside the trap it exists to escape
-5cd3f69  Make the debug jump instant, navigate, and skip the diagnostic
-c1dfd68  Keep Home current instead of showing a startup snapshot
-ab929bb  Make the debug jump tool absolute, off-main-thread, and non-fatal
-668138a  Add debug-only "jump to node" tool; fix an unmasterable M11 node
-4e74ae9  Make the Phase 2 audio listenable, and measure what can be measured without ears
-9f81a46  Phase 2 Stage 2.8: hardening, the seven simulations, and one answer to "what next"
-8eeb869  Drop the M7 identifiers: the real-music bridge is removed, not deferred
-0d026c3  Phase 2 Stage 2.7: M10.MIXED_MODE, and the ladder that stopped announcing the mode
-86429b2  Phase 2 Stage 2.6: M12 audiation, and the item that runs backwards
-b6cc449  Phase 2 Stage 2.5: M11 chromatic degrees, and two wiring bugs found on the way
-```
-
-The six commits from `4e74ae9` onward are not Phase 2 stages. They are the debug tooling built so a
-human could test Phase 2 at all, plus the bugs that surfaced while building it.
-
----
-
-## 3. Verification
-
-**Always use `./scripts/verify.sh`.** It runs `./gradlew build`, then re-derives both golden baselines
-under `--rerun-tasks`, and exits with gradle's own code.
-
-**Never pipe gradle to anything.** `./gradlew build -q 2>&1 | grep -v ... | tail -N` reports the exit
-code of `tail`, not gradle. That silently hid two real failures across two commits earlier in this
-project, and both were reported as "full build green" when they were not. `verify.sh` exists to make
-that mistake structurally impossible.
-
-The same trap has a second form worth knowing: a backgrounded `verify.sh` was reported by the harness as
-"completed (exit code 0)" while the script itself had returned 1. If you background it, capture the code
-yourself:
-
-```
-./scripts/verify.sh > verify.log 2>&1; echo "EXIT=$?" | tee -a verify.log
-```
-
-**Module tests are not sufficient.** Every `:feature:*` and `:core:*` test suite passed while `:app`
-failed to compile (a Hilt `MissingBinding` — see §6). Only the full gate builds `:app`.
-
----
-
-## 4. Testing Phase 2 on a device
-
-The debug tooling is `BuildConfig.DEBUG`-only and absent from release builds.
-
-**From a clean install, three taps to anywhere in Phase 2:**
-
-1. On the diagnostic's first screen, tap **"Skip intake (debug build only)"** — clears onboarding and
-   the diagnostic without answering anything.
-2. Home → Settings → scroll to **"Developer options (debug build only)"**.
-3. Tap any node. It erases progress, marks every earlier node complete, and navigates straight into
-   practicing that node.
-
-A jump is **absolute**: same button, same result, from any prior state, in any order. It erases existing
-progress by design — say so to anyone testing who has real progress they care about.
-
-### What needs a human specifically
-
-| Node | The question only a person can answer |
-|---|---|
-| `M9.*` | Does major vs. minor register as *sound*, or is it a guess? |
-| `M10.MIN_*` | Is `♭3` hearable as its own degree, or just "wrong"? |
-| `M10.MIXED_MODE` | Mode is unannounced. Does the ladder give it away anyway? |
-| `M11.CHROM_*` | Twelve ladder positions — legible and tappable on a real phone? |
-| `M12.PREDICT_*` | Is holding a named degree across a 1–5s silent gap a real task or an impossible one? |
-
-`M12` is the likeliest to be wrong. It is the newest mechanic and the least like anything else in the app.
-
-### Audio verification without a device
-
-`:core:audio` has two test-only tools, both from `4e74ae9`:
-
-- `Phase2SpectralTest` — FFT measurement with parabolic bin interpolation. Verifies the 30-cent detune
-  and chromatic pitch spacing to cent accuracy.
-- `AudioSampleExportTest` — opt-in WAV export off the real `SynthEngine` path:
-  `./gradlew :core:audio:test -Dtonic.audio.export=/some/dir`
-
-These prove the synthesis is numerically correct. They cannot tell you whether it sounds like music.
-
----
-
-## 5. Outstanding items
-
-### 5.1 The M7 docs are inconsistent with the code — do this first
-
-M7 (real-music bridge) was dropped from the product. The code identifiers were removed in `8eeb869`,
-but the maintainer's updated doc files were announced and never actually arrived, and the code half was
-committed anyway. **The docs still describe M7 as a reserved future module**, which is exactly the state
-`CLAUDE.md` §3 forbids:
-
-| File | Line | Problem |
+| Run | Cause | Category |
 |---|---|---|
-| `docs/03-CURRICULUM.md` | 28 | Module table still lists M7 as "Real Music Bridge — reserve only" |
-| `docs/03-CURRICULUM.md` | 206 | Names `M7.REAL_MELODY, M7.REAL_HARMONY` — identifiers that no longer exist |
-| `docs/09-BUILD-PLAN.md` | 198 | Later-phases table still lists Phase 7, real-music bridge |
-| `docs/02-PEDAGOGY.md` | 122 | §9 frames the copyright analysis as a constraint on "the future real-music bridge module" |
+| 25 | An `android { sourceSets... }` line AGP 9 rejects at configuration | my error |
+| 26 | The Room schema guard, shipped in the same commit as the file it flags | self-inflicted |
+| 27 | `result.attempts` — the property is `allAttempts` | typo |
+| 28 | `InputMethod` used three times, never imported | typo |
+| 29 | `LADDER_BUTTON` referenced five times; the companion holding it never landed | typo |
+| 30 | A real race: item and explanation published in two separate state updates | real defect |
 
-The fix is small: drop the module-table row and the reserved-identifier entry, drop the phase row, and
-reframe §9's copyright analysis as the reasoning behind a closed decision rather than a live constraint.
-Check with the maintainer whether they still want to supply their own wording first — they intended to.
+**Five of six were unresolved references.** The root cause is not the code. It is that this sandbox
+has no Android SDK, so CI is the compiler as well as the test runner, at five to nine minutes a
+round — and large batches of new code were pushed with only `ktlint` run locally, which checks
+formatting and not whether a symbol exists. Each round reported only the first error, so the next
+one surfaced only on the next round.
 
-### 5.2 Phase 2 human verification
-
-See §4. Unstarted, and it gates any honest claim that Phase 2 works.
-
-### 5.3 Phase 3
-
-Blocked on explicit instruction. Do not start it.
-
----
-
-## 6. What cost real time, and why
-
-Recorded because the pattern matters more than any individual bug.
-
-**The debug jump tool shipped three times and broke on a real device three times, while its unit tests
-passed all three times.** The tests ran against in-memory fakes written by the same author as the code,
-so they encoded the same assumptions as the thing they were checking. *A fake cannot disagree with you.*
-
-The tooling to have caught this was already in the repo and was simply never pointed at the feature:
-
-- `:core:data` has had Robolectric-hosted **real Room** since Stage 1.5 (9 test files use it).
-- `:feature:practice` has had Robolectric-hosted **real Compose screens** since Stage 1.7 (7 test files).
-
-Pointing both at the debug feature found things immediately: the real-SQLite test disproved the leading
-theory about where the crash was, and the screen test reproduced the reported symptom ("the press
-produced no visible outcome") on its first run. Both new tests are now in place —
-`DebugJumpAgainstRealDatabaseTest` and `SettingsDebugSectionTest`.
-
-**Corollary for anyone continuing here:** there is no emulator in this environment and there cannot be
-(no KVM, zero virtualization CPU flags, no `adb`, no system images). That is a real constraint, but it
-was never the reason these bugs shipped. Robolectric plus real Room plus real Compose covers most of it.
-Reach for a fake only when the real dependency genuinely cannot run.
-
-### Specific traps hit
-
-- **Kotlin default arguments hide wiring bugs.** `debugJumpInProgress` was never passed from
-  `SettingsScreen` to `SettingsContent`; the default swallowed it with no compiler warning, so the
-  progress indicator never activated. Found by rendering the screen, not by reading it.
-- **Dagger does not understand default arguments.** A constructor default
-  (`dispatcher: CoroutineDispatcher = Dispatchers.Default`) failed the whole app graph with
-  `MissingBinding` — while every module test still passed.
-- **`LazyColumn` only composes visible items.** A test asserting on a row below the fold finds nothing
-  and cannot distinguish "not rendered" from "not yet composed". The list now carries a `settings_list`
-  test tag so tests can `performScrollToNode` to it.
-- **A skip hatch must be reachable from inside the trap.** The intake skip originally lived behind
-  Settings, which is only reachable from Home, which bounces a fresh install straight to the diagnostic.
-  It is now on the diagnostic's own intro screen.
-
-### One thing never resolved
-
-The specific crash the tester reported on the second build was never reproduced. The rewrite removed
-most of what could have caused it — hundreds of SQLite writes on the main thread, an unsatisfiable
-walk that threw, and an uncaught coroutine — rather than pinpointing one root cause. If it recurs, the
-harness to reproduce it properly now exists; use it rather than guessing.
-
----
-
-## 7. Real bugs found and fixed along the way
-
-Not tooling problems — genuine defects in the product, found because building the debug tool forced
-every node in the graph to be driven to mastery for the first time.
-
-- **`M11.CHROM_FLAT6` was mathematically unmasterable.** At exactly ten active degrees, `DEGREE_COVERAGE`
-  demands 3 attempts from each of the other nine (27) while `FOCUS_DEGREE` demanded 4 for the introduced
-  one — 31 required attempts in a window that holds 30. No learner, real or synthetic, could ever have
-  mastered that node, and nothing about a single window looks wrong in isolation.
-  `MasteryEvaluator.requiredFocusAttempts` now also caps at the window budget remaining after every other
-  degree's coverage floor. Only `CHROM_FLAT6`'s value changes (4 → 3).
-- **Home showed a startup snapshot forever.** `HomeViewModel` read skill state once via `.first()` behind
-  a `started` guard, so returning to Home after mastering a node showed the node you were on when the app
-  launched. It now collects the Flow.
-
----
-
-## 8. Quick reference
+**Do not repeat this.** Before every push:
 
 ```bash
-./scripts/verify.sh                 # the only trustworthy gate
-./gradlew assembleDebug             # APK at app/build/outputs/apk/debug/app-debug.apk
-./gradlew ktlintFormat              # before committing
-./gradlew :core:audio:test -Dtonic.audio.export=/dir   # WAV export
+scripts/ktlint.sh                                        # formatting, seconds
+python3 scripts/symcheck.py $(git diff --name-only HEAD -- '*.kt')   # unresolved references
 ```
 
-Phase 2 spec: `docs/20-PHASE-2-SPEC.md`. Its §8.4–8.7 record per-stage findings and deviations, which
-is where the reasoning behind anything surprising in Stages 2.5–2.8 lives.
+And when you make an edit with a script, **assert the intended text is present afterward**. Run #29
+was a find-and-replace that matched nothing because an earlier replacement in the same script had
+already changed the anchor text. It was pushed unverified.
+
+---
+
+## 2. What is actually built and green
+
+Everything through **run #24** (`59a37cd`) is CI-verified green. That includes all of Phase 1 and
+Phase 2, plus this branch's work up to and including the explanation-screen overhaul.
+
+**Verified in CI:**
+
+- The intro/explanation system, rebuilt (see §4).
+- Debug APK published by every run, signed by a committed key so builds install over each other.
+- `apksigner`-based signature verification.
+- The Room schema-committed guard.
+
+**Written but never once green** — everything from `0f4c39f` onward, which is all of Stage 3.3:
+
+- `Attempt.inputMethod` / `sungCents`, Room v2 + migration, `MigrationTest`
+- `SungDataIsNeverAdaptiveTest`
+- `SungLearnerSimulationTest`
+- `MicrophoneSource` / `CapturedAudio` / `UnavailableMicrophoneSource`
+- `SungAnswerControl`, `onSingAnswer`, `SungAnswerControlTest`, `SungAnswerFlowTest`
+
+Run #31 was in flight when this was written, on `8e343ac`. **Check it before anything else.** If it
+is green, Stage 3.3 is complete and the next work is Stage 3.4. If it is red, the stack trace will
+now be complete — full exception output was enabled repo-wide in that same commit.
+
+---
+
+## 3. Phase 3 progress against the spec
+
+`docs/30-PHASE-3-SPEC.md` §8's stage table:
+
+| Stage | State |
+|---|---|
+| 3.0 Mic capture + pitch detection | **Half.** `PitchDetector` (MPM) built and measured — worst error 7.69 cents against a 100-cent requirement. Real capture is not built: `MicrophoneSource` is an interface and the bound implementation reports itself unavailable. Latency, CPU, dropouts and recorded-signal accuracy all need hardware. |
+| 3.1 Scoring pipeline | **Built and green.** `DegreeResolver` + `SungResponseAnalyzer`. Ambiguity band decided at 10 cents. |
+| 3.2 Permission + explanation | **Half.** The sung explanation screen exists and is tested. The permission flow is not built — it needs a device. |
+| 3.3 Sung response in `M2` | **Written, unverified.** All three acceptance criteria have tests; none has passed CI yet. |
+| 3.4 Sung prediction in `M12` | Not started. |
+| 3.5 `M10` and `M11` | Not started. |
+| 3.6 Hardening | Not started. |
+
+§9's four open questions: two settled and recorded in the spec (ambiguity band; sung prediction
+supplements rather than replaces). Two still open — `AudioRecord` vs Oboe, and chromatic singing
+viability — and **both need device measurements**, so neither can be closed in this environment.
+
+---
+
+## 4. Decisions taken this session that changed shipped behavior
+
+These are recorded in the docs they affect; listed here so you know they happened.
+
+**Explanations now appear every time you enter a module, not once ever.** Maintainer instruction
+after live use, verbatim: *"How It Works should come up anytime you enter a new module, every single
+time."* The old rule was tracked by persisted flags, which made every already-dismissed screen
+permanently unreachable — ending a session did not bring it back, and neither did clearing the saved
+session, because that is a different store. `docs/08-UI-SPEC.md` §3a and
+`docs/11-ONBOARDING-CLARITY.md` §5 carry the new rule; `docs/05-DATA-MODEL.md` §4 marks the
+`module*IntroSeen` flags retired — still stored, no longer read or written.
+
+**A review item is not "entering" a module.** Up to 40% of a session is spaced-repetition review of
+finished modules. Counting those as entry would stop practice several times a session to re-explain
+old material. The playback gate takes the whole `PlannedSlot` for exactly this.
+
+**Audio never plays under an explanation screen**, on any module, at any entry point. This was the
+original live-use report and is now enforced by a per-item gate in `PracticeLoopEngine`.
+
+**`M9`'s explanation screen was never wired.** It had existed since Phase 2 Stage 2.2 — built,
+previewed, tested, with its own seen-once flag — and no dispatch line ever reached it. Now wired.
+Worth internalizing as a pattern: this codebase has produced fully-built, fully-tested screens that
+nothing could reach. `IntroDispatchTest` exists because of an earlier instance of exactly this.
+
+**Settings' "Show explanations again" was added and then removed** in the same session. It existed to
+work around seen-once; the new rule made it a no-op, and a button that does nothing is worse than no
+button.
+
+---
+
+## 5. What the maintainer still needs to do on a device
+
+Nothing here can be closed without hardware. The APK from any green run installs over the previous
+one (committed debug key, CI-verified), so progress survives updates.
+
+1. **`M12.PREDICT_TRIAD`** — is holding a named degree across a 1–5 second silent gap a real task or
+   an impossible one? This is Phase 3's highest-value target and is still unvalidated.
+2. **`M10.MIXED_MODE`** — does the ladder give the mode away?
+3. The minor `i–iv–v–i` cadence still owes a by-ear check at every fade level
+   (`docs/20-PHASE-2-SPEC.md` §8.1 decision 4).
+
+---
+
+## 6. Working notes for whoever picks this up
+
+**Tooling that exists and should be used:**
+
+- `scripts/verify.sh` — the definition of green. Now extracts compiler diagnostics (`e:` lines) and
+  failing test names before falling back to a tail, because a 40-line tail on a compile failure ends
+  with "Compilation error. See log for more details" and none of the details.
+- `scripts/ktlint.sh` — standalone, no Android SDK, seconds. Version pinned to 1.7.2 to match CI;
+  **the pin is load-bearing**, 1.8.0 flags files CI passes.
+- `scripts/symcheck.py` — unresolved-reference check, described in §1.
+
+**Reading a CI failure without waiting for a summary:** the `verify-log` artifact has the full build
+log. Download and grep it directly:
+
+```bash
+curl -sSL -o log.zip "https://api.github.com/repos/alekpeed/tonic/actions/artifacts/<ID>/zip"
+unzip -q log.zip && grep -E "^e: |FAILED" verify.log
+```
+
+**Pushing cancels in-flight runs** (`concurrency: cancel-in-progress`). Several runs in this
+branch's history are `cancelled` because of a push landing mid-run, not because anything failed.
+
+**Communication rules the maintainer has set** (now in `CLAUDE.md` §8, and they were repeated
+several times before they stuck): be brief; reply format is *what was done / what is needed from you
+/ what is next* and nothing else; ask questions through the interactive prompt, never as prose;
+answer the literal question asked rather than supplying context around it.
