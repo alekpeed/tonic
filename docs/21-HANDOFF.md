@@ -1,319 +1,308 @@
 # 21 — Handoff
 
-**Written 2026-08-22, revised the same day once run #31 reported.** A dated snapshot, not
-authority. Check every claim here against the repo before relying on it — this file has been stale
-before and will be again.
+**Written 2026-08-22, at `2c0386f` (runs #45 and #46, green).** A dated snapshot, not authority.
+Every claim here is checkable against the repository, and this file was wrong twice in the session
+that produced it — both times because something was asserted rather than measured. Check before
+relying on it.
 
-Branch: `claude/handoff-stage-3-3-verified-d5j1pg`. Head at time of writing: `872dfec` (run #45, green).
-That branch is `claude/review-files-zip-docs-xmro7r` plus this document's correction and Stage 3.4.
+This covers everything built to date. The next phase is specified in `40-PHASE-4-SPEC.md`; §9 is the
+bridge between the two.
 
 ---
 
-## 1. Read this first: the CI record, honestly
+## 1. Where the build stands
 
-Runs #25–#30 were red, consecutively. The maintainer's assessment — that this is unacceptable and
-that the app is not complicated enough to justify it — is correct. The causes were:
+| Phase | Scope | Stages | State |
+|---|---|---|---|
+| 1 | `M0` diagnostic, `M2` major diatonic | 1.0–1.10 | Built, green |
+| 2 | `M9` mode ID, `M10` minor, `M11` chromatic, `M12` audiation, data export | 2.0–2.8 | Built, green |
+| 3 | Optional sung response | 3.0–3.6 | **Code complete, green — device measurements still owed (§3)** |
+| 4 | Rhythm (`M3`) | 4.0–4.7 | Specified only. Not started |
 
-| Run | Cause | Category |
-|---|---|---|
-| 25 | An `android { sourceSets... }` line AGP 9 rejects at configuration | my error |
-| 26 | The Room schema guard, shipped in the same commit as the file it flags | self-inflicted |
-| 27 | `result.attempts` — the property is `allAttempts` | typo |
-| 28 | `InputMethod` used three times, never imported | typo |
-| 29 | `LADDER_BUTTON` referenced five times; the companion holding it never landed | typo |
-| 30 | A real race: item and explanation published in two separate state updates | real defect |
+Everything through run #45 is CI-verified: `scripts/verify.sh` passes across all twelve modules, the
+Room schemas are committed, and the debug APK is signed by the committed key and signature-checked.
 
-**Five of six were unresolved references.** The root cause is not the code. It is that this sandbox
-has no Android SDK, so CI is the compiler as well as the test runner, at five to nine minutes a
-round — and large batches of new code were pushed with only `ktlint` run locally, which checks
-formatting and not whether a symbol exists. Each round reported only the first error, so the next
-one surfaced only on the next round.
+**Deliberately not built.** `M1` is folded into `M0`'s remediation path rather than shipped standalone
+(`01-PRODUCT-SPEC.md` §3). `M4`–`M6` and `M8.MODAL`/`M8.EXTENDED_HARMONY` exist only as reserved
+`SkillId` constants for schema stability (`03-CURRICULUM.md` §6). Note the deprecate-don't-recycle
+rule: `M8.MINOR_MODE` and `M8.CHROMATIC_DEGREES` are shipped-then-dead strings that must never be
+repointed — minor and chromatic shipped early instead, as `M10` and `M11`. `M7` is absent and its
+number is not reused.
 
-**Do not repeat this.** Before every push:
+---
+
+## 2. What "green" means here, and what it does not
+
+**CI is the compiler.** This project is developed in a sandbox with no Android SDK, so nothing is
+compiled locally — a push is the first time any code meets a compiler, at five to eleven minutes a
+round. That single fact explains most of §6 and most of §7.
+
+**Green means the logic and the simulated flows.** It does not mean the app was run:
+
+- Every sung test drives `FakeMicrophoneSource`, which returns synthesized audio at exactly known
+  frequencies. That is the right way to test the analyzer and no way at all to test capture.
+  `AudioRecordMicrophoneSource` has never been observed running.
+- Compose and Robolectric tests render composables; they do not exercise real touch, focus or audio
+  routing.
+- Whether a cadence *sounds* like a cadence is §3's problem, not CI's.
+
+**One green number in this branch's history is misleading.** Run #45 finished in 1m01s because
+Gradle's cache served nearly everything (`:core:curriculum:test FROM-CACHE`). The honest figures are
+cold builds: 7m40s before Phase 3's tests, ~11m20s after. A cache-warm run is not a speedup, and it
+prints no `[measure]` lines because the tests never re-executed.
+
+---
+
+## 3. What only a device can settle
+
+Nothing here closes in the sandbox. The debug APK from any green run installs over the previous one,
+and **singing is reachable as of `872dfec`** — Settings → Singing → *Answer by singing*.
+
+Ranked by what the project learns per unit of effort:
+
+1. **`M12.PREDICT_TRIAD` — is audiation a real task?** Hold a named degree across a one-to-five-second
+   silence, then judge whether the note that follows matched it. Phase 3's highest-value target, and
+   the assumption Stage 3.4's whole sung-prediction mechanism rests on. Nobody has confirmed a person
+   can do it.
+2. **`AudioRecord` vs Oboe** (`30-PHASE-3-SPEC.md` §9 q1). ⚠️ **This one now blocks two phases** —
+   `40-PHASE-4-SPEC.md` §10 q1 inherits it verbatim and Stage 4.0 cannot start without it. See §9.
+3. **Systematic vocal offset past 55 cents** (§9 q5, opened by Stage 3.5). Past roughly 55 cents of
+   *consistent* offset the resolver stops returning "unclear" and starts returning a confident wrong
+   degree — always the one below, on every alphabet including `M2`'s. How common such an offset
+   actually is decides whether this is a real defect or a hypothetical. Do not design a fix first.
+4. **`M10.MIXED_MODE`** — does the shape of the ladder give the mode away before the answer?
+5. **The minor `i–iv–v–i` cadence**, by ear, at all eight fade levels (`20-PHASE-2-SPEC.md` §8.1
+   decision 4).
+6. **Stage 3.0's own acceptance**: capture latency, CPU, dropouts, and pitch accuracy on a voice
+   through a real preamp rather than a synthesized sine.
+
+Also unrecorded: **Stage 1.2's on-device listening pass was signed off 2026-08-21**, but the
+subjective findings were never written down. If `PLUCK` is revisited against the Karplus-Strong
+question in `06-AUDIO-ENGINE.md` §3, that verdict wants capturing rather than reconstructing.
+
+---
+
+## 4. Two structural failures worth internalizing
+
+Both cost real time; both were invisible to a passing suite.
+
+### 4.1 Three stages shipped behind a door with no handle
+
+`sungResponseEnabled` landed in `AppSettings` at Stage 3.3, defaulting to false. Nothing in the app
+could change it. No `RECORD_AUDIO` in the manifest, no permission request anywhere, and no
+`AudioRecord` code at all — `UnavailableMicrophoneSource` was bound, reporting false forever. Stages
+3.1, 3.3 and 3.4 were each built, fully tested, reported complete and CI-verified green, and **not one
+could be reached by a person holding the phone.**
+
+Nothing caught it because every sung test uses a fake microphone. The stage table said "half" for 3.0
+and 3.2, which read as *the untestable part is missing*; the reachable part was missing too. The cause
+was a defensible rule applied too widely — Stage 3.0's acceptance criteria are all device
+measurements, so the whole stage was deferred, including the hundred lines of `AudioRecord` that need
+no device to write. Closed 2026-08-22.
+
+> **A stage is not done when its tests pass. It is done when a learner can get to it.** State the
+> route, then check the route. `SungResponseSectionTest`'s first assertion is literally *can this be
+> switched on at all*.
+
+Not a one-off: `M9`'s explanation screen existed from Phase 2 Stage 2.2 — built, previewed, tested,
+flagged — and no line of composition ever reached it. `IntroDispatchTest` exists because of an earlier
+instance again.
+
+### 4.2 Measurements written and discarded
+
+`SungToleranceMeasurementTest`'s deliverable is the band table it prints. It went green in run #41 with
+every line invisible, because `:core:curriculum` did not set
+`testLogging { showStandardStreams = true }`. From the log that is indistinguishable from a
+measurement nobody took.
+
+Third time this repository has made that mistake — the first two are why `:core:audio` and
+`:core:engine` already carried the setting. All three now do. `grep '\[measure\]' verify.log` is where
+the numbers live, and only on a **cold** run.
+
+---
+
+## 5. Findings and decisions that outlived their stage
+
+Recorded in the docs they affect; listed so you know they happened.
+
+**Sung answers supplement, never replace** (`30-PHASE-3-SPEC.md` §5.4). On `M12` the learner sings into
+the gap *and* still answers with the three-button control; the button scores. Collapsing them would
+make one node mean "produce the pitch" for singers and "spot the mismatch" for everyone else — two
+skills under one name, which §2 forbids. Consequences: `inputMethod` is always `TAP` on an `M12` row,
+and `sungCents` there is measured from the degree that was *named*, not the nearest one the voice
+landed on.
+
+**Chromatic resolution is not less accurate than diatonic** (§5.5; closed §9 q4). Measured: diatonic
+reads correctly to 45 cents of uniform detuning, chromatic to 44, both begin misreading at 55. The
+major scale already contains semitone steps at `3`–`4` and `7`–`1`, so the binding geometry was fixed
+in Phase 1 when `4` joined the alphabet at `M2.DEG_SET_4`. Restricting singing to diatonic contexts
+would have improved accuracy by nothing measurable, so it was not done. What chromatic changes is
+*breadth*: at a uniform −50 cents, `M2.FULL_DIATONIC` still reads 5 of 7 degrees and `M11.CHROM_FULL`
+reads 0 of 12. That learner is never misread — the ambiguity margin catches every case — but singing
+never once works for them. A usability fact no pass/fail can show.
+
+**Explanations appear every time you enter a module, not once ever.** Maintainer instruction after live
+use, verbatim: *"How It Works should come up anytime you enter a new module, every single time."* The
+old rule used persisted flags, which made every dismissed screen permanently unreachable.
+`08-UI-SPEC.md` §3a and `11-ONBOARDING-CLARITY.md` §5 carry the new rule; `05-DATA-MODEL.md` §4 marks
+the `module*IntroSeen` flags retired — still stored, no longer read or written.
+
+**A review item is not "entering" a module.** Up to 40% of a session is review of finished modules;
+counting those as entry would stop practice several times a session to re-explain old material. The
+playback gate takes the whole `PlannedSlot` for exactly this.
+
+**Audio never plays under an explanation screen**, on any module, at any entry point. Enforced by a
+per-item gate in `PracticeLoopEngine`.
+
+**Settings' "Show explanations again" was added and removed** in one session. It worked around
+seen-once; the new rule made it a no-op, and a button that does nothing is worse than none.
+
+---
+
+## 6. The CI record, honestly
+
+Runs #25–#30 red consecutively, five of six unresolved references. #31–#35 green. Then #36, #37 and
+#40 red, and #44 hung for 37 minutes.
+
+**#36/#37/#40 were one change.** The commit that made singing reachable added new Android APIs, a new
+module dependency and a manifest edit in a single push. Failures came out one per round because CI
+reports only the first: the kover coverage floor → `NoNetworkPermissionTest`, whose "no
+`uses-permission` of any kind" assumption that manifest edit invalidated → Android Lint's
+`MissingPermission` → an unresolved reference.
+
+**#44 hung on an unverified virtual-time conversion.** Mechanism in §8.
+
+**#38, #39, #42 are `cancelled` because a push landed mid-run** (`concurrency: cancel-in-progress`),
+not because anything failed.
+
+### What the local checks do and do not cover
+
+`scripts/ktlint.sh` and `scripts/symcheck.py` are fast and worth running every time. They are **not** a
+prediction of green. Neither sees:
+
+- a kover coverage floor,
+- Android Lint,
+- a test whose premise your change just invalidated,
+- a coroutine deadlock,
+- **member access on an existing object.** `symcheck` resolves *top-level* symbols, so
+  `SkillIds.M10_NODES_IN_ORDER` — a member that does not exist — passed it clean and cost run #40. Any
+  change naming members of an existing object needs those checked by hand. Same failure class as
+  #27–#29, caught by nothing.
+
+For a change touching Android APIs, a dependency, or the manifest, expect a round per category and say
+so rather than predicting green.
+
+---
+
+## 7. Working notes
+
+**Tooling:**
+
+- `scripts/verify.sh` — the definition of green. Extracts compiler diagnostics (`e:` lines) and failing
+  test names before falling back to a tail, because a 40-line tail on a compile failure ends with
+  "Compilation error. See log for more details" and none of the details.
+- `scripts/ktlint.sh` — standalone, no Android SDK, seconds. Pinned to 1.7.2 to match CI; **the pin is
+  load-bearing**, 1.8.0 flags files CI passes.
+- `scripts/symcheck.py` — unresolved-reference check. §6 says what it cannot do.
+
+**Before every push:**
 
 ```bash
-scripts/ktlint.sh                                        # formatting, seconds
-python3 scripts/symcheck.py $(git diff --name-only HEAD -- '*.kt')   # unresolved references
+scripts/ktlint.sh
+python3 scripts/symcheck.py $(git diff --name-only HEAD -- '*.kt')
 ```
 
-And when you make an edit with a script, **assert the intended text is present afterward**. Run #29
-was a find-and-replace that matched nothing because an earlier replacement in the same script had
-already changed the anchor text. It was pushed unverified.
-
-Runs #31 through #35 were green — five in a row, including a whole stage landed in one push.
-
-**Then #36, #37 and #40 went red, all from one change.** The commit that made singing reachable added
-new Android APIs, a new module dependency and a manifest edit in one push, and the failures came out
-one per round because CI reports only the first: the kover coverage floor, then `NoNetworkPermissionTest`
-whose assumption that edit invalidated, then Android Lint's `MissingPermission`, then an
-unresolved reference. #38 and #39 were cancelled by my own pushes on top of in-flight runs.
-
-**Then #44 hung for 37 minutes** on an unverified virtual-time conversion, and had to be killed by
-pushing the revert — see §6. #45 is green on the reverted head.
-
-⚠️ **Do not read run #45's 1m01s as a speedup.** That build was cache-warm
-(`:core:curriculum:test FROM-CACHE`); the 11-minute figures are cold builds. It is also why the Stage
-3.5 band table does not appear in #45's log — those tests never re-executed, so nothing printed. The
-`showStandardStreams` fix is correct and needs a cold run to show it.
-
-**Two lessons, both cheap to apply.**
-
-`ktlint` and `symcheck` do not cover what that commit changed. Neither sees a coverage floor, Android
-Lint, or a test whose premise a manifest edit just broke. For a change that adds Android APIs, a
-dependency, or a manifest line, expect a round per category and say so rather than predicting green.
-
-`symcheck` also has a structural gap worth knowing: it resolves **top-level** symbols, so
-`SkillIds.M10_NODES_IN_ORDER` — a member that does not exist — passed it clean and cost run #40. Any
-change naming members of an existing object needs those members checked by hand. That is the same
-failure class as runs #27–#29, caught by nothing.
-
----
-
-## 2. What is actually built and green
-
-Everything through **run #45** (`872dfec`, this branch's head) is CI-verified green: all of Phase 1,
-all of Phase 2, this branch's explanation-screen overhaul, and **every stage of Phase 3, 3.0 through
-3.6**.
-
-⚠️ **Green here means the logic and the simulated flows, not the phone.** Phase 3's acceptance rests
-on measurements no test in this repository can take — see §5. Do not read "all seven stages green" as
-"Phase 3 is done."
-
-⚠️ **CI got slower; measured, it is mostly not what I first said.** A green run went from 7m40s
-(#35) to 11m20s (#43). I attributed that to this session's sung tests and was wrong — that claim stood
-in this file for two commits before anyone measured it.
-
-Run #43 added a per-test timing listener (root `build.gradle.kts`), so the numbers are now in every
-log: `grep '\[slow-test\]' verify.log`. What it says:
-
-| | |
-|---|---|
-| Tests taking ≥1s | 44, totalling **3m44s** |
-| Of which added this session | **37.8s** — `SungPredictionTest` 29.9s, `SungMinorAndChromaticTest` 7.8s |
-| Largest single class | `PracticeViewModelTest`, **44s**, pre-existing |
-
-The rest of the increase is compilation, kapt, lint and kover over roughly 1,400 new lines, plus tests
-under the 1s threshold. Do not compare against run #37's 7m38s: that build **failed at lint** and
-never ran the full suite.
-
-**Where virtual time would actually pay.** Every test that drives the practice loop through real
-playback delays: `PracticeViewModelTest` (44s), `SungPredictionTest` (29.9s), `SungAnswerFlowTest`
-(23.3s), `PracticeLoopEngineTest` (16.9s), `SungMinorAndChromaticTest` (7.8s), `M2IntroTest` and
-`M2SessionTraceTest` (4.7s each) — about **2m11s**, most of it pre-existing.
-
-⚠️ **It was tried on 2026-08-22, and it hung CI. Read this before trying again.**
-
-`SungPredictionTest` was converted as a one-class pilot: `runTest(StandardTestDispatcher())` for the
-ViewModel's phase delays, with the wait for a persisted attempt left on `Dispatchers.Default` because
-`PracticeLoopEngine` writes fire-and-forget to its own hardcoded
-`CoroutineScope(SupervisorJob() + Dispatchers.Default)` that no test scheduler can advance. Run #44
-sat on `Verify` for **37 minutes** and had to be killed by pushing a revert. The conversion is
-reverted; the measurement listener and the corrected figures above are not.
-
-Two mistakes are in that pilot, and the second is the likely killer:
-
-1. `withTimeout` was removed because under `runTest` it is a *virtual*-time deadline that fires the
-   instant nothing else is scheduled — true, and a real hazard for any wait on real work.
-2. What replaced it was an **unbounded** `while (found == null) { delay(POLL_MS) }`. In virtual time
-   that is not a poll, it is an infinite loop: every iteration schedules more work, so the scheduler
-   never idles, `runTest`'s real-time limit is starved, and the JVM spins until the runner is killed.
-
-So the rule is not "drop `withTimeout`". It is: **every virtual-time loop needs a virtual-time bound**
-(an iteration cap or a deadline checked against `currentTime`), and **every wait on engine work needs
-a real-time bound on a real dispatcher**. The two cannot be the same mechanism.
-
-Whoever picks this up: convert one class, and do not push it without a bound on both loops. 29.9s is
-not worth a 37-minute runner.
-
-The Compose and Robolectric classes near the top of the list (`DegreeLadderLayoutTest` 15s,
-`AnswerAreaTest` 14.8s, `DiagnosticDebugSkipTest` 13.3s) are startup charged to whichever test runs
-first. Virtual time does nothing for those.
-
-**Verified in CI:**
-
-- The intro/explanation system, rebuilt (see §4).
-- Debug APK published by every run, signed by a committed key so builds install over each other.
-- `apksigner`-based signature verification.
-- The Room schema-committed guard.
-- Stage 3.3's sung-answer path entire — everything from `0f4c39f` onward:
-  - `Attempt.inputMethod` / `sungCents`, Room v2 + migration, `MigrationTest`
-  - `SungDataIsNeverAdaptiveTest`
-  - `SungLearnerSimulationTest`
-  - `MicrophoneSource` / `CapturedAudio` / `UnavailableMicrophoneSource`
-  - `SungAnswerControl`, `onSingAnswer`, `SungAnswerControlTest`, `SungAnswerFlowTest`
-
-- The whole sung path made **reachable** — `AudioRecordMicrophoneSource` bound in place of the
-  unavailable stand-in, `RECORD_AUDIO` in the manifest, and `SungResponseSection` in Settings carrying
-  the opt-in, its explanation and the permission request. See §4a for why this was missing.
-- Stage 3.5's tolerance measurement (`SungToleranceMeasurementTest`) and its wiring trace
-  (`SungMinorAndChromaticTest`), and Stage 3.6's two structural guarantees
-  (`NoAudioPersistedTest`, `SungDataNeverReachesTheEngineTest`).
-- Stage 3.4's sung prediction, added in `e95c17d` and green on its first run:
-  - `AudiatedPitch` + `AudiatedPitchTest`
-  - `captureAudiation` in `PracticeViewModel`, opening the mic inside the audiation gap
-  - `SungPredictionTest` (five cases, through the real ViewModel, engine and analyzer)
-  - `SungPredictionSimulationTest`, and `sungCentsFor` on the prediction harness
-
-Run #31 (`8e343ac`) is where the sung stack first went green; #32 held it on the head commit.
-**Stages 3.3 and 3.4 are complete, and the next work is Stage 3.5, `M10` and `M11`.**
-
-One thing this does not mean: green in CI is not green on a device. Every one of those tests runs
-against `UnavailableMicrophoneSource`. The sung path is verified as logic and as a simulated flow,
-and has not once met a real microphone — which is why §3 still reports 3.0 and 3.2 as half-built and
-why §5 is unchanged.
-
----
-
-## 3. Phase 3 progress against the spec
-
-`docs/30-PHASE-3-SPEC.md` §8's stage table:
-
-| Stage | State |
-|---|---|
-| 3.0 Mic capture + pitch detection | **Code complete, unmeasured.** `PitchDetector` (MPM) built and measured — worst error 7.69 cents against a 100-cent requirement. `AudioRecordMicrophoneSource` written and bound 2026-08-22. ⚠️ Latency, CPU, dropouts and recorded-signal accuracy are all still owed and need hardware — nothing in that class has been observed running. |
-| 3.1 Scoring pipeline | **Built and green.** `DegreeResolver` + `SungResponseAnalyzer`. Ambiguity band decided at 10 cents. |
-| 3.2 Permission + explanation | **Built.** The sung explanation screen exists and is tested. The opt-in, its explanation and the permission request landed 2026-08-22 in `SungResponseSection`. Only the on-device grant/deny behavior is unobserved. |
-| 3.3 Sung response in `M2` | **Done.** All three acceptance criteria have tests, green in runs #31 and #32. Simulated only — no real microphone in the loop, per §2. |
-| 3.4 Sung prediction in `M12` | **Done.** Both acceptance criteria have tests, green in run #34. The capture window is bounded by arithmetic — 200 ms lead-in, 250 ms guard before the note — so the ordering §5.4 depends on holds without a device to check it. Simulated only, same caveat as 3.3. |
-| 3.5 `M10` and `M11` | **Measured and traced.** Needed no new feature code — both modules generate `FunctionalRecognitionItem`, so Stage 3.3's path already serves them, and `SungMinorAndChromaticTest` drives a real session to each and sings into it rather than taking that on trust. `SungToleranceMeasurementTest` reports the bands. The open question turned out to have a false premise — see §4b. |
-| 3.6 Hardening | **Built.** Criteria 2 and 3 are now structural: `NoAudioPersistedTest` scans `:core:data` and `:core:audio` for any route to disk, `SungDataNeverReachesTheEngineTest` fails if any adaptive source file so much as names `sungCents` or `inputMethod`. Criterion 1 is the existing Phase 1/2 suites, unchanged and running. ⚠️ Phase 3 is **not** closeable here — §5's device list is what remains. |
-
-§9's questions: three settled and recorded in the spec (ambiguity band; sung prediction supplements
-rather than replaces, with §5.4 also carrying Stage 3.4's four implementation decisions; and chromatic
-tolerance, closed in §5.5 on a measurement that showed the question's premise was wrong). One of the
-original four still open, plus a fifth this branch added — see §4b. Still open: `AudioRecord` vs Oboe
-(question 1) and the systematic-offset misread past 55 cents (question 5). **Both need device
-measurements**, so neither can be closed in this environment.
-
----
-
-## 4. Decisions taken this session that changed shipped behavior
-
-These are recorded in the docs they affect; listed here so you know they happened.
-
-**Explanations now appear every time you enter a module, not once ever.** Maintainer instruction
-after live use, verbatim: *"How It Works should come up anytime you enter a new module, every single
-time."* The old rule was tracked by persisted flags, which made every already-dismissed screen
-permanently unreachable — ending a session did not bring it back, and neither did clearing the saved
-session, because that is a different store. `docs/08-UI-SPEC.md` §3a and
-`docs/11-ONBOARDING-CLARITY.md` §5 carry the new rule; `docs/05-DATA-MODEL.md` §4 marks the
-`module*IntroSeen` flags retired — still stored, no longer read or written.
-
-**A review item is not "entering" a module.** Up to 40% of a session is spaced-repetition review of
-finished modules. Counting those as entry would stop practice several times a session to re-explain
-old material. The playback gate takes the whole `PlannedSlot` for exactly this.
-
-**Audio never plays under an explanation screen**, on any module, at any entry point. This was the
-original live-use report and is now enforced by a per-item gate in `PracticeLoopEngine`.
-
-**`M9`'s explanation screen was never wired.** It had existed since Phase 2 Stage 2.2 — built,
-previewed, tested, with its own seen-once flag — and no dispatch line ever reached it. Now wired.
-Worth internalizing as a pattern: this codebase has produced fully-built, fully-tested screens that
-nothing could reach. `IntroDispatchTest` exists because of an earlier instance of exactly this.
-
-**Settings' "Show explanations again" was added and then removed** in the same session. It existed to
-work around seen-once; the new rule made it a no-op, and a button that does nothing is worse than no
-button.
-
----
-
-## 4a. The hole this branch found: three stages built behind a door with no handle
-
-Worth reading before trusting any "done" in this file.
-
-`sungResponseEnabled` shipped in `AppSettings` at Stage 3.3, defaulting to false. Nothing in the app
-could change it. There was no `RECORD_AUDIO` line in the manifest, no permission request anywhere, and
-no `AudioRecord` code at all — `UnavailableMicrophoneSource` was the bound implementation, reporting
-false forever. So Stages 3.1, 3.3 and 3.4 were each built, fully tested, reported complete and
-CI-verified green, and **not one of them could be reached by a person holding the phone.**
-
-Nothing caught it because every sung test uses a fake microphone, which is the right way to test the
-analyzer and the wrong way to learn whether the feature exists. The stage table said "half" for 3.0
-and 3.2 and I read that as "the untestable part is missing"; the reachable part was missing too.
-
-The cause was a defensible-sounding rule applied too widely: Stage 3.0's acceptance criteria are all
-device measurements, so I deferred the stage — including the hundred lines of `AudioRecord` that need
-no device to write. Closed 2026-08-22, before Stage 3.5.
-
-**The rule that replaces it:** a stage is not done when its tests pass, it is done when a learner can
-get to it. State the route, then check the route.
-
----
-
-## 4b. Stage 3.5's finding: chromatic was never the problem
-
-`docs/30-PHASE-3-SPEC.md` §5.3 warned that "tolerance bands narrow considerably with 12 degrees" and
-§9 asked whether singing should be limited to diatonic contexts because of it. Measured through the
-real resolver, the difference between seven degrees and twelve is **one cent**.
-
-| | Correct to | Unclear from | Misread from |
-|---|---|---|---|
-| `M2.FULL_DIATONIC` (7) | 45¢ | 46¢ | 55¢ |
-| `M11.CHROM_FULL` (12) | 44¢ | 45¢ | 55¢ |
-
-The major scale already contains semitone steps at `3`–`4` and `7`–`1`, so the binding geometry was
-fixed in Phase 1 the moment `4` joined the alphabet at `M2.DEG_SET_4`. Restricting singing to diatonic
-contexts would have removed the feature from `M11` and improved accuracy by nothing measurable, so
-question 4 is closed and the restriction is not made.
-
-**Two things came out of it that are worth carrying forward.**
-
-A usability finding: at a uniform −50 cents, `M2.FULL_DIATONIC` still reads 5 of 7 degrees and
-`M11.CHROM_FULL` reads **0 of 12**. That learner is never misread — the ambiguity margin catches every
-case, exactly as designed — but singing never once works for them on the chromatic node. The app is
-correct and useless to that person simultaneously, which no pass/fail can show.
-
-A real risk, now §9's new question 5: past ~55 cents of consistent offset the resolver stops saying
-"unclear" and starts returning a confident wrong degree, always the one below. That reaches the
-staircase and the confusion matrix as real data. It is not chromatic-specific — `M2` has it too — and
-it cannot be fixed by widening the ambiguity margin, which trades correct reads for unclear ones cent
-for cent. ⚠️ Needs device data before anything is designed: how common such an offset actually is
-decides whether this is a defect or a hypothetical.
-
----
-
-## 5. What the maintainer still needs to do on a device
-
-Nothing here can be closed without hardware. The APK from any green run installs over the previous
-one (committed debug key, CI-verified), so progress survives updates.
-
-1. **`M12.PREDICT_TRIAD`** — is holding a named degree across a 1–5 second silent gap a real task or
-   an impossible one? This is Phase 3's highest-value target and is still unvalidated.
-2. **`M10.MIXED_MODE`** — does the ladder give the mode away?
-3. The minor `i–iv–v–i` cadence still owes a by-ear check at every fade level
-   (`docs/20-PHASE-2-SPEC.md` §8.1 decision 4).
-
----
-
-## 6. Working notes for whoever picks this up
-
-**Read the measurement reports.** `:core:audio`, `:core:engine` and now `:core:curriculum` set
-`testLogging { showStandardStreams = true }`, without which a `[measure]` line is written and
-discarded. Run #41 went green with Stage 3.5's entire band table invisible for exactly that reason —
-the third time this repository has made that mistake, and the first two are why the other two modules
-carry the setting. `grep '\[measure\]' verify.log` is where the numbers live.
-
-**Tooling that exists and should be used:**
-
-- `scripts/verify.sh` — the definition of green. Now extracts compiler diagnostics (`e:` lines) and
-  failing test names before falling back to a tail, because a 40-line tail on a compile failure ends
-  with "Compilation error. See log for more details" and none of the details.
-- `scripts/ktlint.sh` — standalone, no Android SDK, seconds. Version pinned to 1.7.2 to match CI;
-  **the pin is load-bearing**, 1.8.0 flags files CI passes.
-- `scripts/symcheck.py` — unresolved-reference check, described in §1.
-
-**Reading a CI failure without waiting for a summary:** the `verify-log` artifact has the full build
-log. Download and grep it directly:
+And when you edit with a script, **assert the intended text is present afterward**. Run #29 was a
+find-and-replace that matched nothing because an earlier replacement in the same script had already
+changed the anchor text. It was pushed unverified.
+
+**Reading a CI failure** — the `verify-log` artifact carries the full build log:
 
 ```bash
-curl -sSL -o log.zip "https://api.github.com/repos/alekpeed/tonic/actions/artifacts/<ID>/zip"
+AID=$(curl -s ".../actions/runs/<RUN_ID>/artifacts" | jq '.artifacts[]|select(.name=="verify-log").id')
+curl -sSL -o log.zip ".../actions/artifacts/$AID/zip"
 unzip -q log.zip && grep -E "^e: |FAILED" verify.log
 ```
 
-**Pushing cancels in-flight runs** (`concurrency: cancel-in-progress`). Several runs in this
-branch's history are `cancelled` because of a push landing mid-run, not because anything failed.
+**Test timing** comes from an `afterTest` listener in the root `build.gradle.kts`: any test at or over
+a second prints `[slow-test] <ms> <Class>.<name>`. It exists because a claim about which tests were
+slow turned out to be wrong, and it doubles as a regression guard.
 
-**Communication rules the maintainer has set** (now in `CLAUDE.md` §8, and they were repeated
-several times before they stuck): be brief; reply format is *what was done / what is needed from you
-/ what is next* and nothing else; ask questions through the interactive prompt, never as prose;
-answer the literal question asked rather than supplying context around it.
+**Communication rules the maintainer has set** (also `CLAUDE.md` §8): be brief; reply format is *what
+was done / what is needed from you / what is next* and nothing else; ask questions through the
+interactive prompt, never as prose; answer the literal question asked rather than supplying context
+around it.
+
+---
+
+## 8. Known-not-done
+
+**Test suite wall-clock.** 44 tests take a second or more, totalling 3m44s; the largest single class is
+`PracticeViewModelTest` at 44s. About 2m11s is tests driving the practice loop through real playback
+delays — `PracticeViewModelTest` (44s), `SungPredictionTest` (29.9s), `SungAnswerFlowTest` (23.3s),
+`PracticeLoopEngineTest` (16.9s), `SungMinorAndChromaticTest` (7.8s), `M2IntroTest` and
+`M2SessionTraceTest` (4.7s each). Virtual time is the fix.
+
+⚠️ **It was attempted on 2026-08-22 and hung CI for 37 minutes.** `SungPredictionTest` was converted to
+`runTest(StandardTestDispatcher())`; run #44 sat on `Verify` until a revert push killed it. Two
+mistakes, the second fatal:
+
+1. `withTimeout` was removed because under `runTest` it is a *virtual*-time deadline that fires the
+   instant nothing else is scheduled — correct, and a real hazard for any wait on real work.
+2. What replaced it was an **unbounded** `while (found == null) { delay(POLL_MS) }`. In virtual time
+   that is not a poll, it is an infinite loop: every iteration schedules more work, the scheduler never
+   idles, `runTest`'s own real-time limit is starved, and the JVM spins until the runner dies.
+
+The rule for the next attempt: **every virtual-time loop needs a virtual-time bound** (an iteration cap
+or a deadline against `currentTime`), and **every wait on engine work needs a real-time bound on a real
+dispatcher.** Two mechanisms, not one. `PracticeLoopEngine` holds a hardcoded
+`CoroutineScope(SupervisorJob() + Dispatchers.Default)` and writes attempts to it fire-and-forget, so
+no test scheduler can advance that work. Convert one class at a time, read the `[slow-test]` line, do
+not push without both bounds.
+
+The Robolectric/Compose classes near the top of that list (`DegreeLadderLayoutTest` 15s,
+`AnswerAreaTest` 14.8s, `DiagnosticDebugSkipTest` 13.3s) are startup charged to whichever test runs
+first. Virtual time does nothing for those.
+
+**`sungOctaveAgnostic` is stored, surfaced in Settings, and read by nothing** — the analyzer folds
+octaves unconditionally. Wiring it or deleting it is an open loose end.
+
+**Data import** is deliberately absent; export alone shipped in Stage 2.1. `20-PHASE-2-SPEC.md` §6 has
+the reasoning and says to revisit only against a concrete need.
+
+---
+
+## 9. Handing off to Phase 4
+
+Read `40-PHASE-4-SPEC.md`. Rhythm (`M3`) is pedagogically independent of everything above — it shares
+no skill nodes with pitch, and a learner can start `M3.BEAT_FIND` having never touched `M2`. What it
+shares is the audio engine, and that is where this handoff matters.
+
+**Three things from Phase 3 land directly on Stage 4.0.**
+
+**The Oboe decision is now blocking.** Phase 3 §9 q1 was left open; Phase 4 §10 q1 inherits it and
+Stage 4.0 cannot start without it. `06-AUDIO-ENGINE.md` §2 predicted this back in Phase 1 — "Phase 4
+(rhythm) will require revisiting this" — and it is the one open question that has compounded across
+two phases. `AudioPlayer` sits behind an interface precisely so the backend can be swapped without
+touching callers; that groundwork is done and unused.
+
+**Phase 4's simulation 2 is Phase 3's flat-singer test, and there is now evidence about how that shape
+of problem behaves.** A uniformly-offset learner in Phase 3 was never *misread* — the ambiguity margin
+caught every case — but on the widest alphabet they were never *readable* either, so the feature was
+correct and useless to them simultaneously (§5). The rhythm analogue is a tolerance window narrow
+enough that a calibrated-but-imprecise tapper is never scored wrong and also never scored right. Phase
+4 §6.2's windows and §4.3's calibration are where that gets decided, and the Phase 3 lesson is:
+**measure the band across every difficulty level before trusting it, and print the table.**
+`SungToleranceMeasurementTest` is the pattern to copy — including §4.2's warning about where that
+output goes.
+
+**Phase 4's simulation 6 is §4.1's reachability trap wearing different clothes.** "Uncalibrated device:
+production must be blocked with an explanation, not silently mis-scored" describes a *route* — and a
+route is exactly what three Phase 3 stages shipped without. Write the test that asks whether a learner
+can reach the blocked state and read the explanation, not only whether the block works.
+
+**One thing that will not transfer.** Phase 4 §4.4 requires determinism under real time, and rhythm
+tests will need genuine timing precision. §8's virtual-time hazard gets sharper here, not softer: the
+engine's hardcoded `Dispatchers.Default` scope is already a problem for test time, and a phase whose
+whole subject is *when things happened* should decide early whether that scope stays hardcoded — before
+Stage 4.3's "byte-identical on replay" criterion comes to depend on it.

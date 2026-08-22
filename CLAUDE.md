@@ -30,10 +30,15 @@ A desktop (Ubuntu) build is a **future** consideration. It is not in scope now, 
 
 The build is phased. The current phase is defined in `docs/09-BUILD-PLAN.md`.
 
-Phases 1 and 2 are built. Phase 1 shipped Module 0 (Diagnostic) and Module 2 (Diatonic Functional
+Phases 1, 2 and 3 are built. Phase 1 shipped Module 0 (Diagnostic) and Module 2 (Diatonic Functional
 Recognition); Phase 2 added M9 mode identification, M10 minor, M11 chromatic degrees, M12 audiation
-and data export. **Phase 3 is specified in `docs/30-PHASE-3-SPEC.md` and has not been started** — rule
-3 below governs that, and writing a spec is not the instruction rule 3 requires.
+and data export; Phase 3 added the optional sung response across M2, M10, M11 and M12. **Phase 3's
+code is complete and green, but its acceptance is not: every measurement it owes needs a device.** See
+`docs/21-HANDOFF.md` §3 before treating any of it as finished.
+
+**Phase 4 is specified in `docs/40-PHASE-4-SPEC.md` and has not been started** — rule 3 below governs
+that, and writing a spec is not the instruction rule 3 requires. Its Stage 4.0 is additionally blocked
+on an open question Phase 3 left unanswered (Oboe vs `AudioTrack`); `21-HANDOFF.md` §9 is the bridge.
 
 See `docs/09-BUILD-PLAN.md` "Where the build actually is" for per-phase state, including what
 "built and green" does not cover.
@@ -66,7 +71,8 @@ Rules:
 | `docs/11-ONBOARDING-CLARITY.md` | In-app explanation standard. Wins over `08` on any explanation detail |
 | `docs/20-PHASE-2-SPEC.md` | Phase 2: minor, chromatic, audiation, export. §3 defines M9–M12; §8 records decisions and per-stage findings |
 | `docs/21-HANDOFF.md` | Working notes, not authority. A dated snapshot — check its claims against the repo before relying on them |
-| `docs/30-PHASE-3-SPEC.md` | Phase 3: optional sung response. Specified, unbuilt |
+| `docs/30-PHASE-3-SPEC.md` | Phase 3: optional sung response. Built; §5.5 and §9 carry its measurements and open questions |
+| `docs/40-PHASE-4-SPEC.md` | Phase 4: rhythm (M3). Specified, unbuilt. First phase to require timed production |
 
 If you change behavior that a document describes, update that document in the same commit. Documents that disagree with the code are worse than no documents.
 

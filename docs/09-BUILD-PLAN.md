@@ -20,7 +20,8 @@ from which stages have headings.
 |---|---|---|
 | 1 — M0 diagnostic, M2 major diatonic | 1.0–1.10 | Built. Green under `scripts/verify.sh` |
 | 2 — minor, chromatic, audiation, export | 2.0–2.8 (`20-PHASE-2-SPEC.md` §7) | Built. Green |
-| 3 — optional sung response | 3.0–3.6 (`30-PHASE-3-SPEC.md` §8) | **Specified only. Not started** |
+| 3 — optional sung response | 3.0–3.6 (`30-PHASE-3-SPEC.md` §8) | Built. Green. ⚠️ Device measurements still owed — `21-HANDOFF.md` §3 |
+| 4 — rhythm (`M3`) | 4.0–4.7 (`40-PHASE-4-SPEC.md` §9) | **Specified only. Not started.** Stage 4.0 is blocked on the Oboe decision (§10 q1) |
 
 Two things that "built and green" does not mean, and which are tracked nowhere else:
 

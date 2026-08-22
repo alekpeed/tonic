@@ -28,7 +28,8 @@ Specification set for **Tonic**, an Android ear training app built from absolute
     │   20+: one document per phase beyond the first, numbered by phase.
     ├── 20-PHASE-2-SPEC.md
     ├── 21-HANDOFF.md
-    └── 30-PHASE-3-SPEC.md
+    ├── 30-PHASE-3-SPEC.md
+    └── 40-PHASE-4-SPEC.md
 ```
 
 `11-ONBOARDING-CLARITY.md` is not optional reading. It was written after a real first-contact failure
