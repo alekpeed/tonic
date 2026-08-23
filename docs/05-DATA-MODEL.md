@@ -204,6 +204,19 @@ The keys and their `AppSettings` fields are kept rather than migrated away, so t
 |---|---|
 | 1 | Initial schema |
 | 2 | `attempts` gains `inputMethod` and `sungCents` for Phase 3's optional sung response (`30-PHASE-3-SPEC.md` §7). Two added columns, both defaulted; the append-only log is never rewritten |
+| 3 | `attempts` gains the six rhythm columns of `40-PHASE-4-SPEC.md` §8 — `tapTimestampsMs`, `calibrationOffsetUsedMs`, `toleranceUsedMs`, `perEventAsynchronyMs`, `extraTaps`, `missedTaps`. All nullable, none defaulted to a value: null is the honest reading for every row written before Phase 4, because "no taps were recorded" and "the learner tapped nothing" are different facts and only the first ever happened to a pitch attempt |
+
+The two list columns hold JSON text rather than rows in a related table. `attempts` is an append-only
+log that is replayed whole (§1), a tap list is meaningless apart from the attempt it belongs to, and
+nothing will ever query across taps — a join table would add a migration surface and a delete cascade
+in exchange for a query nobody writes. `perEventAsynchronyMs` is a list of *nullable* numbers, because
+a missed event has no asynchrony and a zero there would read as a tap that landed exactly on it.
+
+Tap times are stored as **corrected milliseconds from the pattern's start**, not as raw monotonic
+instants. A raw instant means nothing once the playback it was measured against is over; the offsets
+are what `40-PHASE-4-SPEC.md` §4.4 needs to make a recorded session replayable. The calibration
+constant and the tolerance window that were applied are stored beside them, so an attempt can be
+re-scored later against exactly what it faced rather than against today's settings.
 
 ---
 

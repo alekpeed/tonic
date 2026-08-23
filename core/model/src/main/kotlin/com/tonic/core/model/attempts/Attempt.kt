@@ -68,4 +68,44 @@ data class Attempt(
      * for the same reason, and asserted the same way.
      */
     val sungCents: Int? = null,
+    /**
+     * What a tapped rhythm attempt recorded — docs/40-PHASE-4-SPEC.md §8. Null on every other attempt,
+     * which is every attempt written before Phase 4.
+     *
+     * Null rather than an empty [RhythmAttemptData] for the same reason `sungCents` is null rather than
+     * zero: "no taps were recorded" and "the learner tapped nothing" are different facts, and only one
+     * of them ever happened to a pitch attempt.
+     */
+    val rhythm: RhythmAttemptData? = null,
+)
+
+/**
+ * The tapped half of a rhythm attempt — docs/40-PHASE-4-SPEC.md §8 and §6.3.
+ *
+ * §4.4 is what this exists for, in its own words: tap timestamps "are recorded with the attempt, which
+ * makes any real session fully replayable and any scoring bug reproducible offline." Everything here is
+ * an input to or an output of the pure scorer, so a stored attempt can be re-scored years later and
+ * produce the same verdict.
+ *
+ * @property tapTimesMs each tap in milliseconds from the pattern's start, calibration already applied.
+ *   Corrected offsets rather than raw instants, because a raw nanosecond instant means nothing without
+ *   the output timebase of a playback that is long over.
+ * @property calibrationOffsetMs the constant that was subtracted, recorded so the raw taps can be
+ *   recovered and so a later change to calibration does not silently rewrite history.
+ * @property toleranceHalfWidthMs the window that was actually applied, after §6.2's crowding clamp.
+ *   Recorded rather than recomputed: a tolerance derived from today's axis levels would answer a
+ *   different question than the one the learner was asked.
+ * @property perEventAsynchronyMs how far each tap fell from the event it matched, in order, with null
+ *   for a missed event. **Recorded and shown, never scored** (§6.3) — the guarantee
+ *   `RawAsynchronyIsNeverScoredTest` holds the scorer to.
+ * @property extraTaps taps that matched no event, and [missedTaps] events nothing matched. Counted
+ *   separately because §6.2 says the two "mean different things pedagogically".
+ */
+public data class RhythmAttemptData(
+    public val tapTimesMs: List<Double>,
+    public val calibrationOffsetMs: Double,
+    public val toleranceHalfWidthMs: Double,
+    public val perEventAsynchronyMs: List<Double?>,
+    public val extraTaps: Int,
+    public val missedTaps: Int,
 )

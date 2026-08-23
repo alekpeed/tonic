@@ -31,6 +31,31 @@ internal object Migrations {
             }
         }
 
+    /**
+     * v2 → v3: `attempts` gains the six rhythm columns of docs/40-PHASE-4-SPEC.md §8.
+     *
+     * Six added columns and nothing else, all nullable, none defaulted to a value. Null is the honest
+     * reading for every row written before Phase 4: those attempts had no taps, so "no taps recorded"
+     * and "zero taps recorded" must not become the same thing — the second would say a learner sat
+     * through a rhythm item without moving, which never happened.
+     *
+     * The two list columns are stored as text rather than as a related table. The attempts table is an
+     * append-only log that is replayed whole (§1), a tap list is meaningless apart from the attempt it
+     * belongs to, and nothing ever queries across taps; a join table would add a migration surface and
+     * a delete cascade for no query anyone will write.
+     */
+    val MIGRATION_2_3 =
+        object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE attempts ADD COLUMN tapTimestampsMs TEXT DEFAULT NULL")
+                db.execSQL("ALTER TABLE attempts ADD COLUMN calibrationOffsetUsedMs REAL DEFAULT NULL")
+                db.execSQL("ALTER TABLE attempts ADD COLUMN toleranceUsedMs REAL DEFAULT NULL")
+                db.execSQL("ALTER TABLE attempts ADD COLUMN perEventAsynchronyMs TEXT DEFAULT NULL")
+                db.execSQL("ALTER TABLE attempts ADD COLUMN extraTaps INTEGER DEFAULT NULL")
+                db.execSQL("ALTER TABLE attempts ADD COLUMN missedTaps INTEGER DEFAULT NULL")
+            }
+        }
+
     /** In order, for both [androidx.room.RoomDatabase.Builder.addMigrations] and the migration tests. */
-    val ALL: Array<Migration> = arrayOf(MIGRATION_1_2)
+    val ALL: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3)
 }

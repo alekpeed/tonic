@@ -76,6 +76,24 @@ internal object JsonCodec {
             state
         }
 
+    /**
+     * The tap list and the per-event asynchronies of a rhythm attempt — docs/40-PHASE-4-SPEC.md §8.
+     *
+     * A JSON array of numbers, in the same column-of-text style every other list here uses. The
+     * asynchrony list is *nullable per element*, because a missed event has no asynchrony and a zero
+     * would read as a tap that landed exactly on it — the same distinction `sungCents` draws between
+     * "not measured" and "measured at zero".
+     */
+    fun encodeDoubles(values: List<Double>): String = json.encodeToString(values)
+
+    fun decodeDoubles(raw: String): List<Double> =
+        runCatching { json.decodeFromString<List<Double>>(raw) }.getOrDefault(emptyList())
+
+    fun encodeNullableDoubles(values: List<Double?>): String = json.encodeToString(values)
+
+    fun decodeNullableDoubles(raw: String): List<Double?> =
+        runCatching { json.decodeFromString<List<Double?>>(raw) }.getOrDefault(emptyList())
+
     fun encodeResumeState(state: ResumeState): String = json.encodeToString(state)
 
     fun decodeResumeState(raw: String?): ResumeState? {

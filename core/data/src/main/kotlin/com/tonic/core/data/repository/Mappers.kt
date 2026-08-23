@@ -8,6 +8,7 @@ import com.tonic.core.data.entity.SessionEntity
 import com.tonic.core.data.entity.SkillStateEntity
 import com.tonic.core.model.attempts.Attempt
 import com.tonic.core.model.attempts.InputMethod
+import com.tonic.core.model.attempts.RhythmAttemptData
 import com.tonic.core.model.ids.SkillId
 import com.tonic.core.model.items.DifficultyAxis
 import com.tonic.core.model.state.ConfusionState
@@ -45,6 +46,12 @@ internal fun Attempt.toEntity(): AttemptEntity =
         isIndependenceCheckProbe = isIndependenceCheckProbe,
         inputMethod = inputMethod.name,
         sungCents = sungCents,
+        tapTimestampsMs = rhythm?.let { JsonCodec.encodeDoubles(it.tapTimesMs) },
+        calibrationOffsetUsedMs = rhythm?.calibrationOffsetMs,
+        toleranceUsedMs = rhythm?.toleranceHalfWidthMs,
+        perEventAsynchronyMs = rhythm?.let { JsonCodec.encodeNullableDoubles(it.perEventAsynchronyMs) },
+        extraTaps = rhythm?.extraTaps,
+        missedTaps = rhythm?.missedTaps,
     )
 
 internal fun AttemptEntity.toDomain(): Attempt =
@@ -73,6 +80,21 @@ internal fun AttemptEntity.toDomain(): Attempt =
         inputMethod =
             runCatching { InputMethod.valueOf(inputMethod) }.getOrDefault(InputMethod.TAP),
         sungCents = sungCents,
+        // Keyed on the tap list being present, not on all six columns. Those columns are written
+        // together or not at all, so a row with taps and a missing count is a partial write rather
+        // than a pitch attempt, and defaulting the counts beats discarding the taps.
+        rhythm =
+            tapTimestampsMs?.let { taps ->
+                RhythmAttemptData(
+                    tapTimesMs = JsonCodec.decodeDoubles(taps),
+                    calibrationOffsetMs = calibrationOffsetUsedMs ?: 0.0,
+                    toleranceHalfWidthMs = toleranceUsedMs ?: 0.0,
+                    perEventAsynchronyMs =
+                        perEventAsynchronyMs?.let(JsonCodec::decodeNullableDoubles) ?: emptyList(),
+                    extraTaps = extraTaps ?: 0,
+                    missedTaps = missedTaps ?: 0,
+                )
+            },
     )
 
 internal fun SkillState.toEntity(): SkillStateEntity =

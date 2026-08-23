@@ -135,6 +135,102 @@ class MigrationTest {
     }
 
     /**
+     * v2 → v3 adds Phase 4's six rhythm columns to `attempts` (docs/40-PHASE-4-SPEC.md §8).
+     *
+     * The attempt written here is a version-2 row: a sung Phase 3 answer, which is the most recent
+     * shape a row could have had before this migration and therefore the one most likely to be damaged
+     * by it. After the migration it must still be there, with its Phase 3 columns intact, and every
+     * rhythm column must read **null** — not zero. "No taps were recorded" and "the learner tapped
+     * nothing" are different facts, and only the first one ever happened to a pitch attempt.
+     */
+    @Test
+    fun `migrating 2 to 3 keeps every existing attempt and leaves its rhythm columns empty`() {
+        createDatabaseAtVersion(2) { db ->
+            db.execSQL(
+                """
+                INSERT INTO attempts (
+                    skillId, sessionId, itemSeed, axisLevelsJson, targetLabel, responseLabel,
+                    correct, latencyMs, replayCount, keyPitchClass, targetMidi, timbreId,
+                    cadenceFadeLevel, timestamp, isWarmup, isAbandoned, isIndependenceCheckProbe,
+                    inputMethod, sungCents
+                ) VALUES (
+                    'M2.FULL_DIATONIC', 9, 99999, '{}', '5', '5',
+                    1, 2400, 0, 7, 67, 'REED',
+                    4, 2000, 0, 0, 0,
+                    'SUNG', -14
+                )
+                """.trimIndent(),
+            )
+        }
+
+        openThroughRoom().use { db ->
+            db.query("SELECT * FROM attempts").use { cursor ->
+                assertEquals(1, cursor.count, "the migration must not drop the attempt log")
+                assertTrue(cursor.moveToFirst())
+
+                // Phase 3's columns, which this migration has no business touching.
+                assertEquals("SUNG", cursor.getString(cursor.getColumnIndexOrThrow("inputMethod")))
+                assertEquals(-14, cursor.getInt(cursor.getColumnIndexOrThrow("sungCents")))
+                assertEquals("M2.FULL_DIATONIC", cursor.getString(cursor.getColumnIndexOrThrow("skillId")))
+                assertEquals(99999L, cursor.getLong(cursor.getColumnIndexOrThrow("itemSeed")))
+                assertEquals(2400L, cursor.getLong(cursor.getColumnIndexOrThrow("latencyMs")))
+
+                // The six new ones, every one null rather than defaulted.
+                for (column in RHYTHM_COLUMNS) {
+                    assertTrue(
+                        cursor.isNull(cursor.getColumnIndexOrThrow(column)),
+                        "$column must be null on an attempt that was never tapped, not zero",
+                    )
+                }
+            }
+        }
+    }
+
+    /**
+     * A version-1 database taken all the way to the current version in one open.
+     *
+     * The case a per-step test cannot cover: a learner who installed before Phase 3 and updates once,
+     * skipping every release in between. Room runs both migrations in sequence here, and a mistake in
+     * how they compose — a column added twice, a step that assumes the previous one ran — surfaces
+     * only on this path.
+     */
+    @Test
+    fun `a version 1 database survives being taken all the way to the current version`() {
+        createDatabaseAtVersion(1) { db ->
+            db.execSQL(
+                """
+                INSERT INTO attempts (
+                    skillId, sessionId, itemSeed, axisLevelsJson, targetLabel, responseLabel,
+                    correct, latencyMs, replayCount, keyPitchClass, targetMidi, timbreId,
+                    cadenceFadeLevel, timestamp, isWarmup, isAbandoned, isIndependenceCheckProbe
+                ) VALUES (
+                    'M2.DEG_SET_2', 1, 555, '{}', '2', '2',
+                    1, 1100, 0, 3, 62, 'SOFT',
+                    2, 100, 0, 0, 0
+                )
+                """.trimIndent(),
+            )
+        }
+
+        openThroughRoom().use { db ->
+            db.query("SELECT * FROM attempts").use { cursor ->
+                assertEquals(1, cursor.count)
+                assertTrue(cursor.moveToFirst())
+                assertEquals("M2.DEG_SET_2", cursor.getString(cursor.getColumnIndexOrThrow("skillId")))
+                assertEquals(555L, cursor.getLong(cursor.getColumnIndexOrThrow("itemSeed")))
+                assertEquals(
+                    "TAP",
+                    cursor.getString(cursor.getColumnIndexOrThrow("inputMethod")),
+                    "Phase 3's default must still apply after Phase 4's migration runs on top of it",
+                )
+                for (column in RHYTHM_COLUMNS) {
+                    assertTrue(cursor.isNull(cursor.getColumnIndexOrThrow(column)), "$column should be null")
+                }
+            }
+        }
+    }
+
+    /**
      * Builds a database at a historical version by replaying that version's committed schema, then
      * hands it to [seed] to populate. Room's own `room_master_table` identity row is written from the
      * schema's `setupQueries`, which is what makes the result indistinguishable from a database this
@@ -196,6 +292,17 @@ class MigrationTest {
 
     private companion object {
         const val TEST_DB = "migration-test.db"
+
+        /** The six columns docs/40-PHASE-4-SPEC.md §8 adds at version 3. */
+        val RHYTHM_COLUMNS =
+            listOf(
+                "tapTimestampsMs",
+                "calibrationOffsetUsedMs",
+                "toleranceUsedMs",
+                "perEventAsynchronyMs",
+                "extraTaps",
+                "missedTaps",
+            )
 
         /**
          * Relative to the module directory, which is a Gradle test's working directory. The same path

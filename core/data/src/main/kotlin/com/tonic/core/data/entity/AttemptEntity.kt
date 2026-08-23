@@ -46,4 +46,24 @@ internal data class AttemptEntity(
      */
     val inputMethod: String = "TAP",
     val sungCents: Int? = null,
+    /**
+     * docs/40-PHASE-4-SPEC.md §8, added in schema version 3. Every one is null on a non-rhythm attempt,
+     * which is every attempt written before Phase 4 — the migration is a pure `ALTER TABLE ADD COLUMN`
+     * over an append-only log that must never be rewritten.
+     *
+     * `tapTimestampsMs` is what makes §4.4's promise real: "they are recorded with the attempt, which
+     * makes any real session fully replayable and any scoring bug reproducible offline." Stored as the
+     * corrected millisecond offsets from the pattern's start, not as raw nanosecond instants, because
+     * the instants mean nothing without the output timebase of a playback that is long over.
+     *
+     * `toleranceUsedMs` and `calibrationOffsetUsedMs` are recorded rather than recomputed, so an
+     * attempt can be re-scored later against exactly what it faced. A tolerance recomputed from today's
+     * axis levels would answer a different question than the one the learner was asked.
+     */
+    val tapTimestampsMs: String? = null,
+    val calibrationOffsetUsedMs: Double? = null,
+    val toleranceUsedMs: Double? = null,
+    val perEventAsynchronyMs: String? = null,
+    val extraTaps: Int? = null,
+    val missedTaps: Int? = null,
 )
