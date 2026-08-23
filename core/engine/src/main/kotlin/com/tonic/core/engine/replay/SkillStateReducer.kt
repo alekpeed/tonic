@@ -7,6 +7,7 @@ import com.tonic.core.engine.mastery.IndependenceCheck
 import com.tonic.core.engine.mastery.MasteryEvaluator
 import com.tonic.core.engine.mastery.PredictionMasteryEvaluator
 import com.tonic.core.engine.mastery.RhythmMasteryEvaluator
+import com.tonic.core.engine.mastery.RhythmProductionMasteryEvaluator
 import com.tonic.core.engine.scheduling.AxisScheduler
 import com.tonic.core.engine.scheduling.AxisSchedulerState
 import com.tonic.core.model.attempts.Attempt
@@ -16,6 +17,7 @@ import com.tonic.core.model.items.DifficultyAxis
 import com.tonic.core.model.state.FsrsGrade
 import com.tonic.core.model.state.FsrsState
 import com.tonic.core.model.state.MasteryState
+import com.tonic.core.model.state.MasteryVerdict
 import com.tonic.core.model.state.SkillState
 import com.tonic.core.model.state.SkillStateReplayer
 import java.time.Instant
@@ -88,21 +90,20 @@ object SkillStateReducer : SkillStateReplayer {
                 DifficultyAxis.Scope.MODE_ID ->
                     return replayModeId(skillId, chronological, totalAttempts, updatedAt)
 
-                // Rhythm, since the maintainer settled §5.3's ambiguity: recognition nodes keep the
-                // *shape* of the five criteria with the rhythmic figure substituted for the degree,
-                // per docs/40-PHASE-4-SPEC.md §8. See RhythmMasteryEvaluator for the mapping.
-                //
-                // Production nodes are still not evaluated: §5.3 replaces their criteria outright with
-                // five of its own, including a drift trend and a per-figure floor over *tapped*
-                // accuracy, and none of that can be judged until Stage 4.5 records a tapped attempt.
-                // They take the no-mastery path, which keeps their attempts and axis levels and claims
-                // nothing about what the learner has learned.
-                DifficultyAxis.Scope.RHYTHM ->
-                    return if (SkillGraph.usesRecognitionMastery(skillId)) {
-                        replayRhythmRecognition(skillId, real, chronological, totalAttempts, updatedAt)
-                    } else {
-                        replayWithoutMastery(skillId, real, totalAttempts, updatedAt)
+                // Rhythm, both halves. Recognition nodes keep the *shape* of the five criteria with
+                // the rhythmic figure substituted for the degree (docs/40-PHASE-4-SPEC.md §8, and the
+                // maintainer's decision on §5.3's ambiguity). Production nodes replace them outright
+                // with §5.3's own five, which read the tap record Stage 4.5 stores on the attempt.
+                DifficultyAxis.Scope.RHYTHM -> {
+                    val activeFigures = SkillGraph.activeFiguresFor(skillId)
+                    return replayRhythm(skillId, real, chronological, totalAttempts, updatedAt) { window, levels ->
+                        if (SkillGraph.usesRecognitionMastery(skillId)) {
+                            RhythmMasteryEvaluator.evaluate(window, activeFigures, levels)
+                        } else {
+                            RhythmProductionMasteryEvaluator.evaluate(window, levels)
+                        }
                     }
+                }
 
                 DifficultyAxis.Scope.RECOGNITION -> Unit
             }
@@ -284,24 +285,29 @@ object SkillStateReducer : SkillStateReplayer {
         )
 
     /**
-     * The `M3` recognition reduction — docs/40-PHASE-4-SPEC.md §5.3 and §8.
+     * The `M3` reduction — docs/40-PHASE-4-SPEC.md §5.3 and §8.
      *
-     * The same fold as the prediction path with rhythm's own axes and evaluator, and separate from the
-     * recognition path for the same reason that one is separate: the criteria differ. Sharing one
-     * object across both would have meant either weakening the degree criteria `M2` depends on or
-     * pretending a rhythm node has degrees.
+     * The same fold as the prediction path with rhythm's own axes, and separate from the recognition
+     * path for the same reason that one is separate: the criteria differ. Sharing one object across
+     * both would have meant either weakening the degree criteria `M2` depends on or pretending a
+     * rhythm node has degrees.
+     *
+     * One fold serves both halves of the module, with [verdictOf] deciding which set of criteria
+     * applies. Everything else about the two is identical — the axes, the staircase, the window, the
+     * FSRS handoff — and §5.3 differs only in what it takes for a window to be good enough. Two copies
+     * of this loop would be two places for a review-block rule to drift out of step.
      *
      * No independence check runs here. `M3.INDEPENDENCE_CHECK` is a node of its own (§5.4), unbuilt
-     * until Stage 4.6, and it probes production rather than recognition.
+     * until Stage 4.6.
      */
-    private fun replayRhythmRecognition(
+    private fun replayRhythm(
         skillId: SkillId,
         real: List<Attempt>,
         chronological: List<Attempt>,
         totalAttempts: Int,
         updatedAt: Instant,
+        verdictOf: (List<Attempt>, Map<DifficultyAxis, Int>) -> MasteryVerdict,
     ): SkillState {
-        val activeFigures = SkillGraph.activeFiguresFor(skillId)
         var axisState = AxisSchedulerState.forScope(DifficultyAxis.Scope.RHYTHM)
         val masteryWindow = ArrayDeque<Attempt>()
         var masteryState = MasteryState.IN_PROGRESS
@@ -326,7 +332,7 @@ object SkillStateReducer : SkillStateReplayer {
             masteryWindow.addLast(attempt)
             if (masteryWindow.size > RhythmMasteryEvaluator.WINDOW_SIZE) masteryWindow.removeFirst()
 
-            val verdict = RhythmMasteryEvaluator.evaluate(masteryWindow.toList(), activeFigures, axisState.levels)
+            val verdict = verdictOf(masteryWindow.toList(), axisState.levels)
             if (verdict.isMastered) {
                 masteryState = MasteryState.MASTERED
                 masteredAt = attempt.timestamp

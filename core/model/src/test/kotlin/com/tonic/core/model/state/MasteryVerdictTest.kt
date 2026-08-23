@@ -33,10 +33,11 @@ class MasteryVerdictTest {
     @Test
     fun `the five degree-based criteria are intact, and the binary-node ones are additive`() {
         // The guard that makes adding a mastery criterion a decision rather than an accident, and it
-        // has now caught three - FOCUS_DEGREE in Stage 2.5, PREDICT_GAP_MINIMUM in Stage 2.6, and
-        // rhythm's three in Phase 4, all added without this list being updated and all failing here
-        // until they were named. That is the test working, so it is *extended* rather than loosened:
-        // every kind must still be accounted for by name, in one of four groups, with a reason.
+        // has now caught four - FOCUS_DEGREE in Stage 2.5, PREDICT_GAP_MINIMUM in Stage 2.6, rhythm
+        // recognition's three in Phase 4 and rhythm production's three right behind them, all added
+        // without this list being updated and all failing here until they were named. That is the test
+        // working, so it is *extended* rather than loosened: every kind must still be accounted for by
+        // name, in one of five groups, with a reason.
         //
         // Group 1, docs/03-CURRICULUM.md §5.5's five: unchanged, and unchangeable -
         // docs/20-PHASE-2-SPEC.md §4 forbids altering the M2 mastery structure, which is why every
@@ -59,6 +60,16 @@ class MasteryVerdictTest {
         // and CONFUSION_CAP are reused unchanged, because neither mentions a degree: the confusion
         // matrix is over strings and does not care what they name. Group 1 is untouched, which is what
         // docs/20-PHASE-2-SPEC.md §4 requires.
+        //
+        // Group 5, rhythm *production*'s three (§5.3 again). Unlike group 4 these are not substitutes
+        // for anything in group 1 - §5.3 replaces the production criteria outright, because tapping a
+        // pattern back produces measurements a multiple-choice answer does not have: what share of the
+        // events were struck (PATTERN_ACCURACY), what share of patterns were struck whole at the
+        // current tolerance (TIMING_CONSISTENCY), and whether the learner speeds up or slows down
+        // across a pattern (TIMING_DRIFT). Groups 4 and 5 overlap deliberately in
+        // WEAKEST_FIGURE_ACCURACY and METRONOME_FADE_MINIMUM: both halves of M3 hold every figure to
+        // 80% and both require the metronome to have faded, and duplicating the kinds would mean two
+        // names for one rule.
         val degreeBased =
             listOf(
                 MasteryCriterion.Kind.OVERALL_ACCURACY,
@@ -74,12 +85,21 @@ class MasteryVerdictTest {
         val binaryNode = setOf(MasteryCriterion.Kind.WINDOW_COVERAGE, MasteryCriterion.Kind.D_PRIME)
         val nodeSpecific =
             setOf(MasteryCriterion.Kind.FOCUS_DEGREE, MasteryCriterion.Kind.PREDICT_GAP_MINIMUM)
-        val rhythm =
+        val rhythmRecognition =
             setOf(
                 MasteryCriterion.Kind.FIGURE_COVERAGE,
                 MasteryCriterion.Kind.WEAKEST_FIGURE_ACCURACY,
                 MasteryCriterion.Kind.METRONOME_FADE_MINIMUM,
             )
+        val rhythmProduction =
+            setOf(
+                MasteryCriterion.Kind.PATTERN_ACCURACY,
+                MasteryCriterion.Kind.TIMING_CONSISTENCY,
+                MasteryCriterion.Kind.TIMING_DRIFT,
+                MasteryCriterion.Kind.WEAKEST_FIGURE_ACCURACY,
+                MasteryCriterion.Kind.METRONOME_FADE_MINIMUM,
+            )
+        val rhythm = rhythmRecognition + rhythmProduction
 
         // Rhythm substitutes for the degree criteria rather than joining them: no rhythm criterion may
         // ever appear in group 1, or M2's mastery structure would have been altered by a phase that

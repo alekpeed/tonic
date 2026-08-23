@@ -66,4 +66,18 @@ internal data class AttemptEntity(
     val perEventAsynchronyMs: String? = null,
     val extraTaps: Int? = null,
     val missedTaps: Int? = null,
+    /**
+     * The item side of a rhythm attempt, added in schema version 4 — docs/40-PHASE-4-SPEC.md §5.3.
+     *
+     * Version 3 stored what the learner did and left out what they were asked to do, which is enough
+     * to show feedback and not enough to judge mastery: criterion 3's drift is a trend of asynchrony
+     * *against elapsed time*, and criterion 5 holds each rhythmic figure to 80% — neither has an
+     * x-axis without these. Both lists are aligned with `perEventAsynchronyMs`, entry for entry.
+     *
+     * Denormalized off the item rather than regenerated from `itemSeed`, exactly as `targetLabel` and
+     * `targetMidi` are (docs/05-DATA-MODEL.md §1). Regeneration would tie every past verdict to the
+     * current generator, so improving item generation would quietly re-decide who had mastered what.
+     */
+    val expectedEventTimesMs: String? = null,
+    val perEventFigures: String? = null,
 )

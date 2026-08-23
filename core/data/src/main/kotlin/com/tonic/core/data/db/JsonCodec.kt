@@ -94,6 +94,18 @@ internal object JsonCodec {
     fun decodeNullableDoubles(raw: String): List<Double?> =
         runCatching { json.decodeFromString<List<Double?>>(raw) }.getOrDefault(emptyList())
 
+    /**
+     * The Takadimi figure each expected event belongs to — docs/40-PHASE-4-SPEC.md §5.3 criterion 5.
+     *
+     * Strings rather than an enum ordinal, because a figure is not a closed set: it is whatever
+     * syllables fill one beat, and `M3.COMPOUND` adds more of them at Stage 4.6. An ordinal would
+     * renumber the day the set grew and silently relabel every stored attempt.
+     */
+    fun encodeStrings(values: List<String>): String = json.encodeToString(values)
+
+    fun decodeStrings(raw: String): List<String> =
+        runCatching { json.decodeFromString<List<String>>(raw) }.getOrDefault(emptyList())
+
     fun encodeResumeState(state: ResumeState): String = json.encodeToString(state)
 
     fun decodeResumeState(raw: String?): ResumeState? {

@@ -4,6 +4,7 @@ import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.tonic.core.data.db.TonicDatabase
 import com.tonic.core.model.attempts.Attempt
+import com.tonic.core.model.attempts.RhythmAttemptData
 import com.tonic.core.model.ids.SkillIds
 import com.tonic.core.model.items.DifficultyAxis
 import kotlinx.coroutines.flow.first
@@ -16,6 +17,7 @@ import org.robolectric.RuntimeEnvironment
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 
 @RunWith(AndroidJUnit4::class)
 class AttemptRepositoryTest {
@@ -71,6 +73,55 @@ class AttemptRepositoryTest {
             assertEquals(original.targetLabel, stored.targetLabel)
             assertEquals(original.correct, stored.correct)
             assertEquals(original.timestamp, stored.timestamp)
+        }
+
+    @Test
+    fun `a tapped attempt round-trips its whole rhythm record`() =
+        runBlocking {
+            // docs/40-PHASE-4-SPEC.md §4.4: tap times "are recorded with the attempt, which makes any
+            // real session fully replayable and any scoring bug reproducible offline." That promise is
+            // only kept if what comes back out is what went in, including the two per-event lists a
+            // mastery verdict is computed from.
+            val rhythm =
+                RhythmAttemptData(
+                    tapTimesMs = listOf(4.0, 611.0, 1188.0),
+                    calibrationOffsetMs = 12.5,
+                    toleranceHalfWidthMs = 150.0,
+                    expectedEventTimesMs = listOf(0.0, 600.0, 1200.0, 1800.0),
+                    perEventFigures = listOf("ta", "ta", "ta-di", "ta-di"),
+                    perEventAsynchronyMs = listOf(4.0, 11.0, -12.0, null),
+                    extraTaps = 0,
+                    missedTaps = 1,
+                )
+            repository.record(attempt(0, "TAPPED").copy(skillId = SkillIds.M3_BEAT_DIV, rhythm = rhythm))
+
+            val stored = repository.windowFor(SkillIds.M3_BEAT_DIV, size = 10).single()
+            assertEquals(rhythm, stored.rhythm)
+            // And the two things a mastery verdict actually reads, so a codec that round-tripped the
+            // lists in the wrong order would still fail here.
+            assertEquals(0.75, stored.rhythm?.patternAccuracy)
+            assertEquals(mapOf("ta" to (2 to 2), "ta-di" to (1 to 2)), stored.rhythm?.figureOutcomes())
+        }
+
+    @Test
+    fun `a rhythm record whose per-event lists disagree is dropped rather than guessed at`() =
+        runBlocking {
+            // The lists are only meaningful aligned, so a row where they disagree cannot say which tap
+            // belongs to which beat. docs/05-DATA-MODEL.md §2: "do not crash, do not silently
+            // misinterpret." Padding it would produce a plausible attempt describing a performance
+            // nobody gave, and that attempt would then be graded.
+            db.attemptDao().insert(
+                attempt(0, "TAPPED").copy(skillId = SkillIds.M3_BEAT_DIV).toEntity().copy(
+                    tapTimestampsMs = "[0.0,600.0]",
+                    perEventAsynchronyMs = "[0.0,null,4.0]",
+                    expectedEventTimesMs = "[0.0,600.0]",
+                    perEventFigures = "[\"ta\",\"ta\"]",
+                ),
+            )
+
+            val stored = repository.windowFor(SkillIds.M3_BEAT_DIV, size = 10).single()
+            assertNull(stored.rhythm)
+            assertEquals("TAPPED", stored.targetLabel, "the attempt itself survives; only its taps go")
         }
 
     @Test

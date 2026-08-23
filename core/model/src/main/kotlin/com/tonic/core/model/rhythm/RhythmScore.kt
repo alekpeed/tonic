@@ -35,15 +35,18 @@ public data class RhythmScore(
      * The primary score — §6.1: "did the right number of events occur in the right metric positions?"
      *
      * Measured against whichever is larger, the events expected or the taps given, so that adding
-     * sounds costs exactly as much as dropping them. Dividing by the expected count alone would let a
-     * learner who tapped continuously score perfectly: every event would be covered, and the flurry
-     * between them would be free.
+     * sounds is never free. Dividing by the expected count alone would let a learner who tapped
+     * continuously score perfectly: every event would be covered, and the flurry between them would
+     * cost nothing.
+     *
+     * Note what this does *not* claim. An extra tap and a missed one do not cost the same amount: on a
+     * four-event pattern, missing one scores 3/4 while adding one scores 4/5. They cannot cost the
+     * same, because a miss removes something from the numerator and an addition only grows the
+     * denominator — and §6.2 is explicit that the two "mean different things pedagogically" and are
+     * counted separately for that reason. What is guaranteed is only that neither is free.
      */
     public val patternAccuracy: Double
-        get() {
-            val denominator = maxOf(matches.size, matchedCount + extraCount)
-            return if (denominator == 0) 1.0 else matchedCount.toDouble() / denominator
-        }
+        get() = rhythmPatternAccuracy(matches.size, matchedCount, extraCount)
 
     /**
      * Whether this attempt reproduced the pattern — every event struck, nothing added.
@@ -73,16 +76,7 @@ public data class RhythmScore(
      * until someone builds a threshold on it.
      */
     public val driftSlope: Double?
-        get() {
-            val points = matches.mapNotNull { m -> m.asynchronyMs?.let { m.expectedMs to it } }
-            if (points.size < 2) return null
-            val meanX = points.sumOf { it.first } / points.size
-            val meanY = points.sumOf { it.second } / points.size
-            val varianceX = points.sumOf { (it.first - meanX) * (it.first - meanX) }
-            if (varianceX == 0.0) return null
-            val covariance = points.sumOf { (it.first - meanX) * (it.second - meanY) }
-            return covariance / varianceX
-        }
+        get() = rhythmDriftSlope(matches.mapNotNull { m -> m.asynchronyMs?.let { m.expectedMs to it } })
 
     /**
      * [driftSlope] expressed as milliseconds of error accumulated per beat — the readable form, and
@@ -108,3 +102,38 @@ public data class EventMatch(
     public val expectedMs: Double,
     public val asynchronyMs: Double?,
 )
+
+/**
+ * Pattern accuracy from three counts — docs/40-PHASE-4-SPEC.md §6.1.
+ *
+ * Shared by [RhythmScore], which computes it while the pattern is still in hand, and by
+ * [com.tonic.core.model.attempts.RhythmAttemptData], which recomputes it from a row read back years
+ * later. Two implementations of one formula is two chances to disagree about what a learner's history
+ * means, and the disagreement would be invisible - both would return a plausible number.
+ */
+internal fun rhythmPatternAccuracy(
+    expectedCount: Int,
+    matchedCount: Int,
+    extraCount: Int,
+): Double {
+    val denominator = maxOf(expectedCount, matchedCount + extraCount)
+    return if (denominator == 0) 1.0 else matchedCount.toDouble() / denominator
+}
+
+/**
+ * The least-squares slope of asynchrony against elapsed time — docs/40-PHASE-4-SPEC.md §5.3
+ * criterion 3, shared for the same reason as [rhythmPatternAccuracy].
+ *
+ * @param points (when the event was due, how far the tap fell from it), matched events only.
+ * @return milliseconds of error per millisecond elapsed, or null when there is no trend to fit -
+ *   fewer than two matched events, or every one of them due at the same instant.
+ */
+internal fun rhythmDriftSlope(points: List<Pair<Double, Double>>): Double? {
+    if (points.size < 2) return null
+    val meanX = points.sumOf { it.first } / points.size
+    val meanY = points.sumOf { it.second } / points.size
+    val varianceX = points.sumOf { (it.first - meanX) * (it.first - meanX) }
+    if (varianceX == 0.0) return null
+    val covariance = points.sumOf { (it.first - meanX) * (it.second - meanY) }
+    return covariance / varianceX
+}

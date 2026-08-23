@@ -1,5 +1,6 @@
 package com.tonic.core.data.repository
 
+import android.util.Log
 import com.tonic.core.data.db.JsonCodec
 import com.tonic.core.data.entity.AttemptEntity
 import com.tonic.core.data.entity.ConfusionStateEntity
@@ -49,6 +50,8 @@ internal fun Attempt.toEntity(): AttemptEntity =
         tapTimestampsMs = rhythm?.let { JsonCodec.encodeDoubles(it.tapTimesMs) },
         calibrationOffsetUsedMs = rhythm?.calibrationOffsetMs,
         toleranceUsedMs = rhythm?.toleranceHalfWidthMs,
+        expectedEventTimesMs = rhythm?.let { JsonCodec.encodeDoubles(it.expectedEventTimesMs) },
+        perEventFigures = rhythm?.let { JsonCodec.encodeStrings(it.perEventFigures) },
         perEventAsynchronyMs = rhythm?.let { JsonCodec.encodeNullableDoubles(it.perEventAsynchronyMs) },
         extraTaps = rhythm?.extraTaps,
         missedTaps = rhythm?.missedTaps,
@@ -80,22 +83,52 @@ internal fun AttemptEntity.toDomain(): Attempt =
         inputMethod =
             runCatching { InputMethod.valueOf(inputMethod) }.getOrDefault(InputMethod.TAP),
         sungCents = sungCents,
-        // Keyed on the tap list being present, not on all six columns. Those columns are written
-        // together or not at all, so a row with taps and a missing count is a partial write rather
-        // than a pitch attempt, and defaulting the counts beats discarding the taps.
-        rhythm =
-            tapTimestampsMs?.let { taps ->
-                RhythmAttemptData(
-                    tapTimesMs = JsonCodec.decodeDoubles(taps),
-                    calibrationOffsetMs = calibrationOffsetUsedMs ?: 0.0,
-                    toleranceHalfWidthMs = toleranceUsedMs ?: 0.0,
-                    perEventAsynchronyMs =
-                        perEventAsynchronyMs?.let(JsonCodec::decodeNullableDoubles) ?: emptyList(),
-                    extraTaps = extraTaps ?: 0,
-                    missedTaps = missedTaps ?: 0,
-                )
-            },
+        rhythm = rhythmOrNull(),
     )
+
+/**
+ * The rhythm half of a row, or null when the row has none or cannot be read as one.
+ *
+ * Keyed on the tap list being present rather than on all eight columns: they are written together or
+ * not at all, so a row with taps and a missing scalar is a partial write rather than a pitch attempt,
+ * and defaulting a scalar beats discarding the taps.
+ *
+ * The three per-event lists are different. They are only meaningful *aligned* — entry `i` of each
+ * describes one expected event — so a row where they disagree about how many events there were is not
+ * a row with a small gap in it, it is a row that cannot say which tap belongs to which beat. That is
+ * discarded and logged rather than reconciled by padding, per docs/05-DATA-MODEL.md §2: "do not crash,
+ * do not silently misinterpret." Reconciling would produce a plausible attempt describing a
+ * performance nobody gave.
+ */
+private fun AttemptEntity.rhythmOrNull(): RhythmAttemptData? {
+    val taps = tapTimestampsMs ?: return null
+    val asynchronies = perEventAsynchronyMs?.let(JsonCodec::decodeNullableDoubles) ?: emptyList()
+    val eventTimes = expectedEventTimesMs?.let(JsonCodec::decodeDoubles) ?: emptyList()
+    val figures = perEventFigures?.let(JsonCodec::decodeStrings) ?: emptyList()
+    if (eventTimes.size != asynchronies.size || figures.size != asynchronies.size) {
+        Log.w(
+            MAPPER_TAG,
+            "Attempt $id has ${asynchronies.size} asynchronies, ${eventTimes.size} event times and " +
+                "${figures.size} figures; they must line up, so its rhythm record is being dropped.",
+        )
+        return null
+    }
+    return RhythmAttemptData(
+        tapTimesMs = JsonCodec.decodeDoubles(taps),
+        calibrationOffsetMs = calibrationOffsetUsedMs ?: 0.0,
+        toleranceHalfWidthMs = toleranceUsedMs ?: 0.0,
+        expectedEventTimesMs = eventTimes,
+        perEventFigures = figures,
+        perEventAsynchronyMs = asynchronies,
+        extraTaps = extraTaps ?: 0,
+        // Derived, never read back from its column. The column stays because it is what a
+        // human reading the exported log wants to see without counting nulls, but two sources
+        // for one fact is one source too many - and the domain type asserts they agree.
+        missedTaps = asynchronies.count { it == null },
+    )
+}
+
+private const val MAPPER_TAG = "TonicMappers"
 
 internal fun SkillState.toEntity(): SkillStateEntity =
     SkillStateEntity(

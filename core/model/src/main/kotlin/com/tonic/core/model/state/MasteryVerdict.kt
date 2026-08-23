@@ -64,6 +64,43 @@ data class MasteryCriterion(
         WEAKEST_FIGURE_ACCURACY,
 
         /**
+         * The share of each pattern the learner reproduced, averaged over the window ≥ 90% —
+         * docs/40-PHASE-4-SPEC.md §5.3 criterion 1, "right notes in the right places".
+         *
+         * Per *event*, not per attempt, which is what makes it different from [OVERALL_ACCURACY]: an
+         * attempt that struck nine of ten events counts as nine tenths here and as a failure there.
+         * §6.1 wants both, because a learner who drops one sound out of a four-bar pattern and a
+         * learner who taps a different rhythm entirely are not in the same place.
+         */
+        PATTERN_ACCURACY,
+
+        /**
+         * Whole patterns landed inside the current tolerance on ≥ 85% of the window —
+         * docs/40-PHASE-4-SPEC.md §5.3 criterion 2.
+         *
+         * "Within the current tolerance" is the whole of what timing contributes here. §6.1 says
+         * timing precision gates "only via `TIMING_TOLERANCE`", and §6.3 forbids raw asynchrony
+         * magnitude from entering mastery at all — so this counts attempts that were correct at the
+         * window the learner actually faced, and reads nothing about how far inside it they fell.
+         * As `TIMING_TOLERANCE` rises the window narrows and the same performance stops qualifying,
+         * which is how the axis does its gating.
+         */
+        TIMING_CONSISTENCY,
+
+        /**
+         * The learner is not progressively rushing or dragging — docs/40-PHASE-4-SPEC.md §5.3
+         * criterion 3.
+         *
+         * Measured as the trend of asynchrony across a pattern, never as its magnitude, and §5.3 gives
+         * the reason in one line: "a constant offset is a calibration artifact while a growing offset
+         * is a real timekeeping failure." A learner uniformly 40 ms late has drifted by zero.
+         *
+         * This is the one sanctioned reader of asynchrony under §6.3, which permits it for "drift
+         * analysis" by name while forbidding the magnitude everywhere else.
+         */
+        TIMING_DRIFT,
+
+        /**
          * `METRONOME_FADE` level ≥ 4 — docs/40-PHASE-4-SPEC.md §5.3 criterion 4, and the exact
          * counterpart of [CADENCE_FADE_MINIMUM].
          *

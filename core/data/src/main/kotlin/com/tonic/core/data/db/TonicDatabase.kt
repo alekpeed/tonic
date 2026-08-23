@@ -30,7 +30,7 @@ import com.tonic.core.data.entity.SkillStateEntity
         SessionEntity::class,
         DiagnosticResultEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = true,
 )
 internal abstract class TonicDatabase : RoomDatabase() {

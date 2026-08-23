@@ -187,6 +187,62 @@ class MigrationTest {
     }
 
     /**
+     * v3 → v4 — docs/40-PHASE-4-SPEC.md §5.3.
+     *
+     * Version 3 could hold a rhythm attempt but nothing in the app ever wrote one, so the row seeded
+     * here is a hand-built one: it is the only way to prove that a database that *did* carry tap data
+     * keeps it across this migration, and the case a real learner would hit if a branch build had ever
+     * reached them. Its six version-3 columns must be untouched afterwards, and the two new ones must
+     * read null — that attempt was scored without them, and inventing an event time would put words in
+     * the item's mouth.
+     */
+    @Test
+    fun `migrating 3 to 4 keeps a tapped attempt and leaves the new item columns empty`() {
+        createDatabaseAtVersion(3) { db ->
+            db.execSQL(
+                """
+                INSERT INTO attempts (
+                    skillId, sessionId, itemSeed, axisLevelsJson, targetLabel, responseLabel,
+                    correct, latencyMs, replayCount, keyPitchClass, targetMidi, timbreId,
+                    cadenceFadeLevel, timestamp, isWarmup, isAbandoned, isIndependenceCheckProbe,
+                    inputMethod, sungCents,
+                    tapTimestampsMs, calibrationOffsetUsedMs, toleranceUsedMs,
+                    perEventAsynchronyMs, extraTaps, missedTaps
+                ) VALUES (
+                    'M3.BEAT_DIV', 4, 4242, '{}', 'TAPPED', 'TAPPED',
+                    1, 0, 0, 0, 0, 'PURE',
+                    0, 3000, 0, 0, 0,
+                    'TAP', NULL,
+                    '[0.0,600.0]', 12.5, 150.0,
+                    '[4.0,null]', 1, 1
+                )
+                """.trimIndent(),
+            )
+        }
+
+        openThroughRoom().use { db ->
+            db.query("SELECT * FROM attempts").use { cursor ->
+                assertEquals(1, cursor.count, "the migration must not drop a tapped attempt")
+                assertTrue(cursor.moveToFirst())
+
+                assertEquals("[0.0,600.0]", cursor.getString(cursor.getColumnIndexOrThrow("tapTimestampsMs")))
+                assertEquals("[4.0,null]", cursor.getString(cursor.getColumnIndexOrThrow("perEventAsynchronyMs")))
+                assertEquals(12.5, cursor.getDouble(cursor.getColumnIndexOrThrow("calibrationOffsetUsedMs")))
+                assertEquals(150.0, cursor.getDouble(cursor.getColumnIndexOrThrow("toleranceUsedMs")))
+                assertEquals(1, cursor.getInt(cursor.getColumnIndexOrThrow("extraTaps")))
+                assertEquals(1, cursor.getInt(cursor.getColumnIndexOrThrow("missedTaps")))
+
+                for (column in RHYTHM_ITEM_COLUMNS) {
+                    assertTrue(
+                        cursor.isNull(cursor.getColumnIndexOrThrow(column)),
+                        "$column must be null on an attempt scored before it existed",
+                    )
+                }
+            }
+        }
+    }
+
+    /**
      * A version-1 database taken all the way to the current version in one open.
      *
      * The case a per-step test cannot cover: a learner who installed before Phase 3 and updates once,
@@ -223,7 +279,7 @@ class MigrationTest {
                     cursor.getString(cursor.getColumnIndexOrThrow("inputMethod")),
                     "Phase 3's default must still apply after Phase 4's migration runs on top of it",
                 )
-                for (column in RHYTHM_COLUMNS) {
+                for (column in ALL_RHYTHM_COLUMNS) {
                     assertTrue(cursor.isNull(cursor.getColumnIndexOrThrow(column)), "$column should be null")
                 }
             }
@@ -303,6 +359,12 @@ class MigrationTest {
                 "extraTaps",
                 "missedTaps",
             )
+
+        /** The two docs/40-PHASE-4-SPEC.md §5.3 adds at version 4 — the item side of a tapped attempt. */
+        val RHYTHM_ITEM_COLUMNS = listOf("expectedEventTimesMs", "perEventFigures")
+
+        /** Every rhythm column, whichever version introduced it. */
+        val ALL_RHYTHM_COLUMNS = RHYTHM_COLUMNS + RHYTHM_ITEM_COLUMNS
 
         /**
          * Relative to the module directory, which is a Gradle test's working directory. The same path

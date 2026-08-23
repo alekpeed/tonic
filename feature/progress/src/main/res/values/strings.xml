@@ -24,6 +24,9 @@
     <string name="progress_criterion_figure_coverage">Not enough recent practice on every rhythm yet — %1$d of %2$d attempts needed on the least-practiced one.</string>
     <string name="progress_criterion_weakest_figure">Your weakest rhythm is at %1$d%% — %2$d%% needed.</string>
     <string name="progress_criterion_metronome_fade">The metronome is still playing under every pattern; it needs to fade further.</string>
+    <string name="progress_criterion_pattern_accuracy">You are getting %1$d%% of the taps in the right places — %2$d%% needed.</string>
+    <string name="progress_criterion_timing_consistency">You are tapping %1$d%% of patterns without a single slip — %2$d%% needed.</string>
+    <string name="progress_criterion_timing_drift">You tend to speed up or slow down as a pattern goes on. Try to hold the same speed from the first tap to the last.</string>
 
     <!-- Per-degree accuracy - docs/08-UI-SPEC.md §6.2. -->
     <string name="progress_degree_accuracy_heading">Per-degree accuracy</string>

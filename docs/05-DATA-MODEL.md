@@ -205,6 +205,7 @@ The keys and their `AppSettings` fields are kept rather than migrated away, so t
 | 1 | Initial schema |
 | 2 | `attempts` gains `inputMethod` and `sungCents` for Phase 3's optional sung response (`30-PHASE-3-SPEC.md` §7). Two added columns, both defaulted; the append-only log is never rewritten |
 | 3 | `attempts` gains the six rhythm columns of `40-PHASE-4-SPEC.md` §8 — `tapTimestampsMs`, `calibrationOffsetUsedMs`, `toleranceUsedMs`, `perEventAsynchronyMs`, `extraTaps`, `missedTaps`. All nullable, none defaulted to a value: null is the honest reading for every row written before Phase 4, because "no taps were recorded" and "the learner tapped nothing" are different facts and only the first ever happened to a pitch attempt |
+| 4 | `attempts` gains `expectedEventTimesMs` and `perEventFigures` — the *item* side of a tapped attempt (`40-PHASE-4-SPEC.md` §5.3). Version 3 recorded what the learner did and not what they were asked to do, which is enough to show them where their taps landed and not enough to judge them: criterion 3 measures drift as the trend of asynchrony against elapsed time, which has no x-axis without the event times, and criterion 5 holds each rhythmic figure to 80%, which needs to know which beat each event belonged to. A separate version rather than two more columns folded into 3, even though no row anywhere carries rhythm data yet: editing a shipped version in place leaves any database already opened at it permanently unopenable, and one `ALTER TABLE` is the cheaper side of that trade |
 
 The two list columns hold JSON text rather than rows in a related table. `attempts` is an append-only
 log that is replayed whole (§1), a tap list is meaningless apart from the attempt it belongs to, and
@@ -217,6 +218,20 @@ instants. A raw instant means nothing once the playback it was measured against 
 are what `40-PHASE-4-SPEC.md` §4.4 needs to make a recorded session replayable. The calibration
 constant and the tolerance window that were applied are stored beside them, so an attempt can be
 re-scored later against exactly what it faced rather than against today's settings.
+
+`expectedEventTimesMs` and `perEventFigures` are aligned with `perEventAsynchronyMs` entry for entry —
+one slot per expected event, in order. They are **denormalized off the item rather than regenerated
+from `itemSeed`**, exactly as `targetLabel` and `targetMidi` are (§1). Regeneration would be possible,
+since generation is deterministic, and it would tie every past verdict to the *current* generator: the
+day item generation improved, replay would silently re-decide who had mastered what. A production
+item's `targetLabel` is only ever `"TAPPED"`, so the figure cannot come from there either.
+
+The three per-event lists are only meaningful *aligned*. A row where they disagree about how many
+events there were cannot say which tap belongs to which beat, so it is discarded with a log rather than
+reconciled by padding — §2's "do not crash, do not silently misinterpret" applied to a case where
+padding would produce a plausible attempt describing a performance nobody gave. `missedTaps` is derived
+from the asynchrony list on read rather than trusted from its column; the column stays because it is
+what a human reading an exported log wants without counting nulls.
 
 ---
 

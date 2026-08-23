@@ -59,6 +59,24 @@ internal fun copyFor(
                 R.string.progress_criterion_weakest_figure,
                 listOf(percent(criterion.measuredValue), percent(criterion.requiredValue)),
             )
+        // Production's own three, docs/40-PHASE-4-SPEC.md §5.3. The first two are percentages of two
+        // different things and are worded so they cannot be read as the same sentence twice: one
+        // counts taps, the other counts whole patterns.
+        MasteryCriterion.Kind.PATTERN_ACCURACY ->
+            MasteryCopy(
+                R.string.progress_criterion_pattern_accuracy,
+                listOf(percent(criterion.measuredValue), percent(criterion.requiredValue)),
+            )
+        MasteryCriterion.Kind.TIMING_CONSISTENCY ->
+            MasteryCopy(
+                R.string.progress_criterion_timing_consistency,
+                listOf(percent(criterion.measuredValue), percent(criterion.requiredValue)),
+            )
+        // No number at all. The measured value is a slope in fractions of a beat per beat, which is
+        // meaningless to a learner and would be worse than silence - and docs/02-PEDAGOGY.md §6 rules
+        // out turning a diagnostic into a score to chase. The sentence says what to do instead.
+        MasteryCriterion.Kind.TIMING_DRIFT ->
+            MasteryCopy(R.string.progress_criterion_timing_drift, emptyList())
         // The exact counterpart of CADENCE_FADE_MINIMUM, and phrased the same way for the same reason:
         // a fade level is a step count, not a rate, so it gets a sentence rather than a percentage.
         MasteryCriterion.Kind.METRONOME_FADE_MINIMUM ->
