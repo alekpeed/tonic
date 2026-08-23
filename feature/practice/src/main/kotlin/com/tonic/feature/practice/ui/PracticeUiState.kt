@@ -110,6 +110,24 @@ data class PracticeUiState(
      * loop consults it to decide anything, and [PracticeViewModel.onLabelSelected] is the only reader.
      */
     val audiatedPitch: AudiatedPitch? = null,
+    /**
+     * How many taps the learner has entered for the rhythm item on screen — docs/40-PHASE-4-SPEC.md
+     * §7.2. Cleared on every item.
+     *
+     * A count, never a target. §7.4 forbids a precision grade, and a count shown against the number of
+     * events the pattern actually had would be one — it would also hand the learner the answer to a
+     * question they are still being asked.
+     */
+    val tapCount: Int = 0,
+    /**
+     * Whether each tap makes a sound — docs/40-PHASE-4-SPEC.md §7.2's optional toggle, off by default.
+     *
+     * §7.2 is explicit that this is double-edged rather than an improvement: it helps a learner hear
+     * their own timing against the metronome, and it also adds output latency to their own feedback
+     * loop and can mask the pattern. So the default is off and the learner decides, and §7.2's own
+     * note that it should be revisited with real testing stands.
+     */
+    val audibleTaps: Boolean = false,
 ) {
     /** The ladder's contents. Empty for an item type that does not answer with a degree, such as `M9`. */
     val activeDegrees: List<ScaleDegree>
@@ -126,6 +144,10 @@ data class PracticeUiState(
     /** The prediction item, when that is what is on screen — the audiation gap and its capture need the concrete type. */
     val predictionItem: Item.PredictionItem?
         get() = item as? Item.PredictionItem
+
+    /** The rhythm item, when that is what is on screen — the tap surface and the pulse need the pattern. */
+    val rhythmItem: Item.RhythmItem?
+        get() = item as? Item.RhythmItem
 }
 
 /**

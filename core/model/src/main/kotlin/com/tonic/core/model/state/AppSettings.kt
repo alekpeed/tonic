@@ -19,6 +19,20 @@ data class AppSettings(
     val sessionLengthMinutes: Int = 5,
     val hapticsEnabled: Boolean = true,
     val soundEffectsEnabled: Boolean = true,
+    /**
+     * Whether each tap on the rhythm tap surface makes a sound — docs/40-PHASE-4-SPEC.md §7.2.
+     *
+     * **Off by default, and that is a decision rather than a starting point.** §7.2 calls audible tap
+     * feedback "genuinely double-edged": it helps a learner hear their own timing against the
+     * metronome, and it also adds output latency to their own feedback loop and can mask the pattern
+     * they are trying to reproduce. Haptic and visual feedback are unconditional; this one is the
+     * learner's call, and §7.2's note that it should be revisited with real testing stands.
+     *
+     * Separate from [soundEffectsEnabled], which governs the app's own interface sounds. This is part
+     * of the exercise rather than decoration on it, and someone who wants a silent interface may still
+     * want to hear their own tapping.
+     */
+    val audibleTapsEnabled: Boolean = false,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val reduceMotion: Boolean = false,
     val onboardingCompleted: Boolean = false,

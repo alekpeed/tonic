@@ -149,6 +149,11 @@ class SettingsViewModel
             viewModelScope.launch { settingsRepository.setSoundEffectsEnabled(enabled) }
         }
 
+        /** docs/40-PHASE-4-SPEC.md §7.2's optional toggle. */
+        fun onAudibleTapsEnabledChanged(enabled: Boolean) {
+            viewModelScope.launch { settingsRepository.setAudibleTapsEnabled(enabled) }
+        }
+
         fun onThemeModeChanged(mode: ThemeMode) {
             viewModelScope.launch { settingsRepository.setThemeMode(mode) }
         }

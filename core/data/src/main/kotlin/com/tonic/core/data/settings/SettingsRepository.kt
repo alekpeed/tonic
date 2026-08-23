@@ -19,6 +19,9 @@ interface SettingsRepository {
 
     suspend fun setHapticsEnabled(enabled: Boolean)
 
+    /** docs/40-PHASE-4-SPEC.md §7.2's optional toggle for audible tap feedback. Off by default. */
+    suspend fun setAudibleTapsEnabled(enabled: Boolean)
+
     suspend fun setSoundEffectsEnabled(enabled: Boolean)
 
     suspend fun setThemeMode(mode: ThemeMode)

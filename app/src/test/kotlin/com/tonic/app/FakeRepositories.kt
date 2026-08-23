@@ -148,6 +148,10 @@ class FakeSettingsRepository(
         state.value = state.value.copy(soundEffectsEnabled = enabled)
     }
 
+    override suspend fun setAudibleTapsEnabled(enabled: Boolean) {
+        state.value = state.value.copy(audibleTapsEnabled = enabled)
+    }
+
     override suspend fun setThemeMode(mode: ThemeMode) {
         state.value = state.value.copy(themeMode = mode)
     }

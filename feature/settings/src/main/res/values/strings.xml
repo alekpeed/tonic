@@ -14,6 +14,8 @@
 
     <string name="settings_haptics_heading">Haptics</string>
     <string name="settings_sound_effects_heading">Sound effects</string>
+    <string name="settings_audible_taps_heading">Tap sounds</string>
+    <string name="settings_audible_taps_supporting">Hear a click each time you tap a rhythm. It can help you place your taps against the beat, but it also makes the rhythm harder to hear.</string>
     <string name="settings_reduce_motion_heading">Reduce motion</string>
 
     <string name="settings_theme_heading">Theme</string>

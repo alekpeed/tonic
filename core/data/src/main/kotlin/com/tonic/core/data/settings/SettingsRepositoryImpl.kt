@@ -23,6 +23,7 @@ internal object SettingsKeys {
     val REFERENCE_A4_HZ = floatPreferencesKey("reference_a4_hz")
     val SESSION_LENGTH_MINUTES = intPreferencesKey("session_length_minutes")
     val HAPTICS_ENABLED = booleanPreferencesKey("haptics_enabled")
+    val AUDIBLE_TAPS_ENABLED = booleanPreferencesKey("audible_taps_enabled")
     val SOUND_EFFECTS_ENABLED = booleanPreferencesKey("sound_effects_enabled")
     val THEME_MODE = stringPreferencesKey("theme_mode")
     val REDUCE_MOTION = booleanPreferencesKey("reduce_motion")
@@ -73,6 +74,10 @@ internal class SettingsRepositoryImpl
 
         override suspend fun setSessionLengthMinutes(minutes: Int) {
             dataStore.edit { it[SettingsKeys.SESSION_LENGTH_MINUTES] = minutes }
+        }
+
+        override suspend fun setAudibleTapsEnabled(enabled: Boolean) {
+            dataStore.edit { it[SettingsKeys.AUDIBLE_TAPS_ENABLED] = enabled }
         }
 
         override suspend fun setHapticsEnabled(enabled: Boolean) {
@@ -231,6 +236,7 @@ private fun Preferences.toAppSettings(): AppSettings {
         referenceA4Hz = this[SettingsKeys.REFERENCE_A4_HZ] ?: defaults.referenceA4Hz,
         sessionLengthMinutes = this[SettingsKeys.SESSION_LENGTH_MINUTES] ?: defaults.sessionLengthMinutes,
         hapticsEnabled = this[SettingsKeys.HAPTICS_ENABLED] ?: defaults.hapticsEnabled,
+        audibleTapsEnabled = this[SettingsKeys.AUDIBLE_TAPS_ENABLED] ?: defaults.audibleTapsEnabled,
         soundEffectsEnabled = this[SettingsKeys.SOUND_EFFECTS_ENABLED] ?: defaults.soundEffectsEnabled,
         themeMode =
             this[SettingsKeys.THEME_MODE]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() }

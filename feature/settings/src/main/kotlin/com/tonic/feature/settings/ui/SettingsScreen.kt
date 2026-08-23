@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.IconButton
@@ -94,6 +95,7 @@ fun SettingsScreen(
             onSessionLengthMinutesChanged = viewModel::onSessionLengthMinutesChanged,
             onHapticsEnabledChanged = viewModel::onHapticsEnabledChanged,
             onSoundEffectsEnabledChanged = viewModel::onSoundEffectsEnabledChanged,
+            onAudibleTapsEnabledChanged = viewModel::onAudibleTapsEnabledChanged,
             onThemeModeChanged = viewModel::onThemeModeChanged,
             onReduceMotionChanged = viewModel::onReduceMotionChanged,
             onSungResponseEnabledChanged = viewModel::onSungResponseEnabledChanged,
@@ -119,6 +121,7 @@ private fun SettingsContent(
     onSessionLengthMinutesChanged: (Int) -> Unit,
     onHapticsEnabledChanged: (Boolean) -> Unit,
     onSoundEffectsEnabledChanged: (Boolean) -> Unit,
+    onAudibleTapsEnabledChanged: (Boolean) -> Unit,
     onThemeModeChanged: (ThemeMode) -> Unit,
     onReduceMotionChanged: (Boolean) -> Unit,
     onSungResponseEnabledChanged: (Boolean) -> Unit,
@@ -195,6 +198,19 @@ private fun SettingsContent(
                 checked = settings.soundEffectsEnabled,
                 onCheckedChange = onSoundEffectsEnabledChanged,
                 testTag = "settings_sound_effects",
+            )
+        }
+        item {
+            // docs/40-PHASE-4-SPEC.md §7.2. The supporting line exists because this switch is not an
+            // improvement in one direction: it is a genuine trade the learner has to be told about,
+            // and a bare "Tap sounds" would leave them to discover the cost by getting worse at the
+            // exercise.
+            ToggleSection(
+                heading = stringResource(R.string.settings_audible_taps_heading),
+                supportingText = stringResource(R.string.settings_audible_taps_supporting),
+                checked = settings.audibleTapsEnabled,
+                onCheckedChange = onAudibleTapsEnabledChanged,
+                testTag = "settings_audible_taps",
             )
         }
         item {
@@ -438,13 +454,27 @@ private fun ToggleSection(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
     testTag: String,
+    supportingText: String? = null,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(vertical = TonicSpacing.sm),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(text = heading, style = MaterialTheme.typography.titleMedium)
+        // Optional, and used only where the switch's effect is a trade-off rather than an
+        // improvement - a heading alone is enough for "haptics on or off" and is not enough for a
+        // setting that helps in one way and hurts in another.
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = heading, style = MaterialTheme.typography.titleMedium)
+            if (supportingText != null) {
+                Text(
+                    text = supportingText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        Spacer(modifier = Modifier.width(TonicSpacing.md))
         Switch(checked = checked, onCheckedChange = onCheckedChange, modifier = Modifier.testTag(testTag))
     }
 }
@@ -516,6 +546,7 @@ private fun SettingsContentPreview() {
             onSessionLengthMinutesChanged = {},
             onHapticsEnabledChanged = {},
             onSoundEffectsEnabledChanged = {},
+            onAudibleTapsEnabledChanged = {},
             onThemeModeChanged = {},
             onReduceMotionChanged = {},
             onSungResponseEnabledChanged = {},

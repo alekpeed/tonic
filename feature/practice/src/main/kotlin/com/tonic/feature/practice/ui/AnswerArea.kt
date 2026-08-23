@@ -34,6 +34,7 @@ import com.tonic.core.ui.ladder.DegreeLadder
 import com.tonic.core.ui.theme.TonicSpacing
 import com.tonic.core.ui.theme.TonicTheme
 import com.tonic.feature.practice.R
+import com.tonic.feature.practice.ui.rhythm.RhythmAnswerArea
 
 /**
  * The answer control for whichever item type is on screen.
@@ -48,6 +49,14 @@ import com.tonic.feature.practice.R
  *
  * Dispatching in one place also means a future item type is a compile error here rather than a blank
  * area at runtime, which is the same reasoning behind `PracticeItems` in the engine layer.
+ *
+ * That claim was **false when it was written**, and `Item.RhythmItem` is what proved it. The dispatch
+ * ended in `else ->`, so a rhythm item did not fail to compile here: it fell into the recognition arm
+ * and drew an empty degree ladder — the exact failure the paragraph above describes `M9` having, in
+ * the file whose comment says it cannot happen again. The `when` is now exhaustive over the sealed
+ * hierarchy, with the six `M0`/`M1` diagnostic types named and refused rather than defaulted, because
+ * `:feature:diagnostic` has its own loop and one of them reaching this screen is a routing bug worth
+ * hearing about.
  */
 @Composable
 internal fun AnswerArea(
@@ -56,6 +65,7 @@ internal fun AnswerArea(
     onLabelSelected: (String) -> Unit,
     modifier: Modifier = Modifier,
     onSing: () -> Unit = {},
+    onTap: (Long) -> Unit = {},
 ) {
     when (val item = uiState.item) {
         is Item.ModeIdentificationItem ->
@@ -75,7 +85,37 @@ internal fun AnswerArea(
                 modifier = modifier,
             )
 
-        else ->
+        is Item.RhythmItem ->
+            RhythmAnswerArea(
+                item = item,
+                enabled = uiState.inputEnabled,
+                selectedLabel = uiState.selectedAnswerLabel,
+                correctLabel = uiState.correctAnswerLabel,
+                onLabelSelected = onLabelSelected,
+                onTap = onTap,
+                modifier = modifier,
+                hapticsEnabled = uiState.hapticsEnabled,
+                reduceMotion = uiState.reduceMotion,
+                audibleTaps = uiState.audibleTaps,
+                tapCount = uiState.tapCount,
+            )
+
+        // The six diagnostic types belong to :feature:diagnostic's own loop and have no control here.
+        // Named rather than swept into a default so that adding an item type is a compile error in
+        // this file, which is what the paragraph above promised and did not deliver.
+        is Item.PitchDirectionItem,
+        is Item.SameDifferentItem,
+        is Item.TonalMemoryItem,
+        is Item.ContourItem,
+        is Item.StepLeapItem,
+        is Item.AmusiaScreenItem,
+        ->
+            error(
+                "${item::class.simpleName} is a diagnostic item and cannot be answered on the practice " +
+                    "screen - :feature:diagnostic has its own loop for M0/M1",
+            )
+
+        is Item.FunctionalRecognitionItem, null ->
             Column(modifier = modifier) {
                 // Above the ladder, never instead of it - docs/30-PHASE-3-SPEC.md §6.3. The whole
                 // point of the fallback is that it is *always visible*, so there is deliberately no
