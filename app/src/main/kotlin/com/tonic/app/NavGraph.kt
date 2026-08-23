@@ -13,6 +13,7 @@ import com.tonic.app.home.HomeScreen
 import com.tonic.app.onboarding.OnboardingScreen
 import com.tonic.app.summary.SummaryScreen
 import com.tonic.app.summary.SummaryViewModel
+import com.tonic.core.model.state.PracticeTrack
 import com.tonic.feature.diagnostic.ui.DiagnosticScreen
 import com.tonic.feature.practice.ui.PracticeScreen
 import com.tonic.feature.progress.ui.ProgressScreen
@@ -40,8 +41,18 @@ sealed interface TonicRoute {
         override val route = "diagnostic"
     }
 
+    /**
+     * `practice?track={track}` — docs/40-PHASE-4-SPEC.md §2.
+     *
+     * A track argument rather than a second route, because it is one screen running one session loop;
+     * what differs is only which chain the node is resolved from. §2 makes rhythm parallel to pitch
+     * rather than downstream of it — a learner can start `M3.BEAT_FIND` having never touched `M2` —
+     * so something has to choose, and until Home grows a real recommendation the learner does.
+     */
     data object Practice : TonicRoute {
-        override val route = "practice"
+        override val route = "practice?${PracticeTrack.ROUTE_ARG}={${PracticeTrack.ROUTE_ARG}}"
+
+        fun routeFor(track: PracticeTrack) = "practice?${PracticeTrack.ROUTE_ARG}=${track.name}"
     }
 
     data object Progress : TonicRoute {
@@ -75,7 +86,8 @@ fun TonicNavGraph(navController: NavHostController = rememberNavController()) {
                         popUpTo(TonicRoute.Home.route) { inclusive = true }
                     }
                 },
-                onStartPractice = { navController.navigate(TonicRoute.Practice.route) },
+                onStartPractice = { navController.navigate(TonicRoute.Practice.routeFor(PracticeTrack.PITCH)) },
+                onStartRhythm = { navController.navigate(TonicRoute.Practice.routeFor(PracticeTrack.RHYTHM)) },
                 onOpenProgress = { navController.navigate(TonicRoute.Progress.route) },
                 onOpenSettings = { navController.navigate(TonicRoute.Settings.route) },
             )
@@ -117,7 +129,18 @@ fun TonicNavGraph(navController: NavHostController = rememberNavController()) {
                 },
             )
         }
-        composable(TonicRoute.Practice.route) {
+        composable(
+            route = TonicRoute.Practice.route,
+            arguments =
+                listOf(
+                    navArgument(PracticeTrack.ROUTE_ARG) {
+                        type = NavType.StringType
+                        // Defaulted rather than required, so every existing caller - and any restored
+                        // back stack from a build that predates this argument - still resolves.
+                        defaultValue = PracticeTrack.PITCH.name
+                    },
+                ),
+        ) {
             PracticeScreen(
                 onSessionComplete = { sessionId ->
                     navController.navigate(TonicRoute.Summary.routeFor(sessionId)) {
@@ -152,7 +175,7 @@ fun TonicNavGraph(navController: NavHostController = rememberNavController()) {
                 // compiled out. Straight into practice on the seeded node - that is what a "jump to
                 // node" button means, and what the first version conspicuously did not do.
                 onDebugJumpFinished = {
-                    navController.navigate(TonicRoute.Practice.route) {
+                    navController.navigate(TonicRoute.Practice.routeFor(PracticeTrack.PITCH)) {
                         popUpTo(TonicRoute.Home.route)
                     }
                 },

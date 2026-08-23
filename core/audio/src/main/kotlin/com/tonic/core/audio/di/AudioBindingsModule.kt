@@ -7,6 +7,7 @@ import com.tonic.core.audio.focus.AudioFocusManager
 import com.tonic.core.audio.focus.AudioInterruptions
 import com.tonic.core.audio.player.AudioPlayer
 import com.tonic.core.audio.player.AudioTrackPlayer
+import com.tonic.core.audio.player.PlaybackTimebaseSource
 import com.tonic.core.audio.route.AudioManagerOutputRouteMonitor
 import com.tonic.core.audio.route.OutputRouteMonitor
 import dagger.Binds
@@ -20,6 +21,19 @@ import dagger.hilt.components.SingletonComponent
 internal abstract class AudioBindingsModule {
     @Binds
     abstract fun bindAudioPlayer(impl: AudioTrackPlayer): AudioPlayer
+
+    /**
+     * Output timing, for Phase 4's tap scoring — docs/40-PHASE-4-SPEC.md §4.1.
+     *
+     * [AudioTrackPlayer] has implemented this since Stage 4.0 and nothing bound it, so injecting it
+     * would have failed at Hilt's compile step rather than at runtime — but only once something tried.
+     * That is the same shape as the microphone binding this module already carries a note about, and
+     * the same correction: bind a contract from the stage that writes it, not the stage that first
+     * consumes it. Bound to the same instance as [bindAudioPlayer], which is what makes the reading
+     * describe the playback the caller started.
+     */
+    @Binds
+    abstract fun bindPlaybackTimebaseSource(impl: AudioTrackPlayer): PlaybackTimebaseSource
 
     @Binds
     abstract fun bindAudioInterruptions(impl: AudioFocusManager): AudioInterruptions

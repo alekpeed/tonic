@@ -39,6 +39,17 @@ enum class PlaybackPhase {
      * other phase and shows no elapsed or remaining time at all.
      */
     AUDIATION_GAP,
+
+    /**
+     * `M3` only — a rhythm is sounding and the learner is listening to it, not answering yet
+     * (docs/40-PHASE-4-SPEC.md §3.3).
+     *
+     * Not folded into [REFERENCE]. A reference is the *setup* for a question asked about something
+     * else; here the sound being played is the question itself, and the pitch track's caption for
+     * that phase — "setting the key" — is not merely unhelpful on a rhythm item, it names something
+     * the item does not have.
+     */
+    LISTENING,
 }
 
 /**
@@ -61,6 +72,7 @@ fun PlaybackPhaseIndicator(
             // Says what to do, not how long is left. docs/20-PHASE-2-SPEC.md §5.3 and
             // docs/02-PEDAGOGY.md §6: no time pressure, ever.
             PlaybackPhase.AUDIATION_GAP -> "Hear it in your head"
+            PlaybackPhase.LISTENING -> "Listen"
         }
     Column(
         modifier = modifier.testTag("playback_phase").semantics { liveRegion = LiveRegionMode.Polite },
@@ -89,6 +101,8 @@ private fun PhaseGlyph(
             PlaybackPhase.AWAITING_ANSWER -> 0
             // Two dots, drifting - visibly "something is coming", visibly not a countdown.
             PlaybackPhase.AUDIATION_GAP -> 2
+            // Three, like a reference: something is playing and it is not yet the learner's turn.
+            PlaybackPhase.LISTENING -> 3
         }
 
     val pulse =

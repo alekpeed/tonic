@@ -437,9 +437,38 @@ object SkillGraph {
      * undecided question.
      */
     fun currentRhythmNodeFor(mastered: (SkillId) -> Boolean): SkillId {
-        val open = rhythmChain.firstOrNull { node -> !mastered(node.id) && gatesFor(node).all(mastered) }
+        val open =
+            rhythmChain.firstOrNull { node ->
+                node.id !in ROUTING_SUSPENDED &&
+                    !mastered(node.id) &&
+                    // A suspended node satisfies the gates that name it. Without this the suspension
+                    // would not step over M3.DOWNBEAT, it would stop the chain dead at the node before
+                    // it: M3.BEAT_DIV_RECOG requires DOWNBEAT, DOWNBEAT can never be mastered because
+                    // nobody is ever sent to it, and every learner would practice M3.BEAT_FIND forever.
+                    gatesFor(node).all { gate -> gate in ROUTING_SUSPENDED || mastered(gate) }
+            }
         return (open ?: rhythmChain.last()).id
     }
+
+    /**
+     * `M3` nodes a learner is not sent to, however open their gates — and why each one is here.
+     *
+     * **`M3.DOWNBEAT` cannot be answered.** Its pattern is plain identical beats; the item removes the
+     * metronome's downbeat accent, because the accent would *be* the answer; and the rotation the
+     * generator draws to decide which beat is "one" never reaches the audio, only the stated answer
+     * derived from it. So the learner hears N indistinguishable beats, is asked which was "one", and
+     * the recorded answer does not correspond to anything they heard. Stage 4.4 built the question and
+     * the answer and never checked that the sound carried the information between them.
+     *
+     * Suspended rather than deleted, and suspended *here* rather than removed from [rhythmChain],
+     * because the node itself is right — docs/40-PHASE-4-SPEC.md §3.4 makes beat induction a
+     * first-class skill and §5.1 gives it a place in the order. What it needs is a metrical cue in the
+     * pattern the learner can actually hear. Until then, routing steps over it *and* treats it as
+     * satisfying the gates that name it, so the chain continues past it rather than stopping at the
+     * node before. A learner is never parked in front of a question that has no answer, and never
+     * blocked behind one either.
+     */
+    val ROUTING_SUSPENDED: Set<SkillId> = setOf(SkillIds.M3_DOWNBEAT)
 
     /**
      * Whether an `M3` node is heard or tapped — docs/40-PHASE-4-SPEC.md §5.1's Mode column.

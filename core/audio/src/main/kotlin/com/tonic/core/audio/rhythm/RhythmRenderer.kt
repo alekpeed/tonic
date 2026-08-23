@@ -145,6 +145,21 @@ public object RhythmRenderer {
         }
     }
 
+    /**
+     * How long [render] and [renderBacking] will be, without rendering either.
+     *
+     * The screen needs the length to know when playback ends, and rendering a second buffer to find
+     * out costs a few megabytes of `FloatArray` per item to read one number off it. Pure arithmetic
+     * over the same span both renders use, so it cannot disagree with them.
+     */
+    public fun durationMs(item: Item.RhythmItem): Double {
+        val msPerTick = Tempo.msPerTick(item.tempoBpm)
+        val firstTick = firstTickOf(item)
+        val lastPatternTick = segmentsOf(item).maxOf { (start, pattern) -> start + pattern.totalTicks }
+        val lastTick = maxOf(lastPatternTick, item.metronomePlan.clicks.maxOfOrNull { it.tick } ?: 0)
+        return (lastTick - firstTick) * msPerTick + TAIL_MS
+    }
+
     /** The earliest tick anything happens on — the count-in's first click, or zero if there is none. */
     private fun firstTickOf(item: Item.RhythmItem): Int =
         minOf(item.metronomePlan.clicks.minOfOrNull { it.tick } ?: 0, 0)

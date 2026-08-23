@@ -22,6 +22,7 @@
     <string name="practice_that_was_major">That one was major.</string>
     <string name="practice_that_was_minor">That one was minor.</string>
     <string name="practice_phase_audiation_gap">Nothing is playing. Build the note in your head and wait for it.</string>
+    <string name="practice_phase_listening">Listen to the rhythm</string>
     <string name="practice_phase_awaiting_answer">Tap where it sits, relative to home. Not sure? Guess.</string>
 
     <!-- Module 2 explanation screen - docs/11-ONBOARDING-CLARITY.md §3's six required content points,
@@ -148,6 +149,18 @@
     <string name="practice_axis_tempo_easier">Easing the pace back for a bit.</string>
     <string name="practice_axis_key_harder">More keys in the mix now.</string>
     <string name="practice_axis_key_easier">Fewer keys for a bit.</string>
+
+    <!-- Rhythm's five axes, docs/40-PHASE-4-SPEC.md §5.2 and docs/11-ONBOARDING-CLARITY.md §9.3.
+         Plain, present-tense, and never a warning: an axis moving is the app following the learner,
+         not a threat about what comes next. -->
+    <string name="practice_axis_metronome_harder">Less of the metronome from here.</string>
+    <string name="practice_axis_metronome_easier">A bit more of the metronome for now.</string>
+    <string name="practice_axis_length_harder">Slightly longer rhythms now.</string>
+    <string name="practice_axis_length_easier">Shorter rhythms for a bit.</string>
+    <string name="practice_axis_density_harder">More sounds inside each beat now.</string>
+    <string name="practice_axis_density_easier">Fewer sounds inside each beat for a bit.</string>
+    <string name="practice_axis_tolerance_harder">Your tapping needs to land a little closer now.</string>
+    <string name="practice_axis_tolerance_easier">A bit more room in your timing for now.</string>
 
     <!-- Resume offer - docs/10-TESTING.md §11. Plain and factual; picking up where you left off is
          presented as an option, never as something you owe the app (docs/08-UI-SPEC.md §7). -->

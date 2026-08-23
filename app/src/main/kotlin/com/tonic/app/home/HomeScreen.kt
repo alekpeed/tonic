@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -37,6 +38,7 @@ fun HomeScreen(
     onNeedsOnboarding: () -> Unit,
     onNeedsDiagnostic: () -> Unit,
     onStartPractice: () -> Unit,
+    onStartRhythm: () -> Unit,
     onOpenProgress: () -> Unit,
     onOpenSettings: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
@@ -61,6 +63,7 @@ fun HomeScreen(
     HomeContent(
         uiState = uiState,
         onStartPractice = onStartPractice,
+        onStartRhythm = onStartRhythm,
         onOpenProgress = onOpenProgress,
         onOpenSettings = onOpenSettings,
     )
@@ -70,6 +73,7 @@ fun HomeScreen(
 private fun HomeContent(
     uiState: HomeUiState,
     onStartPractice: () -> Unit,
+    onStartRhythm: () -> Unit,
     onOpenProgress: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
@@ -101,6 +105,16 @@ private fun HomeContent(
 
         Button(onClick = onStartPractice, modifier = Modifier.testTag("home_start")) {
             Text(stringResource(R.string.home_start_practice))
+        }
+
+        Spacer(modifier = Modifier.height(TonicSpacing.md))
+
+        // Two buttons, not one recommendation. docs/40-PHASE-4-SPEC.md §2 makes rhythm parallel to
+        // pitch - `M3` shares no prerequisites with it and can be started first - and §10 q3, which
+        // track a learner should be doing on a given day, is open. Choosing for them would be
+        // inventing an answer to a question the spec has deliberately left alone.
+        OutlinedButton(onClick = onStartRhythm, modifier = Modifier.testTag("home_start_rhythm")) {
+            Text(stringResource(R.string.home_start_rhythm))
         }
 
         Spacer(modifier = Modifier.height(TonicSpacing.lg))
@@ -139,6 +153,7 @@ private fun HomeContentPreview() {
                     currentNodeMasteryState = MasteryState.IN_PROGRESS,
                 ),
             onStartPractice = {},
+            onStartRhythm = {},
             onOpenProgress = {},
             onOpenSettings = {},
         )
@@ -157,6 +172,7 @@ private fun HomeContentNoStreakPreview() {
                     currentNodeMasteryState = MasteryState.AVAILABLE,
                 ),
             onStartPractice = {},
+            onStartRhythm = {},
             onOpenProgress = {},
             onOpenSettings = {},
         )

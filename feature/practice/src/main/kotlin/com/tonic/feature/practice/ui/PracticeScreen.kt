@@ -129,6 +129,7 @@ fun PracticeScreen(
         uiState = uiState,
         onDegreeSelected = viewModel::onDegreeSelected,
         onSing = viewModel::onSingAnswer,
+        onTap = viewModel::onRhythmTap,
         onReplay = viewModel::onReplay,
         onSkip = viewModel::onSkip,
         onLabelSelected = viewModel::onLabelSelected,
@@ -298,19 +299,38 @@ private fun axisChangeRes(change: AxisChange): Int =
         DifficultyAxis.PREDICT_GAP, DifficultyAxis.PREDICT_DEVIATION ->
             error("${change.axis} is a prediction axis and cannot move on the recognition practice screen")
 
-        // Rhythm axes, and the same reasoning again: M3 has its own screen and its own announcements
-        // (docs/40-PHASE-4-SPEC.md §7), and the scheduler cannot offer a rhythm axis to a recognition
-        // node. This branch is the compiler doing exactly what the note above asked it to - adding the
-        // rhythm scope broke this `when`, which is how the requirement for rhythm copy became visible
-        // at Stage 4.2 rather than being discovered by a learner at Stage 4.5. That copy is owed with
-        // the screen: docs/11-ONBOARDING-CLARITY.md §9.3 admits no silent difficulty change on any axis.
-        DifficultyAxis.METRONOME_FADE,
-        DifficultyAxis.PATTERN_LENGTH,
-        DifficultyAxis.TEMPO_DEVIATION,
-        DifficultyAxis.RHYTHMIC_DENSITY,
-        DifficultyAxis.TIMING_TOLERANCE,
-        ->
-            error("${change.axis} is a rhythm axis and cannot move on the recognition practice screen")
+        // Rhythm's five, and the copy Stage 4.2 recorded as owed. That stage left this branch as an
+        // `error`, reasoning that "M3 has its own screen" - it does not. Rhythm runs on this screen,
+        // through the same loop and the same announcements, so from the moment Stage 4.5 made it
+        // reachable the error was no longer a guard against an impossible case: it was a crash waiting
+        // for the first learner whose METRONOME_FADE moved. docs/11-ONBOARDING-CLARITY.md §9.3 admits
+        // no silent difficulty change on any axis, and a crash is not an announcement.
+        DifficultyAxis.METRONOME_FADE ->
+            if (change.isIncrease) {
+                R.string.practice_axis_metronome_harder
+            } else {
+                R.string.practice_axis_metronome_easier
+            }
+
+        DifficultyAxis.PATTERN_LENGTH ->
+            if (change.isIncrease) R.string.practice_axis_length_harder else R.string.practice_axis_length_easier
+
+        // Shares the pitch track's wording. The axis is a different one - rhythm's tempo deviation is
+        // distance from a comfortable centre rather than a shift of the reference - but what the
+        // learner is being told is the same fact in the same words, and inventing a second phrasing
+        // for "this is a bit quicker now" would be difference for its own sake.
+        DifficultyAxis.TEMPO_DEVIATION ->
+            if (change.isIncrease) R.string.practice_axis_tempo_harder else R.string.practice_axis_tempo_easier
+
+        DifficultyAxis.RHYTHMIC_DENSITY ->
+            if (change.isIncrease) R.string.practice_axis_density_harder else R.string.practice_axis_density_easier
+
+        DifficultyAxis.TIMING_TOLERANCE ->
+            if (change.isIncrease) {
+                R.string.practice_axis_tolerance_harder
+            } else {
+                R.string.practice_axis_tolerance_easier
+            }
     }
 
 /** In words, every time - the phase indicator itself is deliberately non-verbal (docs/08-UI-SPEC.md §4). */
@@ -326,6 +346,7 @@ private fun phaseCaptionRes(phase: PlaybackPhase): Int =
         PlaybackPhase.TARGET -> R.string.practice_phase_target
         PlaybackPhase.AWAITING_ANSWER -> R.string.practice_phase_awaiting_answer
         PlaybackPhase.AUDIATION_GAP -> R.string.practice_phase_audiation_gap
+        PlaybackPhase.LISTENING -> R.string.practice_phase_listening
     }
 
 // `internal`, not private: docs/09-BUILD-PLAN.md Stage 7's "ladder fits ... on a 5-inch screen" is a
@@ -417,6 +438,7 @@ internal fun PracticeContent(
     onExit: () -> Unit = {},
     /** Optional sung answer — docs/30-PHASE-3-SPEC.md §6.3. Defaulted so the tap-only screen is unchanged. */
     onSing: () -> Unit = {},
+    onTap: (Long) -> Unit = {},
 ) {
     Column(
         modifier =
@@ -528,6 +550,7 @@ internal fun PracticeContent(
             onLabelSelected = onLabelSelected,
             modifier = Modifier.weight(1f),
             onSing = onSing,
+            onTap = onTap,
         )
 
         Spacer(modifier = Modifier.height(TonicSpacing.sm))

@@ -1,10 +1,12 @@
 package com.tonic.feature.practice.ui
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tonic.core.audio.capture.MicrophoneSource
 import com.tonic.core.audio.pitch.SungResponseAnalyzer
 import com.tonic.core.audio.player.AudioPlayer
+import com.tonic.core.audio.rhythm.RhythmRenderer
 import com.tonic.core.audio.synth.SynthEngine
 import com.tonic.core.curriculum.graph.SkillGraph
 import com.tonic.core.data.repository.SessionRepository
@@ -21,9 +23,12 @@ import com.tonic.core.model.music.AudiatedPitch
 import com.tonic.core.model.music.ScaleDegree
 import com.tonic.core.model.music.SungAnswer
 import com.tonic.core.model.music.UnclearReason
+import com.tonic.core.model.rhythm.AudioOutputRoute
+import com.tonic.core.model.rhythm.RhythmQuestion
 import com.tonic.core.model.state.AppSettings
 import com.tonic.core.model.state.MasteryState
 import com.tonic.core.model.state.PlannedSlot
+import com.tonic.core.model.state.PracticeTrack
 import com.tonic.core.model.time.Clock
 import com.tonic.core.ui.components.PlaybackPhase
 import com.tonic.core.ui.labels.displayLabel
@@ -44,6 +49,7 @@ import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import kotlin.math.roundToInt
+import kotlin.math.roundToLong
 import kotlin.random.Random
 
 /**
@@ -66,12 +72,27 @@ class PracticeViewModel
         private val settingsRepository: SettingsRepository,
         private val microphoneSource: MicrophoneSource,
         private val clock: Clock,
+        savedStateHandle: SavedStateHandle = SavedStateHandle(),
     ) : ViewModel() {
+        /**
+         * Which curriculum this session works through — docs/40-PHASE-4-SPEC.md §2.
+         *
+         * Read once, at construction. A session's track cannot change part-way through: the plan, the
+         * axes and the resumable state all belong to one chain, and switching would leave a session
+         * composed against nodes it is no longer walking.
+         */
+        private val track: PracticeTrack = PracticeTrack.parse(savedStateHandle[PracticeTrack.ROUTE_ARG])
         private val _uiState = MutableStateFlow(PracticeUiState())
         val uiState: StateFlow<PracticeUiState> = _uiState.asStateFlow()
 
         private val _hapticEvents = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
         val hapticEvents: SharedFlow<Unit> = _hapticEvents.asSharedFlow()
+
+        /** Raw tap instants for the item on screen, on the monotonic clock the pointer events carry. */
+        private val taps = mutableListOf<Long>()
+
+        /** When the backing's pattern began, on the same clock. Null until the backing starts. */
+        private var tapOriginUptimeMs: Long? = null
 
         private var phaseJob: Job? = null
         private var skipNoticeJob: Job? = null
@@ -430,6 +451,7 @@ class PracticeViewModel
                             labelStyle = settings.labelStyle,
                             reduceMotion = settings.reduceMotion,
                             hapticsEnabled = settings.hapticsEnabled,
+                            audibleTaps = settings.audibleTapsEnabled,
                         )
                     }
                 }
@@ -465,6 +487,9 @@ class PracticeViewModel
                             // Evidence belongs to the item it was sung into. Carrying it across would
                             // attach one item's audiation to the next item's attempt.
                             audiatedPitch = if (itemChanged) null else it.audiatedPitch,
+                            // Taps belong to the item they were entered for. Carrying them across
+                            // would score one pattern with another pattern's performance.
+                            tapCount = if (itemChanged) 0 else it.tapCount,
                             // Raised in the *same* update as the item it explains, not one after.
                             //
                             // The playback gate held this item silent for an explanation the learner
@@ -502,8 +527,136 @@ class PracticeViewModel
                 is Item.FunctionalRecognitionItem -> runRecognitionPhaseTimer(item)
                 is Item.ModeIdentificationItem -> runModePhaseTimer(item)
                 is Item.PredictionItem -> runPredictionPhaseTimer(item)
+                is Item.RhythmItem -> runRhythmPhaseTimer(item)
                 else -> Unit
             }
+        }
+
+        /**
+         * `M3`'s two phases — docs/40-PHASE-4-SPEC.md §3.3.
+         *
+         * Every rhythm item begins by *sounding*: the pattern for a production item, the target and
+         * then every choice for a recognition one. What follows depends on what is being asked. A
+         * recognition item simply opens its buttons. A production item plays a second time — the same
+         * timeline with the pattern silent — and the learner taps into it, which is what §3.2's fade
+         * table is describing when it says the metronome "stops for the pattern" at L4.
+         *
+         * The length comes from [RhythmRenderer.durationMs] rather than from the item's own timing
+         * fields, because a rhythm item has none: how long it lasts is a property of its pattern, its
+         * tempo and its metronome plan together, and computing it anywhere but beside the renderer is
+         * how a caption comes to outlive the audio it describes.
+         */
+        private fun runRhythmPhaseTimer(item: Item.RhythmItem) {
+            phaseJob?.cancel()
+            phaseJob =
+                viewModelScope.launch {
+                    taps.clear()
+                    tapOriginUptimeMs = null
+                    _uiState.update {
+                        it.copy(phase = PlaybackPhase.LISTENING, inputEnabled = false, tapCount = 0)
+                    }
+                    delay(RhythmRenderer.durationMs(item).toLong())
+                    when (item.question) {
+                        is RhythmQuestion.TapItBack -> runTapWindow(item)
+
+                        is RhythmQuestion.WhichPattern, is RhythmQuestion.WhichBeatIsOne ->
+                            _uiState.update {
+                                it.copy(phase = PlaybackPhase.AWAITING_ANSWER, inputEnabled = true)
+                            }
+                    }
+                }
+        }
+
+        /**
+         * The production half: play the backing, let the learner tap into it, then score what they
+         * played — docs/40-PHASE-4-SPEC.md §6.
+         *
+         * Input opens *before* the backing starts rather than after. The count-in is part of what the
+         * learner is tapping against and a surface that only became live once it had finished would
+         * swallow anyone who came in early — and coming in early on the count-in is a timing error the
+         * app should record, not one it should silently delete.
+         *
+         * The window closes when the backing ends. There is no "done" button, deliberately: a pattern
+         * has a length, the learner has just heard it twice, and asking them to also press something
+         * afterwards would put a motor task between the performance and its scoring.
+         */
+        private suspend fun runTapWindow(item: Item.RhythmItem) {
+            val backing = RhythmRenderer.renderBacking(item)
+            _uiState.update { it.copy(phase = PlaybackPhase.AWAITING_ANSWER, inputEnabled = true) }
+            val startedAtUptimeMs = android.os.SystemClock.uptimeMillis()
+            val handle = audioPlayer.play(backing.buffer)
+            tapOriginUptimeMs = startedAtUptimeMs + backing.countInDurationMs.roundToLong()
+            handle.awaitCompletion()
+
+            // Scored on its own coroutine, not this one. [phaseJob] is cancelled the moment the next
+            // item arrives, and the next item arrives because of the proceedToNextItem() at the end of
+            // submitTaps - so scoring inside this job would have it cancel itself part-way through
+            // advancing, and whether the advance survived would depend on where the suspension
+            // happened to be. Every other answer path in this class launches separately for the same
+            // reason; this one is the only one that reaches submission from the phase timer at all.
+            viewModelScope.launch { submitTaps() }
+        }
+
+        /**
+         * Hands the recorded taps to the loop, which scores them.
+         *
+         * The rebasing happens here and the *scoring* does not — §4.4 puts scoring in one pure
+         * function of `(pattern, taps, calibration, tolerance)`, and only the loop holds three of
+         * those four. What this owes is the fourth: taps in milliseconds from the moment the pattern
+         * began.
+         *
+         * ⚠️ **The origin ignores output latency, and that is a known gap rather than an oversight.**
+         * §4.1 is explicit that the interval between `play()` being called and the sound being heard
+         * is tens of milliseconds and enough to score a well-timed learner as rushing.
+         * `PlaybackTimebaseSource` exists to close it and `RhythmCalibration` exists to measure it, and
+         * neither is consumed here: the calibration screen is not built, so the constant is absent for
+         * every learner, and a timebase reading taken the instant playback starts is either null or
+         * left over from the previous track. Reading a stale one would place the origin far in the
+         * past, which is worse than the offset it would be correcting. Until the calibration screen
+         * lands, tapping is honest at the forgiving end of `TIMING_TOLERANCE` — L0's window is a
+         * quarter of a beat, 150 ms at 100 BPM — and progressively less so as it tightens.
+         */
+        private suspend fun submitTaps() {
+            val origin = tapOriginUptimeMs ?: return
+            val relative = taps.map { (it - origin).toDouble() }
+            _uiState.update { it.copy(inputEnabled = false) }
+
+            engine.submitTaps(
+                tapTimesMs = relative,
+                calibrationOffsetMs = calibrationOffsetMs(),
+                autoAdvance = false,
+            )
+            val feedback = engine.state.value.lastFeedback ?: return
+            _uiState.update { it.copy(correctAnswerLabel = feedback.correctLabel) }
+            if (_uiState.value.hapticsEnabled) _hapticEvents.tryEmit(Unit)
+
+            delay(if (feedback.correct) CORRECT_FEEDBACK_MS else INCORRECT_MODE_SETTLE_MS)
+            delay(INTER_ITEM_PAUSE_MS)
+            engine.proceedToNextItem()
+        }
+
+        /**
+         * The learner's measured tap latency for the route they are on, or zero when they have none.
+         *
+         * Zero is the honest reading of "never calibrated", not a default worth having: §4.3 derives
+         * this from the learner's own taps and there is no screen yet to run that. See [submitTaps].
+         */
+        private fun calibrationOffsetMs(): Double =
+            gateSettings.rhythmCalibrations.forRoute(AudioOutputRoute.SPEAKER)?.offsetMs ?: 0.0
+
+        /**
+         * One tap — docs/40-PHASE-4-SPEC.md §7.2.
+         *
+         * Stored raw and rebased at submission rather than converted here, because the origin is not
+         * known until the backing starts and a tap may legitimately arrive before it: the count-in is
+         * part of what the learner is playing against, and someone who comes in a beat early has made
+         * a timing error the log should carry rather than one the screen should discard.
+         */
+        fun onRhythmTap(uptimeMillis: Long) {
+            if (!_uiState.value.inputEnabled) return
+            if (_uiState.value.rhythmItem?.question !is RhythmQuestion.TapItBack) return
+            taps += uptimeMillis
+            _uiState.update { it.copy(tapCount = taps.size) }
         }
 
         private fun runModePhaseTimer(item: Item.ModeIdentificationItem) {
@@ -831,8 +984,16 @@ class PracticeViewModel
          */
         private suspend fun resolveSessionStart(): Pair<SkillWorkContext, List<DueReview>> {
             val states = skillStateRepository.observeAll().first()
+            val mastered = { id: SkillId -> states[id]?.masteryState == MasteryState.MASTERED }
+            // Two chains, and nothing decides between them for the learner. §2 makes rhythm parallel
+            // to pitch rather than downstream of it, and §10 q3 - which track someone should be doing
+            // right now - is open. So the track arrives with the route and this only resolves a node
+            // within it.
             val currentNodeId =
-                SkillGraph.currentNodeFor { id -> states[id]?.masteryState == MasteryState.MASTERED }
+                when (track) {
+                    PracticeTrack.PITCH -> SkillGraph.currentNodeFor(mastered)
+                    PracticeTrack.RHYTHM -> SkillGraph.currentRhythmNodeFor(mastered)
+                }
             val currentState = states[currentNodeId]
             val currentContext =
                 SkillWorkContext(

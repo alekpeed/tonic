@@ -1,10 +1,12 @@
 package com.tonic.feature.practice.ui
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.viewModelScope
 import com.tonic.core.model.state.AppSettings
+import com.tonic.core.model.state.PracticeTrack
 import com.tonic.core.model.time.Clock
 import com.tonic.feature.practice.engine.FakeAttemptRepository
 import com.tonic.feature.practice.engine.FakeAudioInterruptions
@@ -29,6 +31,8 @@ internal class PracticeFixture(
     settings: AppSettings = AppSettings(),
     /** Reuse another fixture's persistence, to model "the same device, a later launch" - the engine and ViewModel are always fresh. */
     shared: PracticeFixture? = null,
+    /** Which curriculum the session walks - docs/40-PHASE-4-SPEC.md §2. Arrives on the route in the app. */
+    track: PracticeTrack = PracticeTrack.PITCH,
 ) {
     /** Mutable so time-dependent behavior (the wall-clock budget, the time bar) can be driven from a test. */
     var now: Instant = Instant.EPOCH
@@ -62,6 +66,7 @@ internal class PracticeFixture(
             settingsRepository,
             microphoneSource,
             clock,
+            SavedStateHandle(mapOf(PracticeTrack.ROUTE_ARG to track.name)),
         )
 
     /** Holds [viewModel] so [clear] can cancel its scope. See [Companion.clearAll]. */

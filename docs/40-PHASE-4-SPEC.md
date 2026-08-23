@@ -272,6 +272,25 @@ At low `METRONOME_FADE` levels, a visual pulse may accompany the audible metrono
 
 Motor impairment affects tapping in a way it doesn't affect choosing from a list. Therefore: **recognition nodes must form a complete, coherent path through every rhythmic concept.** A user who cannot tap accurately must still be able to learn and demonstrate rhythmic understanding through recognition alone, even though they cannot complete production nodes or `M3.INDEPENDENCE_CHECK`. Document this explicitly rather than leaving it emergent.
 
+### 7.6 What Stage 4.5 shipped, and what it did not
+
+Stage 4.5 was scoped down by the maintainer to a working rhythm loop rather than a complete one. Rhythm is reachable, playable and scored; the following are **specified, agreed, and not built**, and each is written here rather than left to be rediscovered. None is a disagreement with §7 — they are unbuilt, not declined.
+
+| Gap | Section | Consequence today |
+|---|---|---|
+| Post-attempt tap feedback | §7.4 | A learner is told whether the pattern was right and never shown *where* their taps landed. §7.4 calls this "the most instructive feedback in the whole module"; without it a wrong attempt teaches nothing about why |
+| Explanation and worked example | §7.1 | A learner meets the tap surface with no explanation of it, and §7.1 calls these non-optional for exactly this interaction. The production example must *demonstrate* tapping, which is why it is not a paragraph of copy |
+| Calibration screen | §4.3, §7.1 | No learner has a calibration constant, so tapping is scored against a zero and every device's output latency is charged to the learner. Honest at `TIMING_TOLERANCE` L0, whose window is a quarter of a beat; progressively dishonest as the axis tightens. `ProductionGate` is written and is not consulted, so a Bluetooth route is not blocked either |
+| Visual pulse | §7.3 | No visual beat at low fade levels. Nothing is *wrong* — the failure §7.3 warns about is a pulse that outlives the audio, and there is no pulse — but the support it describes is absent |
+| Recognition-only path, documented | §7.5 | The recognition nodes do form a path, but nothing says so to a learner who cannot tap accurately, and §7.5 requires it to be documented "explicitly rather than leaving it emergent" |
+
+And one defect rather than an omission:
+
+**`M3.DOWNBEAT` cannot be answered.** Its pattern is plain identical beats, the item removes the metronome's downbeat accent because the accent would *be* the answer, and the rotation the generator draws to decide which beat is "one" never reaches the audio — only the stated answer derived from it. So the learner hears N indistinguishable beats and is asked which was "one", with nothing in the sound to tell them. Stage 4.4 built the question and the answer and never checked that the audio carried the information between them. The node is suspended from routing (`SkillGraph.ROUTING_SUSPENDED`) and treated as satisfying the gates that name it, so the chain continues past it. Fixing it means giving the pattern a metrical cue a learner can hear, which is a design question for §3.4 rather than wiring.
+
+Still owed from earlier stages, unchanged: every device measurement in §9's Stage 4.0 and 4.1 rows, and §10 q1 (Oboe vs `AudioTrack`) and q2 (whether Android's reported output timing can be trusted).
+
+
 ## 8. Data model and engine
 
 Extends `05-DATA-MODEL.md` and `07-ADAPTIVE-ENGINE.md`.
