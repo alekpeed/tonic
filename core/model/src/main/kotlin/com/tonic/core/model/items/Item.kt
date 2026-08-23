@@ -212,6 +212,22 @@ sealed interface Item {
         /** The label a correct answer carries into the attempt log — see [RhythmQuestion.correctLabel]. */
         val correctLabel: String get() = question.correctLabel
 
+        /**
+         * The Takadimi figure each onset belongs to, in the same order as [onsetTimesMs] —
+         * docs/40-PHASE-4-SPEC.md §5.3 criterion 5.
+         *
+         * Derived from the item rather than asked of the scorer, because it is a property of what was
+         * *asked* and not of how the learner answered. A tapped attempt stores it so that the figure
+         * a mastery verdict judges is the one the learner actually met, even after item generation has
+         * moved on.
+         */
+        val perEventFigures: List<String>
+            get() =
+                pattern.onsetTicks.map { tick ->
+                    com.tonic.core.model.rhythm.RhythmFigure
+                        .signatureAt(pattern, pattern.beatIndexOf(tick))
+                }
+
         /** When each onset sounds, in milliseconds from the start of the pattern. */
         val onsetTimesMs: List<Double>
             get() {

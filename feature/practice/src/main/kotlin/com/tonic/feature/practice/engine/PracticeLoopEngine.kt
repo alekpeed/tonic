@@ -17,10 +17,14 @@ import com.tonic.core.engine.session.SessionComposer
 import com.tonic.core.engine.session.SkillWorkContext
 import com.tonic.core.model.attempts.Attempt
 import com.tonic.core.model.attempts.InputMethod
+import com.tonic.core.model.attempts.RhythmAttemptData
 import com.tonic.core.model.ids.SkillId
 import com.tonic.core.model.items.AxisChange
 import com.tonic.core.model.items.DifficultyAxis
 import com.tonic.core.model.items.Item
+import com.tonic.core.model.rhythm.RhythmQuestion
+import com.tonic.core.model.rhythm.RhythmScorer
+import com.tonic.core.model.rhythm.Tempo
 import com.tonic.core.model.state.MasteryState
 import com.tonic.core.model.state.PlannedSlot
 import com.tonic.core.model.state.ResumeState
@@ -432,6 +436,85 @@ class PracticeLoopEngine
             _state.update {
                 it.copy(
                     lastFeedback = AnswerFeedback(correct, correctLabel),
+                    itemsCompleted = itemsCompleted,
+                )
+            }
+            if (autoAdvance) advance()
+        }
+
+        /**
+         * Records a *tapped* answer against the currently pending item — docs/40-PHASE-4-SPEC.md §6.
+         *
+         * A separate entry point rather than another optional parameter on [submitAnswer], because a
+         * production rhythm item is not answered with a label at all. Its `targetLabel` is the constant
+         * `"TAPPED"`, so passing taps through the label channel would mean handing [submitAnswer] a
+         * response that is right by construction and asking it to be scored some other way — a
+         * parameter that silently changes what another parameter means.
+         *
+         * **The scoring happens here, not in the caller.** The caller captures touches; this holds the
+         * pattern, the tempo and the tolerance level, and §4.4 requires scoring to be a pure function
+         * of exactly those plus the taps. A caller that scored for itself would be a second place where
+         * a tolerance level could be read wrongly, and the loop would be recording a verdict it did not
+         * reach.
+         *
+         * @param tapTimesMs each touch in milliseconds from the moment the pattern's first event
+         *   sounded — rebased by the caller against the output timebase (§4.1), because only the caller
+         *   knows when playback actually started. Uncorrected: the calibration constant is applied
+         *   here, once.
+         * @param calibrationOffsetMs the learner's constant for the route they are on (§4.3). Positive
+         *   means they tap late.
+         */
+        suspend fun submitTaps(
+            tapTimesMs: List<Double>,
+            calibrationOffsetMs: Double,
+            latencyMs: Long = 0,
+            autoAdvance: Boolean = true,
+        ) = loopMutex.withLock {
+            val current = pending ?: return@withLock
+            val item = current.item
+            require(item is Item.RhythmItem && item.question is RhythmQuestion.TapItBack) {
+                "submitTaps is for production rhythm items; ${item::class.simpleName} is answered with a label"
+            }
+
+            val score =
+                RhythmScorer.scoreRelative(
+                    pattern = item.pattern,
+                    tapTimesMs = tapTimesMs,
+                    beatMs = Tempo.msPerBeat(item.tempoBpm),
+                    toleranceLevel = current.slot.axisLevels[DifficultyAxis.TIMING_TOLERANCE] ?: 0,
+                    calibrationOffsetMs = calibrationOffsetMs,
+                )
+            val rhythm =
+                RhythmAttemptData(
+                    tapTimesMs = tapTimesMs,
+                    calibrationOffsetMs = calibrationOffsetMs,
+                    toleranceHalfWidthMs = score.toleranceHalfWidthMs,
+                    expectedEventTimesMs = score.matches.map { it.expectedMs },
+                    perEventFigures = item.perEventFigures,
+                    perEventAsynchronyMs = score.matches.map { it.asynchronyMs },
+                    extraTaps = score.extraCount,
+                    missedTaps = score.missedCount,
+                )
+
+            val attempt =
+                buildAttempt(
+                    current,
+                    responseLabel = RhythmQuestion.TapItBack.TAPPED,
+                    correct = score.isCorrect,
+                    isAbandoned = false,
+                    latencyMs = latencyMs,
+                    rhythm = rhythm,
+                )
+
+            enqueuePersist { writeAttempt(attempt) }
+            pendingAdaptations += attempt
+
+            itemsCompleted++
+            current.plannedIndex?.let { lastScoredPlannedIndex = it }
+            _state.update {
+                it.copy(
+                    lastFeedback = AnswerFeedback(score.isCorrect, RhythmQuestion.TapItBack.TAPPED),
+                    lastRhythmScore = score,
                     itemsCompleted = itemsCompleted,
                 )
             }
@@ -905,6 +988,7 @@ class PracticeLoopEngine
             latencyMs: Long,
             inputMethod: InputMethod = InputMethod.TAP,
             sungCents: Int? = null,
+            rhythm: RhythmAttemptData? = null,
         ): Attempt =
             Attempt(
                 skillId = rendered.slot.skillId,
@@ -926,6 +1010,7 @@ class PracticeLoopEngine
                 isIndependenceCheckProbe = rendered.isIndependenceProbe,
                 inputMethod = inputMethod,
                 sungCents = sungCents,
+                rhythm = rhythm,
             )
 
         /**

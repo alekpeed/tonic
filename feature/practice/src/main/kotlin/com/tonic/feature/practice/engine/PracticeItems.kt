@@ -1,10 +1,12 @@
 package com.tonic.feature.practice.engine
 
+import com.tonic.core.audio.rhythm.RhythmRenderer
 import com.tonic.core.audio.synth.PcmBuffer
 import com.tonic.core.audio.synth.SynthEngine
 import com.tonic.core.curriculum.generators.GenerationHistory
 import com.tonic.core.curriculum.generators.M12ItemGenerator
 import com.tonic.core.curriculum.generators.M2ItemGenerator
+import com.tonic.core.curriculum.generators.M3ItemGenerator
 import com.tonic.core.curriculum.generators.M9ItemGenerator
 import com.tonic.core.curriculum.graph.SkillGraph
 import com.tonic.core.model.ids.SkillId
@@ -58,6 +60,10 @@ internal object PracticeItems {
             is Item.FunctionalRecognitionItem -> item.targetDegree.canonicalLabel
             is Item.ModeIdentificationItem -> item.correctLabel
             is Item.PredictionItem -> item.correctLabel
+            // On a production item this is the constant "TAPPED" - see RhythmQuestion.TapItBack. A
+            // tapped answer has no label to be right or wrong about; what is scored is the taps
+            // against the pattern, in submitTaps.
+            is Item.RhythmItem -> item.correctLabel
             else -> unsupported(item)
         }
 
@@ -108,6 +114,13 @@ internal object PracticeItems {
                     )
                 PcmBuffer(reference.samples + silence + sounded.samples, reference.sampleRate)
             }
+
+            // Count-in, metronome and pattern mixed onto one timeline rather than laid end to end:
+            // here the metronome and the pattern sound *together* and their alignment is the exercise.
+            // The count-in offset RhythmRenderer also returns is dropped here, because the loop plays
+            // the buffer whole; the tap surface reads it from the item when it needs to know when the
+            // pattern proper began (Stage 4.5's screen).
+            is Item.RhythmItem -> RhythmRenderer.render(item).buffer
             else -> unsupported(item)
         }
 
@@ -121,6 +134,11 @@ internal object PracticeItems {
             is Item.FunctionalRecognitionItem -> item.key.value
             is Item.ModeIdentificationItem -> item.key.value
             is Item.PredictionItem -> item.key.value
+            // Rhythm has no key at all. `M3` shares no node with the pitch track and a learner can
+            // start it having never touched `M2` (docs/40-PHASE-4-SPEC.md §2), so 0 here means "not
+            // applicable" rather than "the key of C" - the same reading `cadenceFadeLevel` records for
+            // a module without that axis.
+            is Item.RhythmItem -> 0
             else -> unsupported(item)
         }
 
@@ -134,6 +152,9 @@ internal object PracticeItems {
             is Item.FunctionalRecognitionItem -> item.targetMidi
             is Item.ModeIdentificationItem -> item.tonicMidi
             is Item.PredictionItem -> item.soundedMidi
+            // No pitch is being asked about, and none is inventable: a rhythm item's sounds are a
+            // percussive timbre with no note to name.
+            is Item.RhythmItem -> 0
             else -> unsupported(item)
         }
 
@@ -149,7 +170,10 @@ internal object PracticeItems {
     ): Int =
         when (item) {
             is Item.FunctionalRecognitionItem -> axisLevels[DifficultyAxis.CADENCE_FADE] ?: 0
-            is Item.ModeIdentificationItem, is Item.PredictionItem -> 0
+            // Rhythm's counterpart is METRONOME_FADE, which is denormalized nowhere: this column is
+            // named for the pitch track's axis and repurposing it would make one integer mean two
+            // different fades depending on the row's module.
+            is Item.ModeIdentificationItem, is Item.PredictionItem, is Item.RhythmItem -> 0
             else -> unsupported(item)
         }
 
@@ -158,6 +182,7 @@ internal object PracticeItems {
             is Item.FunctionalRecognitionItem -> item.timbre.name
             is Item.ModeIdentificationItem -> item.timbre.name
             is Item.PredictionItem -> item.timbre.name
+            is Item.RhythmItem -> item.timbre.name
             else -> unsupported(item)
         }
 
@@ -171,7 +196,13 @@ internal object PracticeItems {
         seed: Long,
         history: GenerationHistory,
     ): Generated =
-        if (skill in SkillIds.M12_NODES_IN_ORDER) {
+        if (skill in SkillIds.M3_NODES_IN_ORDER) {
+            // No GenerationHistory. History exists to stop the pitch track repeating a degree or a key
+            // (docs/03-CURRICULUM.md §4); a rhythm item's variety comes from which beats subdivide,
+            // which the seed already varies, and threading an unused history through would suggest a
+            // constraint that is not being enforced.
+            Generated(M3ItemGenerator.generate(skill, axisLevels, seed), history)
+        } else if (skill in SkillIds.M12_NODES_IN_ORDER) {
             val result = M12ItemGenerator.generate(skill, axisLevels, seed, history)
             Generated(result.item, result.updatedHistory)
         } else if (skill in SkillIds.M9_NODES_IN_ORDER) {

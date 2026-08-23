@@ -3,6 +3,7 @@ package com.tonic.feature.practice.engine
 import com.tonic.core.model.ids.SkillId
 import com.tonic.core.model.items.AxisChange
 import com.tonic.core.model.items.Item
+import com.tonic.core.model.rhythm.RhythmScore
 
 /** What a caller (Stage 7's ViewModel, or a headless test harness) needs to render one moment of a session. */
 data class PracticeLoopState(
@@ -26,6 +27,17 @@ data class PracticeLoopState(
     /** The number of ordinary (non-independence-check) slots originally planned for this session. */
     val itemsPlanned: Int = 0,
     val lastFeedback: AnswerFeedback? = null,
+    /**
+     * The full scoring of the last *tapped* answer, null after any other kind — docs/40-PHASE-4-SPEC.md
+     * §7.4.
+     *
+     * Beside [lastFeedback] rather than inside it, because the two say different things and only one
+     * of them is universal: every item type produces a right-or-wrong, and only a production rhythm
+     * item produces a list of where each tap landed. §7.4 calls that visual "the most instructive
+     * feedback in the whole module" and forbids reducing it to a percentage, so it is carried whole
+     * rather than summarized on the way out.
+     */
+    val lastRhythmScore: RhythmScore? = null,
     val isFinished: Boolean = false,
     /** The persisted `SessionRepository` row id for the current run, set once [PracticeLoopEngine.start] creates it - `summary/{sessionId}`'s own nav argument. */
     val sessionId: Long? = null,
