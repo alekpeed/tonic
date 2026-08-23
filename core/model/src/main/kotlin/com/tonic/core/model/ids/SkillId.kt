@@ -59,14 +59,51 @@ object SkillIds {
     /** In mastery order — the prerequisite chain from docs/03-CURRICULUM.md §5.2. */
     val M2_NODES_IN_ORDER = listOf(M2_DEG_SET_1, M2_DEG_SET_2, M2_DEG_SET_3, M2_DEG_SET_4, M2_FULL_DIATONIC)
 
-    // --- Reserved, unbuilt: docs/03-CURRICULUM.md §6. Do not implement. ---
+    // --- M3: Rhythm (Phase 4, in progress). docs/40-PHASE-4-SPEC.md §5.1. ---
+    //
+    // The seven names below were reserved in Phase 1 and are used unchanged. The five with a _RECOG
+    // suffix, plus DOWNBEAT and INDEPENDENCE_CHECK, are Phase 4 additions: §3.3 introduces every
+    // concept in recognition form before production form, so most concepts need two nodes rather than
+    // one. That is not a late refinement - it is what lets the app tell "cannot hear the syncopation"
+    // apart from "hears it and taps it sloppily", which are different failures needing different
+    // remediation, and it is what makes §7.5's tap-free path through the whole module possible.
     val M3_BEAT_FIND = SkillId("M3.BEAT_FIND")
+    val M3_DOWNBEAT = SkillId("M3.DOWNBEAT")
+    val M3_BEAT_DIV_RECOG = SkillId("M3.BEAT_DIV_RECOG")
     val M3_BEAT_DIV = SkillId("M3.BEAT_DIV")
+    val M3_SUBDIV_RECOG = SkillId("M3.SUBDIV_RECOG")
     val M3_SUBDIV = SkillId("M3.SUBDIV")
     val M3_RESTS = SkillId("M3.RESTS")
+    val M3_SYNCOPATION_RECOG = SkillId("M3.SYNCOPATION_RECOG")
     val M3_SYNCOPATION = SkillId("M3.SYNCOPATION")
     val M3_COMPOUND = SkillId("M3.COMPOUND")
     val M3_METER_CHANGE = SkillId("M3.METER_CHANGE")
+    val M3_INDEPENDENCE_CHECK = SkillId("M3.INDEPENDENCE_CHECK")
+
+    /**
+     * In prerequisite order — docs/40-PHASE-4-SPEC.md §5.1's table, top to bottom.
+     *
+     * Note the alternation: every concept is heard before it is produced (§3.3). `M3.COMPOUND` and
+     * `M3.METER_CHANGE` are listed where they unlock, not as a claim that compound meter requires
+     * syncopation — §5.1 gives `COMPOUND` a single prerequisite of `SUBDIV`.
+     */
+    val M3_NODES_IN_ORDER =
+        listOf(
+            M3_BEAT_FIND,
+            M3_DOWNBEAT,
+            M3_BEAT_DIV_RECOG,
+            M3_BEAT_DIV,
+            M3_SUBDIV_RECOG,
+            M3_SUBDIV,
+            M3_RESTS,
+            M3_SYNCOPATION_RECOG,
+            M3_SYNCOPATION,
+            M3_COMPOUND,
+            M3_METER_CHANGE,
+            M3_INDEPENDENCE_CHECK,
+        )
+
+    // --- Reserved, unbuilt: docs/03-CURRICULUM.md §6. Do not implement. ---
 
     val M4_FRAG_2 = SkillId("M4.FRAG_2")
     val M4_FRAG_3 = SkillId("M4.FRAG_3")

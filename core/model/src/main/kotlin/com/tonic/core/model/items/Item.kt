@@ -5,6 +5,9 @@ import com.tonic.core.model.music.Mode
 import com.tonic.core.model.music.PitchClass
 import com.tonic.core.model.music.ScaleDegree
 import com.tonic.core.model.music.TimbreId
+import com.tonic.core.model.rhythm.Meter
+import com.tonic.core.model.rhythm.MetronomePlan
+import com.tonic.core.model.rhythm.RhythmPattern
 
 /**
  * One generated exercise, of whichever skill produced it. Every generator
@@ -161,6 +164,81 @@ sealed interface Item {
     }
 
     /**
+     * `M3.*`: rhythm — docs/40-PHASE-4-SPEC.md §8.
+     *
+     * One item type for both halves of the module, distinguished by [mode], because a recognition item
+     * and a production item present *the same thing* and differ only in what the learner does next
+     * (§3.3). Splitting them would duplicate the pattern, the tempo, the meter and the metronome plan
+     * across two types that must never disagree about any of them — and they must not, because a
+     * concept is introduced in recognition form and then produced, and the two are meant to be
+     * recognizably the same exercise.
+     *
+     * The item carries no pitch at all. `M3` shares no skill node with the pitch track and a learner can
+     * start `M3.BEAT_FIND` having never touched `M2` (§2), so there is no key, no degree and no
+     * reference plan here — only [timbre], which is shared with the pitch track for the same
+     * generalization reason it exists there.
+     */
+    data class RhythmItem(
+        override val skill: SkillId,
+        val meter: Meter,
+        /** Beats per minute. Derived from `TEMPO_DEVIATION` via [com.tonic.core.model.rhythm.Tempo]. */
+        val tempoBpm: Int,
+        /** The rhythm to be heard, and — on a production item — tapped back. */
+        val pattern: RhythmPattern,
+        /** Exactly what the metronome does, from `METRONOME_FADE` (§3.2). */
+        val metronomePlan: MetronomePlan,
+        val mode: RhythmMode,
+        /**
+         * On a recognition item, the patterns offered as choices, in the order they are played;
+         * [pattern] is one of them. Empty on a production item, which has nothing to choose between.
+         */
+        val choices: List<RhythmPattern> = emptyList(),
+        val timbre: TimbreId,
+        override val seed: Long,
+    ) : Item {
+        init {
+            when (mode) {
+                RhythmMode.RECOGNITION -> {
+                    require(choices.size >= 2) { "A recognition item needs at least two choices" }
+                    require(pattern in choices) { "The answer must be one of the choices offered" }
+                }
+
+                RhythmMode.PRODUCTION ->
+                    require(choices.isEmpty()) { "A production item is tapped back, not chosen from" }
+            }
+        }
+
+        override val answerAlphabet: AnswerAlphabet =
+            when (mode) {
+                RhythmMode.RECOGNITION -> AnswerAlphabet.PatternChoice(choices.size)
+                RhythmMode.PRODUCTION -> AnswerAlphabet.Tapped
+            }
+
+        /**
+         * The label a correct answer carries into the attempt log.
+         *
+         * On a recognition item that is the position of the right pattern among the choices. On a
+         * production item there is no label to choose, so the pattern's own onsets stand in — the thing
+         * scoring compares tap times against, and enough to reconstruct what was asked without the seed.
+         */
+        val correctLabel: String
+            get() =
+                when (mode) {
+                    RhythmMode.RECOGNITION -> (choices.indexOf(pattern) + 1).toString()
+                    RhythmMode.PRODUCTION -> pattern.onsetTicks.joinToString(",")
+                }
+
+        /** When each onset sounds, in milliseconds from the start of the pattern. */
+        val onsetTimesMs: List<Double>
+            get() {
+                val msPerTick =
+                    com.tonic.core.model.rhythm.Tempo
+                        .msPerTick(tempoBpm)
+                return pattern.onsetTicks.map { it * msPerTick }
+            }
+    }
+
+    /**
      * `M12.*`: audiation. The inverse of [FunctionalRecognitionItem] — the learner is *told* which
      * degree is coming, holds it in their head across a silent gap, and then judges what actually
      * sounded (docs/20-PHASE-2-SPEC.md §2.3). This trains internal pitch generation rather than
@@ -240,4 +318,24 @@ enum class ModePresentation {
 
     /** A short unaccompanied melodic fragment. No harmony at all - the mode is carried by melody. */
     MELODIC_FRAGMENT,
+}
+
+/**
+ * Whether a rhythm item is heard or produced — docs/40-PHASE-4-SPEC.md §3.3.
+ *
+ * "Every rhythmic concept is introduced in recognition form before production form." The reason is the
+ * same structural argument docs/30-PHASE-3-SPEC.md §3 makes about singing: production conflates two
+ * skills. A learner who perceives a syncopation correctly but taps it sloppily is not failing at rhythm
+ * perception, and an app that cannot tell those apart will remediate the wrong one.
+ *
+ * It is also what makes §7.5 possible: recognition nodes form a complete path through every concept, so
+ * a learner whose motor control makes accurate tapping impossible can still learn and demonstrate
+ * rhythmic understanding.
+ */
+enum class RhythmMode {
+    /** "Which of these did you just hear?" Tap timing is irrelevant; only perception is measured. */
+    RECOGNITION,
+
+    /** "Tap that back." Perception plus motor execution, scored per docs/40-PHASE-4-SPEC.md §6. */
+    PRODUCTION,
 }

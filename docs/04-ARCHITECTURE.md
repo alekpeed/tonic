@@ -49,7 +49,7 @@ Domain vocabulary. No behavior beyond trivial computation.
 
 Types: `SkillId`, `ModuleId`, `ScaleDegree`, `PitchClass`, `Mode`, `TimbreId`, `DifficultyAxis`, `CadenceFadeLevel`, `ReferencePlan`, `ItemTiming`, `Item` (sealed), `Attempt`, `AnswerAlphabet`, `MasteryState`, `DiagnosticResult`, `SessionPlan`, `Clock` (interface).
 
-Phase 4 adds a `rhythm` package: `AudioOutputRoute`, `RouteTiming`, `CalibrationSlot`, `ProductionReadiness`, `BlockReason`, `ProductionGate`, `OutputTimebase`, `TapEvent`, `TapTimeline`. These sit here rather than in `:core:audio` for the reason that governs the whole split: the platform call that reads a route or a timestamp needs a device, and every decision made from the answer is arithmetic. Keeping the arithmetic in a pure module is what lets `40-PHASE-4-SPEC.md` §9's simulations be JVM tests — the same boundary `MicrophoneSource` drew in Phase 3.
+Phase 4 adds a `rhythm` package: `AudioOutputRoute`, `RouteTiming`, `CalibrationSlot`, `ProductionReadiness`, `BlockReason`, `ProductionGate`, `OutputTimebase`, `TapEvent`, `TapTimeline`, `RhythmCalibration`, `Calibrator`, `Meter`, `RhythmPattern`, `Takadimi`, `MetronomeFadeLevel`, `MetronomePlanner`, `Tempo`. These sit here rather than in `:core:audio` for the reason that governs the whole split: the platform call that reads a route or a timestamp needs a device, and every decision made from the answer is arithmetic. Keeping the arithmetic in a pure module is what lets `40-PHASE-4-SPEC.md` §9's simulations be JVM tests — the same boundary `MicrophoneSource` drew in Phase 3.
 
 Rule: no I/O, no coroutines, no framework. Value classes for IDs.
 
@@ -80,6 +80,7 @@ Synthesis and playback. See `06-AUDIO-ENGINE.md`.
 - `TimbreBank` — the four synthesized timbre families.
 - `AudioPlayer` — `AudioTrack` wrapper, streaming mode, dedicated thread, lifecycle-aware.
 - `AudioFocusManager` — handles focus loss, headphone disconnect, phone calls.
+- `RhythmRenderer` — mixes a metronome plan and a rhythm pattern onto one timeline (`40-PHASE-4-SPEC.md` §3.2). The only renderer here that mixes rather than concatenates, because alignment is the exercise.
 - `MicrophoneSource` — one bounded window of capture, for the sung response (`30-PHASE-3-SPEC.md` §5.2).
 - `OutputRouteMonitor` — where audio is currently going, as a `StateFlow` (`40-PHASE-4-SPEC.md` §4.2).
 - `PlaybackTimebaseSource` — when the audio now playing is actually heard (§4.1). Implemented by the same object as `AudioPlayer`; a separate interface because no other caller needs it.

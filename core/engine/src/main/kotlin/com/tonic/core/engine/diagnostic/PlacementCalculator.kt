@@ -80,6 +80,18 @@ object PlacementCalculator {
                 DifficultyAxis.REGISTER_SPREAD, DifficultyAxis.OCTAVE_DISPLACE -> 0
                 DifficultyAxis.PREDICT_GAP, DifficultyAxis.PREDICT_DEVIATION ->
                     error("unreachable: $axis is a prediction axis and cannot appear in RECOGNITION_AXES")
+
+                // Rhythm is not placeable either, and for a stronger reason than prediction: M3 shares
+                // no skill node with the pitch track and a learner can start M3.BEAT_FIND having never
+                // touched M2 (docs/40-PHASE-4-SPEC.md §2). Nothing the pitch diagnostic measures says
+                // anything about where to start them in rhythm.
+                DifficultyAxis.METRONOME_FADE,
+                DifficultyAxis.PATTERN_LENGTH,
+                DifficultyAxis.TEMPO_DEVIATION,
+                DifficultyAxis.RHYTHMIC_DENSITY,
+                DifficultyAxis.TIMING_TOLERANCE,
+                ->
+                    error("unreachable: $axis is a rhythm axis and cannot appear in RECOGNITION_AXES")
             }
         }
     }

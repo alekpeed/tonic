@@ -48,6 +48,39 @@ sealed interface AnswerAlphabet {
     }
 
     /**
+     * `M3.*` recognition items: which of the patterns just played was the one asked about —
+     * docs/40-PHASE-4-SPEC.md §3.3.
+     *
+     * Labels are positions, `"1"`, `"2"`, `"3"`, because there is nothing else they could honestly be.
+     * A rhythm has no name the learner has been taught (§3.1 gives them syllables for positions within
+     * a beat, not names for whole patterns) and this app shows no notation, so the choices are the
+     * sounds themselves in the order they were heard. What the label means is recoverable from the item
+     * via its seed, which is what makes an attempt log of `"2"` analyzable later.
+     */
+    data class PatternChoice(
+        val choiceCount: Int,
+    ) : AnswerAlphabet {
+        init {
+            require(choiceCount >= 2) { "A choice needs at least two options, was $choiceCount" }
+        }
+
+        override val labels: List<String> = (1..choiceCount).map { it.toString() }
+    }
+
+    /**
+     * `M3.*` production items: the learner taps the pattern back, so there is no set of answers to
+     * choose from — docs/40-PHASE-4-SPEC.md §6.
+     *
+     * An empty alphabet rather than no alphabet, because every other part of the system asks an item
+     * what its valid answers are and a null would push that special case outward into all of them. What
+     * is scored here is not a label but the tap timestamps, against the pattern, by Stage 4.3's pure
+     * scoring function; `Attempt.targetLabel` carries the pattern's own identity instead.
+     */
+    data object Tapped : AnswerAlphabet {
+        override val labels: List<String> = emptyList()
+    }
+
+    /**
      * `M9.*`: which mode is sounding — docs/20-PHASE-2-SPEC.md §2.4. A binary answer, so accuracy alone
      * cannot certify it and mastery also requires d-prime (§3, the same reasoning as `M0.SAME_DIFF`):
      * a learner who answers "major" to everything scores 50% while hearing nothing at all.

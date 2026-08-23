@@ -58,6 +58,16 @@ In the pitch track, harmonic support is withdrawn in graded steps so the learner
 
 L4 is the critical transition — the first level where the learner must keep time unaided. L6–L7 are where genuine internal pulse is trained.
 
+**The L2→L3 step adds support back, and that is deliberate.** Decided at Stage 4.2, after the
+implementation surfaced it: L2 sounds downbeats only under the pattern, while L3 "continues" on every
+beat, so a learner climbing the axis hears *more* external pulse at L3 than at L2. The ladder is
+therefore not monotonic in how much sounds — it trades two things against each other. L0–L2 thin what
+plays *under* the pattern; L3 restarts at beat density but bounds the metronome with a count-in; L4–L7
+then shorten that count-in to nothing. Read as "how much is the learner leaning on the metronome while
+producing," the sequence still only ever gets harder, because from L4 there is nothing to lean on at
+all. `MetronomePlannerTest` asserts the discontinuity explicitly so that changing L3's density is a
+deliberate act rather than an accident.
+
 The same lesson from Phase 1 applies with full force: **this axis must move one level at a time.** `07-ADAPTIVE-ENGINE.md` §2a already requires per-axis step size; `METRONOME_FADE` takes `initialStepSize = 1` for the identical reason `CADENCE_FADE` does — skipping a level here doesn't make an item harder, it makes it unanswerable.
 
 ### 3.3 Perception before production
@@ -272,7 +282,7 @@ Extends `05-DATA-MODEL.md` and `07-ADAPTIVE-ENGINE.md`.
 |---|---|---|
 | 4.0 | Audio backend decision + timing infrastructure | Oboe-vs-AudioTrack decided **with measurements**. Output timestamp accuracy characterized on real hardware. Bluetooth detection working. Report numbers, not assumptions. **Partial as of 2026-08-22** — see below. |
 | 4.1 | Calibration | Median offset stable across repeated runs on one device. Per-route storage. Route-change invalidation. Sanity bounds reject garbage. **Partial as of 2026-08-22** — see below. |
-| 4.2 | Pattern generation + metronome rendering | Deterministic per `(skill, axes, seed)`. All 8 `METRONOME_FADE` levels render correctly. |
+| 4.2 | Pattern generation + metronome rendering | Deterministic per `(skill, axes, seed)`. All 8 `METRONOME_FADE` levels render correctly. **Built 2026-08-23** — production items only; see below. |
 | 4.3 | Scoring pipeline | Pure function of inputs, byte-identical on replay. Windows never overlap. Extra/missed taps distinguished. |
 | 4.4 | Recognition nodes (`*_RECOG`, `DOWNBEAT`) | Complete path, no tapping required anywhere in it. |
 | 4.5 | Production nodes + tap UI + explanations | Worked example demonstrates real tapping. Visual pulse fades with audio. |
@@ -280,6 +290,38 @@ Extends `05-DATA-MODEL.md` and `07-ADAPTIVE-ENGINE.md`.
 | 4.7 | Hardening + acceptance | All prior-phase criteria still met. Determinism holds. Bluetooth path verified on real hardware. |
 
 Same discipline: STOP gate per stage, delta report with production-wiring traces, no advancing on an unverified stage.
+
+**Stage 4.2, what is built and what is not.** Both of the row's criteria are met and neither needed a
+device. Built and CI-verified: the rhythm model (`Meter`, `RhythmPattern`, `Takadimi`,
+`MetronomeFadeLevel`, `MetronomePlanner`, `Tempo`), the six difficulty axes under a new
+`DifficultyAxis.Scope.RHYTHM`, `Item.RhythmItem`, `M3ItemGenerator`, and `RhythmRenderer`. All eight
+fade levels are asserted individually in `MetronomePlannerTest` and again audibly in
+`RhythmRendererTest` — separately, because a renderer that dropped the count-in would leave every
+planner test green.
+
+Three decisions worth reading before Stage 4.3 builds on them:
+
+- **Positions are integer ticks, twelve to the beat, never fractions of a beat.** Twelve is the
+  smallest number divisible by 2, 3, 4 and 6, so every division this curriculum uses lands whole.
+  `Double` positions would break `CLAUDE.md` §5's byte-identical requirement, because a third of a beat
+  is not representable and the error depends on the order the arithmetic happened in. Milliseconds
+  appear only at render time.
+- **Rendering mixes onto one timeline rather than concatenating.** Every renderer before this one lays
+  sounds end to end, because in the pitch track nothing overlaps. Here the metronome and the pattern
+  sound together and their alignment is the whole exercise.
+- **`TIMBRE_VARIETY` now belongs to two scopes**, since §5.2 reuses it for rhythm. It keeps its 0–4
+  range in both rather than the 0–3 this document's table gives rhythm: a per-scope maximum would make
+  the stored integer `3` mean "all families" in one module and "not quite all" in another, which is the
+  one-identifier-two-meanings failure `03-CURRICULUM.md` §1 forbids.
+
+**Not built, and not claimed.** Recognition items: §9 gives those nodes to Stage 4.4, and `M3.DOWNBEAT`
+in particular asks *which beat is "one"* — a question whose answers are beat positions rather than
+rhythms, and half-designing it here would leave a shape 4.4 has to undo. The generator refuses a
+recognition node loudly and names the stage. Compound meter and meter change are Stage 4.6's, so only
+simple meters are generated. Rhythm mastery, replay and debug seeding are Stage 4.3's and 4.4's; the
+new scope forced each of those call sites to be handled explicitly rather than defaulted, and each one
+now fails loudly rather than silently treating a rhythm node as a pitch node. And as with 4.0 and 4.1,
+**nothing here is reachable by a learner** — the tap surface and the rhythm screens are Stage 4.5.
 
 **Stage 4.1, what is built and what is not.** Built and CI-verified: `Calibrator`, which is §4.3's six
 steps as one pure function — nearest-beat attribution, the warm-up discard, the median offset, the

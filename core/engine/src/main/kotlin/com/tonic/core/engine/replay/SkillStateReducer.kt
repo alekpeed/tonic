@@ -87,6 +87,14 @@ object SkillStateReducer : SkillStateReplayer {
                 DifficultyAxis.Scope.MODE_ID ->
                     return replayModeId(skillId, chronological, totalAttempts, updatedAt)
 
+                // Unreachable until Stage 4.4 registers an M3 node. A loud failure rather than a
+                // fallthrough to the recognition path: rhythm's mastery criteria are not the five
+                // recognition ones (docs/40-PHASE-4-SPEC.md §5.3 replaces them for production nodes),
+                // so replaying a rhythm node as if it were an M2 node would reconstruct a state that
+                // never existed - and this reducer is what the whole attempt log is re-derived through.
+                DifficultyAxis.Scope.RHYTHM ->
+                    error("Replay for rhythm nodes is not built - docs/40-PHASE-4-SPEC.md stage 4.4")
+
                 DifficultyAxis.Scope.RECOGNITION -> Unit
             }
         }

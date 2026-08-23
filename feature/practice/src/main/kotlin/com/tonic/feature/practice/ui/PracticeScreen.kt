@@ -297,6 +297,20 @@ private fun axisChangeRes(change: AxisChange): Int =
         // type system rather than by remembering.
         DifficultyAxis.PREDICT_GAP, DifficultyAxis.PREDICT_DEVIATION ->
             error("${change.axis} is a prediction axis and cannot move on the recognition practice screen")
+
+        // Rhythm axes, and the same reasoning again: M3 has its own screen and its own announcements
+        // (docs/40-PHASE-4-SPEC.md §7), and the scheduler cannot offer a rhythm axis to a recognition
+        // node. This branch is the compiler doing exactly what the note above asked it to - adding the
+        // rhythm scope broke this `when`, which is how the requirement for rhythm copy became visible
+        // at Stage 4.2 rather than being discovered by a learner at Stage 4.5. That copy is owed with
+        // the screen: docs/11-ONBOARDING-CLARITY.md §9.3 admits no silent difficulty change on any axis.
+        DifficultyAxis.METRONOME_FADE,
+        DifficultyAxis.PATTERN_LENGTH,
+        DifficultyAxis.TEMPO_DEVIATION,
+        DifficultyAxis.RHYTHMIC_DENSITY,
+        DifficultyAxis.TIMING_TOLERANCE,
+        ->
+            error("${change.axis} is a rhythm axis and cannot move on the recognition practice screen")
     }
 
 /** In words, every time - the phase indicator itself is deliberately non-verbal (docs/08-UI-SPEC.md §4). */

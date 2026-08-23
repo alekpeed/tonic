@@ -13,6 +13,7 @@ import com.tonic.core.model.items.AnswerAlphabet
 import com.tonic.core.model.items.CadenceFadeLevel
 import com.tonic.core.model.items.DifficultyAxis
 import com.tonic.core.model.music.ScaleDegree
+import com.tonic.core.model.rhythm.MetronomeFadeLevel
 import com.tonic.core.model.state.FsrsGrade
 import com.tonic.core.model.state.MasteryState
 import com.tonic.core.model.state.SkillState
@@ -78,6 +79,15 @@ public object DebugMasterySeeder {
                         if (axis == DifficultyAxis.PREDICT_GAP) PredictionMasteryEvaluator.MIN_GAP_LEVEL else 0
                     }
 
+                // The rhythm analog, and well-defined without any of Stage 4.3's scoring:
+                // docs/40-PHASE-4-SPEC.md §5.3 criterion 4 makes METRONOME_FADE >= 4 a mastery
+                // requirement for exactly the reason CADENCE_FADE >= 4 is one - without it a learner
+                // "masters" rhythm having never kept time unaided.
+                DifficultyAxis.Scope.RHYTHM ->
+                    DifficultyAxis.RHYTHM_AXES.associateWith { axis ->
+                        if (axis == DifficultyAxis.METRONOME_FADE) MetronomeFadeLevel.MASTERY_MINIMUM.level else 0
+                    }
+
                 // Deliberately empty, matching SkillStateReducer.replayModeId - not an empty map
                 // standing in for unknown levels.
                 DifficultyAxis.Scope.MODE_ID -> emptyMap()
@@ -116,6 +126,14 @@ public object DebugMasterySeeder {
             DifficultyAxis.Scope.RECOGNITION -> recognitionAttempts(skillId, sessionId, startAt)
             DifficultyAxis.Scope.MODE_ID -> modeIdAttempts(skillId, sessionId, startAt)
             DifficultyAxis.Scope.PREDICTION -> predictionAttempts(skillId, sessionId, startAt)
+
+            // Unreachable today: no M3 node is registered in SkillGraph until Stage 4.4, so
+            // scopeFor never returns this. Left as a loud failure rather than an empty list because
+            // synthesizing a mastering run needs the rhythm Attempt fields and the production mastery
+            // criteria, both of which are Stage 4.3's. An empty list would silently seed a rhythm node
+            // as mastered on no evidence, which is the one thing a debug seeder must not do.
+            DifficultyAxis.Scope.RHYTHM ->
+                error("Debug seeding for rhythm nodes is not built - docs/40-PHASE-4-SPEC.md stage 4.3")
         }
 
     /**
