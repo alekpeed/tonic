@@ -149,17 +149,27 @@ Do not, without explicit chat approval:
 - Ask questions through the interactive question prompt, not as prose in the reply.
 - American English spelling and grammar throughout — code, comments, docs, and UI strings.
 - Report what you built, what you verified, and what you did not verify. State uncertainty explicitly.
-- **Lint locally before pushing: `scripts/ktlint.sh`.** It needs no Android SDK and takes seconds, and
-  its ktlint version is pinned to match CI's. Style violations otherwise cost a full CI round each.
-- **Build locally first, then verify in CI.** `scripts/android-sdk.sh` installs the SDK the gate needs;
-  after that `scripts/verify.sh` runs here, and a compile error costs seconds instead of a CI round.
-  This was long assumed impossible in this project's sandboxes — it is not, and that assumption is what
-  most of `docs/21-HANDOFF.md` §6 and §7 are consequences of.
-  `.github/workflows/verify.yml` still runs `scripts/verify.sh` on every push and pull request and
-  remains the authoritative signal: it runs on a known-clean machine and checks things a local run does
-  not (the committed Room schemas, the APK signature). So "I could not run the build" is not a reason to
-  leave a change unverified, and neither is a green local run on its own. Never report green without a
-  source for it: either a local `verify.sh` exit code or a passing CI run, and say which.
+- **Do not build or test locally. CI is the only gate.** By the maintainer's instruction: no
+  `scripts/verify.sh`, no `scripts/android-sdk.sh`, no `./gradlew`, no `scripts/ktlint.sh`. A local
+  build in this sandbox takes around ten minutes and consumes resources the maintainer needs
+  elsewhere, and that cost outweighs what it catches. `.github/workflows/verify.yml` runs
+  `scripts/verify.sh` on every push and pull request, and it is the authoritative signal — it always
+  was, since it runs on a known-clean machine and checks things a local run does not (the committed
+  Room schemas, the APK signature).
+
+  The scripts stay in the repository. They are what CI runs, and `android-sdk.sh` documents exactly
+  which SDK packages the gate needs. They are simply not to be run here.
+
+  What this costs, stated plainly so it is not rediscovered: nothing can be confirmed before pushing,
+  so some pushes will be red and each fix costs a full CI round. Two habits follow from that, and they
+  are not optional. **Keep commits small and single-purpose**, so a red run points at one thing rather
+  than at a batch. **Re-read the diff adversarially before pushing** — imports, exhaustive `when`s,
+  every implementor of an interface you widened — because the compiler is no longer available to do it
+  for you and those are the failures it would have caught in seconds.
+
+- **Never report green without a source, and the only source is a CI run.** Name it: the workflow run
+  and its conclusion. "It should pass" is not a report, module tests are not the gate, and a change
+  that has not been through CI is unverified — say so rather than implying otherwise.
 - When you finish a phase, produce a short delta report: files added, decisions made, deviations from spec (with reasons), open questions.
 - Do not claim something works if you have not run it.
 

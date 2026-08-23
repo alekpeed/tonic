@@ -201,16 +201,24 @@ so rather than predicting green.
 - `scripts/verify.sh` — the definition of green. Extracts compiler diagnostics (`e:` lines) and failing
   test names before falling back to a tail, because a 40-line tail on a compile failure ends with
   "Compilation error. See log for more details" and none of the details.
-- `scripts/ktlint.sh` — standalone, no Android SDK, seconds. Pinned to 1.7.2 to match CI; **the pin is
-  load-bearing**, 1.8.0 flags files CI passes.
+- `scripts/ktlint.sh` — standalone, no Android SDK, seconds. Pinned to the version the ktlint Gradle
+  plugin resolves (1.5.0 at the time of writing); **the pin is load-bearing in both directions.** It
+  was 1.7.2, derived by sampling CI runs, which is a *newer* ruleset than the build enforces: it
+  agreed on everything the sampling happened to cover and silently disagreed elsewhere, passing a file
+  with an unused import that `ktlintCheck` then failed. Re-derive it from the plugin's own resolved
+  jar after any `ktlintGradle` bump.
 - `scripts/symcheck.py` — unresolved-reference check. §6 says what it cannot do.
 
-**Before every push:**
+**Before every push:** nothing, locally. As of 2026-08-23 the maintainer's instruction is that
+**nothing is built or tested in the sandbox** — no `verify.sh`, no `android-sdk.sh`, no `./gradlew`,
+no `ktlint.sh`. A local run costs about ten minutes and resources needed elsewhere, and CI is the
+gate. `CLAUDE.md` §8 is authoritative on this and this file is not.
 
-```bash
-scripts/ktlint.sh
-python3 scripts/symcheck.py $(git diff --name-only HEAD -- '*.kt')
-```
+That inverts most of §6 and the paragraphs above: they are kept because they are still true about
+*what each check can and cannot see*, which is what makes a red CI run readable. What is no longer
+true is the advice to run them here. The replacement is to keep each commit small and single-purpose,
+so a red run points at one change, and to re-read the diff for the failures a compiler would have
+caught — imports, exhaustive `when`s, every implementor of a widened interface.
 
 And when you edit with a script, **assert the intended text is present afterward**. Run #29 was a
 find-and-replace that matched nothing because an earlier replacement in the same script had already

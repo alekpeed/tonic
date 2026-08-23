@@ -7,11 +7,16 @@ from absolute zero. See `docs/00-README.md` for the full spec set and
 
 ## Building
 
+> **Agents: do not build or test in the development sandbox.** By the
+> maintainer's instruction, CI is the only gate — see `CLAUDE.md` §8. A local
+> build here takes around ten minutes and consumes resources needed elsewhere.
+> Push and read the workflow run. The rest of this section is for a human
+> working on their own machine.
+
 Requires JDK 17+ and the Android SDK (`ANDROID_HOME` or `local.properties`
 pointing at it — platform 35 and matching build-tools).
 
-If you do not have one, including in a sandbox that was assumed not to be able
-to have one:
+If you do not have one:
 
 ```bash
 scripts/android-sdk.sh
@@ -56,15 +61,18 @@ To auto-fix formatting instead of just checking it:
 ```
 
 Both of those need the Android SDK. To check style without one — much faster
-than a full build, and the first thing to run before any push:
+than a full build:
 
 ```
 scripts/ktlint.sh            # check
 scripts/ktlint.sh --format   # fix what can be fixed
 ```
 
-It downloads a standalone ktlint once, pinned to the version CI enforces, and
-reads the project's own `.editorconfig`.
+It downloads a standalone ktlint once, pinned to the version the ktlint Gradle
+plugin resolves, and reads the project's own `.editorconfig`. Re-derive that pin
+from the plugin after any `ktlintGradle` bump rather than by sampling CI — see
+the script's own header for why, and for the round it cost when the two drifted
+apart.
 
 ## Toolchain notes (as of this build)
 
@@ -120,7 +128,9 @@ The development sandboxes for this project have no physical Android device, no
 emulator (`/dev/kvm` is unavailable, so the AVD can't boot), and no display.
 They *can* compile and run the whole JVM suite — see `scripts/android-sdk.sh`;
 the long-standing belief that they could not was never tested and turned out to
-be false. The gap is a device, not a toolchain.
+be false. The gap is a device, not a toolchain. They no longer *do*, by the
+maintainer's instruction (`CLAUDE.md` §8): the ten minutes a local run costs
+outweighs what it catches, and CI is the gate.
 Everything that can be verified without one is verified in CI — JVM unit tests,
 property-based tests, simulation tests, Robolectric-backed Android-dependent
 tests, ktlint, `assembleDebug`/`assembleRelease` (R8) builds.
