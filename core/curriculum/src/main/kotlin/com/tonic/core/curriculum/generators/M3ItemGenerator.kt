@@ -7,6 +7,7 @@ import com.tonic.core.model.items.DifficultyAxis
 import com.tonic.core.model.items.Item
 import com.tonic.core.model.items.RhythmMode
 import com.tonic.core.model.music.TimbreId
+import com.tonic.core.model.rhythm.ChoiceSequence
 import com.tonic.core.model.rhythm.Meter
 import com.tonic.core.model.rhythm.MetronomeFadeLevel
 import com.tonic.core.model.rhythm.MetronomePlanner
@@ -65,7 +66,6 @@ object M3ItemGenerator {
         val density = level(DifficultyAxis.RHYTHMIC_DENSITY)
         val pattern = patternFor(skill, meter, bars, density, random)
         val fade = MetronomeFadeLevel.fromLevel(level(DifficultyAxis.METRONOME_FADE))
-        val basePlan = MetronomePlanner.plan(fade, meter, bars)
 
         val question =
             when (SkillGraph.rhythmModeFor(skill)) {
@@ -73,6 +73,20 @@ object M3ItemGenerator {
                 RhythmMode.RECOGNITION ->
                     recognitionQuestion(skill, pattern, meter, bars, level(DifficultyAxis.TIMING_TOLERANCE), random)
             }
+
+        // Planned across the item's whole *audio*, not across one pattern. A `WhichPattern` item plays
+        // the target and then every choice over one continuous metronome (see ChoiceSequence), so a
+        // plan covering a single pattern would stop clicking a quarter of the way through and the
+        // learner would be comparing the later choices against nothing. One plan per item, spanning
+        // exactly what that item sounds, is what keeps the clicks and the patterns in phase.
+        val planBars =
+            when (question) {
+                is RhythmQuestion.WhichPattern ->
+                    ChoiceSequence.totalBars(segmentCount = question.choices.size + 1, barsPerSegment = bars)
+
+                is RhythmQuestion.TapItBack, is RhythmQuestion.WhichBeatIsOne -> bars
+            }
+        val basePlan = MetronomePlanner.plan(fade, meter, planBars)
 
         return Item.RhythmItem(
             skill = skill,

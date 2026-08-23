@@ -3,6 +3,7 @@ package com.tonic.core.audio.rhythm
 import com.tonic.core.model.ids.SkillIds
 import com.tonic.core.model.items.Item
 import com.tonic.core.model.music.TimbreId
+import com.tonic.core.model.rhythm.ChoiceSequence
 import com.tonic.core.model.rhythm.Meter
 import com.tonic.core.model.rhythm.MetronomeFadeLevel
 import com.tonic.core.model.rhythm.MetronomePlanner
@@ -31,6 +32,8 @@ class RhythmRendererTest {
     private fun item(
         level: MetronomeFadeLevel,
         tempoBpm: Int = 100,
+        question: RhythmQuestion = RhythmQuestion.TapItBack,
+        planBars: Int = bars,
     ): Item.RhythmItem {
         val pattern = RhythmPattern(meter, bars, (0 until bars * meter.beatsPerBar).map { it * Meter.TICKS_PER_BEAT })
         return Item.RhythmItem(
@@ -38,12 +41,23 @@ class RhythmRendererTest {
             meter = meter,
             tempoBpm = tempoBpm,
             pattern = pattern,
-            metronomePlan = MetronomePlanner.plan(level, meter, bars),
-            question = RhythmQuestion.TapItBack,
+            metronomePlan = MetronomePlanner.plan(level, meter, planBars),
+            question = question,
             timbre = TimbreId.PURE,
             seed = 1L,
         )
     }
+
+    /** Plain beats with the second one split, so it is tellable apart from the plain pattern. */
+    private fun divided() =
+        RhythmPattern(
+            meter,
+            bars,
+            (
+                (0 until bars * meter.beatsPerBar).map { it * Meter.TICKS_PER_BEAT } +
+                    listOf(Meter.TICKS_PER_BEAT + Meter.TICKS_PER_BEAT / 2)
+            ).sorted(),
+        )
 
     /** Peak absolute sample over a window, as a cheap "is anything sounding here". */
     private fun peakBetween(
@@ -190,5 +204,86 @@ class RhythmRendererTest {
     private companion object {
         /** Below this, nothing meaningful is sounding. Well above the tail of a decayed click. */
         const val QUIET = 0.02f
+
+        /** Long enough to contain a click or an onset, short enough not to reach the next one. */
+        const val SEGMENT_PROBE_MS = 60.0
+    }
+
+    @Test
+    fun `a which-pattern item sounds the target and then every choice`() {
+        // §3.3's "which of these did you just hear" needs the learner to have heard one first, and the
+        // choices to arrive one at a time in the order the buttons name. Before this, render() laid
+        // only item.pattern, so a recognition item played its answer once and offered three buttons.
+        val full = divided()
+        val choices = listOf(full, full.copy(onsetTicks = full.onsetTicks.dropLast(1)))
+        val question = RhythmQuestion.WhichPattern(choices = choices, answerIndex = 0)
+        val segmentCount = choices.size + 1
+        val subject =
+            item(
+                MetronomeFadeLevel.L4,
+                question = question,
+                planBars = ChoiceSequence.totalBars(segmentCount, bars),
+            )
+        val rendered = RhythmRenderer.render(subject)
+        val sampleRate = rendered.buffer.sampleRate
+        val starts = RhythmRenderer.segmentStartsMs(subject)
+
+        assertEquals(segmentCount, starts.size, "the target plus every choice")
+        // L4 has a count-in and nothing under the pattern, so anything sounding at a segment start is
+        // the pattern itself rather than a click.
+        for (start in starts) {
+            val peak = peakBetween(rendered.buffer.samples, start, start + SEGMENT_PROBE_MS, sampleRate)
+            assertTrue(peak > QUIET, "nothing sounds at segment start ${start}ms")
+        }
+
+        // And the separator really is silent, or the segments run together into one longer pattern
+        // with no seam for the learner to find.
+        val segmentMs = bars * meter.beatsPerBar * Tempo.msPerBeat(subject.tempoBpm)
+        val gapPeak =
+            peakBetween(
+                rendered.buffer.samples,
+                starts[0] + segmentMs + SEGMENT_PROBE_MS,
+                starts[1] - SEGMENT_PROBE_MS,
+                sampleRate,
+            )
+        assertTrue(gapPeak < QUIET, "the bar between segments must be silent at L4")
+    }
+
+    @Test
+    fun `the backing is the same timeline with the pattern taken out`() {
+        // §3.2's fade table describes what the learner has *while producing*, so the backing has to be
+        // the identical timeline they were just shown - same count-in, same clicks, same offsets -
+        // minus the sounds they are reproducing.
+        val subject = item(MetronomeFadeLevel.L1)
+        val heard = RhythmRenderer.render(subject)
+        val backing = RhythmRenderer.renderBacking(subject)
+
+        assertEquals(heard.buffer.samples.size, backing.buffer.samples.size)
+        assertEquals(heard.countInDurationMs, backing.countInDurationMs)
+        assertEquals(heard.patternStartSample, backing.patternStartSample)
+    }
+
+    @Test
+    fun `at L4 the backing falls silent once the count-in ends`() {
+        // The level where the learner first keeps time unaided. If renderBacking left anything sounding
+        // here, METRONOME_FADE would stop meaning anything from L4 up - which is the half of the axis
+        // that trains internal pulse.
+        val subject = item(MetronomeFadeLevel.L4)
+        val backing = RhythmRenderer.renderBacking(subject)
+        val sampleRate = backing.buffer.sampleRate
+        val patternStartMs = backing.countInDurationMs
+
+        assertTrue(
+            peakBetween(backing.buffer.samples, 0.0, patternStartMs, sampleRate) > QUIET,
+            "the count-in must still be there - the learner needs the tempo",
+        )
+        val underPatternPeak =
+            peakBetween(
+                backing.buffer.samples,
+                patternStartMs + SEGMENT_PROBE_MS,
+                patternStartMs + bars * meter.beatsPerBar * Tempo.msPerBeat(subject.tempoBpm),
+                sampleRate,
+            )
+        assertTrue(underPatternPeak < QUIET, "nothing may sound under the pattern at L4")
     }
 }

@@ -5,9 +5,11 @@ import com.tonic.core.audio.synth.PcmBuffer
 import com.tonic.core.audio.synth.SynthEngine
 import com.tonic.core.model.items.Item
 import com.tonic.core.model.music.TimbreId
+import com.tonic.core.model.rhythm.ChoiceSequence
 import com.tonic.core.model.rhythm.ClickAccent
 import com.tonic.core.model.rhythm.MetronomePlan
 import com.tonic.core.model.rhythm.RhythmPattern
+import com.tonic.core.model.rhythm.RhythmQuestion
 import com.tonic.core.model.rhythm.Tempo
 import kotlin.math.roundToInt
 
@@ -28,35 +30,96 @@ import kotlin.math.roundToInt
  */
 public object RhythmRenderer {
     /**
-     * The whole item: count-in, then the pattern with whatever metronome its fade level leaves.
+     * The whole item: count-in, then whatever that item actually sounds.
+     *
+     * For a production item and for `M3.DOWNBEAT` that is one pattern. For a `WhichPattern` item it is
+     * the target followed by every choice, laid out by [ChoiceSequence] over one continuous metronome —
+     * §3.3's question is "which of these did you *just hear*", which needs the learner to have heard
+     * one first.
      *
      * The returned buffer starts at the first count-in click, so a caller that plays it from sample
-     * zero gets the item as designed. [countInDurationMs] says how much of it precedes the pattern —
-     * the offset a tap timeline is measured from (§4.4).
+     * zero gets the item as designed. [RenderedRhythm.patternStartSample] says where the count-in ends
+     * — the offset a tap timeline is measured from (§4.4).
      */
     public fun render(
         item: Item.RhythmItem,
         sampleRate: Int = PcmBuffer.DEFAULT_SAMPLE_RATE,
+    ): RenderedRhythm = mix(item, sampleRate, sounding = true)
+
+    /**
+     * The metronome this item gives the learner to tap into, with the pattern itself silent —
+     * docs/40-PHASE-4-SPEC.md §3.2.
+     *
+     * This is the second half of a production item and the half the fade axis is actually about. §3.2's
+     * table describes what the learner has *while producing*: at L1 a click on every beat, at L4
+     * "metronome stops for the pattern", at L6 two beats of count-in and then nothing. Reading those
+     * levels as describing only the demonstration would make the axis a property of what the learner
+     * hears rather than of what they have to hold, which is the opposite of the pitch track's cadence
+     * fade it is modelled on.
+     *
+     * Same plan, same span, same offsets as [render] — the learner taps into a timeline identical to
+     * the one they just heard, minus the sounds they are reproducing.
+     */
+    public fun renderBacking(
+        item: Item.RhythmItem,
+        sampleRate: Int = PcmBuffer.DEFAULT_SAMPLE_RATE,
+    ): RenderedRhythm = mix(item, sampleRate, sounding = false)
+
+    /**
+     * Where each segment of a `WhichPattern` item begins, in milliseconds from the start of playback.
+     *
+     * The screen needs these to say which option is sounding right now. Without it the learner hears
+     * four patterns and has to count them to know which button "2" refers to, which is a memory test
+     * the node is not asking for.
+     *
+     * Empty for an item that sounds one pattern.
+     */
+    public fun segmentStartsMs(item: Item.RhythmItem): List<Double> {
+        val question = item.question as? RhythmQuestion.WhichPattern ?: return emptyList()
+        val msPerTick = Tempo.msPerTick(item.tempoBpm)
+        val leadInTicks = -firstTickOf(item)
+        return (0..question.choices.size).map { index ->
+            (ChoiceSequence.segmentStartTick(index, item.pattern.bars, item.meter.ticksPerBar) + leadInTicks) *
+                msPerTick
+        }
+    }
+
+    /**
+     * The one place ticks become samples for a rhythm item.
+     *
+     * @param sounding false renders the metronome alone — see [renderBacking]. The span, the offsets
+     *   and the clicks are identical either way, which is what lets a learner tap into the same
+     *   timeline they were shown.
+     */
+    private fun mix(
+        item: Item.RhythmItem,
+        sampleRate: Int,
+        sounding: Boolean,
     ): RenderedRhythm {
         val msPerTick = Tempo.msPerTick(item.tempoBpm)
         val plan = item.metronomePlan
-        val firstTick = minOf(plan.clicks.minOfOrNull { it.tick } ?: 0, 0)
+        val firstTick = firstTickOf(item)
+        val segments = segmentsOf(item)
 
         // A tail so the last sound is not cut off mid-decay. Not cosmetic: an onset clipped at the
         // buffer's end is a click, and a click at the end of a rhythm is a sound the learner did not
         // play and might reasonably tap to.
-        val lastTick = maxOf(item.pattern.totalTicks, plan.clicks.maxOfOrNull { it.tick } ?: 0)
+        val lastPatternTick = segments.maxOfOrNull { (start, pattern) -> start + pattern.totalTicks } ?: 0
+        val lastTick = maxOf(lastPatternTick, plan.clicks.maxOfOrNull { it.tick } ?: 0)
         val totalMs = (lastTick - firstTick) * msPerTick + TAIL_MS
-        val totalSamples = msToSamples(totalMs, sampleRate)
-        val mix = FloatArray(totalSamples)
+        val mix = FloatArray(msToSamples(totalMs, sampleRate))
 
         fun offsetOf(tick: Int) = msToSamples((tick - firstTick) * msPerTick, sampleRate)
 
         for (click in plan.clicks) {
             mixInto(mix, clickBuffer(click.accent, sampleRate).samples, offsetOf(click.tick), gainFor(click.accent))
         }
-        for (tick in item.pattern.onsetTicks) {
-            mixInto(mix, patternBuffer(item.timbre, sampleRate).samples, offsetOf(tick), PATTERN_GAIN)
+        if (sounding) {
+            for ((start, pattern) in segments) {
+                for (tick in pattern.onsetTicks) {
+                    mixInto(mix, patternBuffer(item.timbre, sampleRate).samples, offsetOf(start + tick), PATTERN_GAIN)
+                }
+            }
         }
 
         return RenderedRhythm(
@@ -65,6 +128,26 @@ public object RhythmRenderer {
             patternStartSample = offsetOf(0),
         )
     }
+
+    /**
+     * Every pattern this item sounds, paired with the tick it starts on.
+     *
+     * One entry for a production item. For a `WhichPattern` item, the target first and then the
+     * choices in the order they are offered — the target is also among the choices by construction, so
+     * it sounds twice, which is the comparison the item is asking for rather than a duplication.
+     */
+    private fun segmentsOf(item: Item.RhythmItem): List<Pair<Int, RhythmPattern>> {
+        val question = item.question
+        if (question !is RhythmQuestion.WhichPattern) return listOf(0 to item.pattern)
+        val patterns = listOf(item.pattern) + question.choices
+        return patterns.mapIndexed { index, pattern ->
+            ChoiceSequence.segmentStartTick(index, item.pattern.bars, item.meter.ticksPerBar) to pattern
+        }
+    }
+
+    /** The earliest tick anything happens on — the count-in's first click, or zero if there is none. */
+    private fun firstTickOf(item: Item.RhythmItem): Int =
+        minOf(item.metronomePlan.clicks.minOfOrNull { it.tick } ?: 0, 0)
 
     /**
      * The metronome alone, with no pattern — what a calibration run plays (§4.3 step 1: "a steady
