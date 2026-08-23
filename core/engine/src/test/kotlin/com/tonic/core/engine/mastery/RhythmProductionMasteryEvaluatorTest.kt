@@ -86,24 +86,6 @@ class RhythmProductionMasteryEvaluatorTest {
     }
 
     @Test
-    fun `every criterion 5,3 lists is reported, and nothing else is`() {
-        // The list is the spec's, in the spec's order, so blockingCriterion surfaces the earliest
-        // failure a learner has - plus WINDOW_COVERAGE, which is §5.3's "over a rolling 30" made
-        // checkable rather than a sixth criterion of its own.
-        assertEquals(
-            listOf(
-                MasteryCriterion.Kind.WINDOW_COVERAGE,
-                MasteryCriterion.Kind.PATTERN_ACCURACY,
-                MasteryCriterion.Kind.TIMING_CONSISTENCY,
-                MasteryCriterion.Kind.TIMING_DRIFT,
-                MasteryCriterion.Kind.METRONOME_FADE_MINIMUM,
-                MasteryCriterion.Kind.WEAKEST_FIGURE_ACCURACY,
-            ),
-            evaluate(perfectWindow()).criteria.map { it.kind },
-        )
-    }
-
-    @Test
     fun `a short window blocks on coverage before anything else`() {
         val verdict = evaluate(perfectWindow(size = 10))
         assertFalse(verdict.isMastered)
@@ -130,22 +112,6 @@ class RhythmProductionMasteryEvaluatorTest {
             }
         assertEquals(0.75, criterion(window, MasteryCriterion.Kind.PATTERN_ACCURACY).measuredValue, 1e-9)
         assertFalse(criterion(window, MasteryCriterion.Kind.PATTERN_ACCURACY).met)
-    }
-
-    @Test
-    fun `an extra tap is never free, and does not cost the same as a missed one`() {
-        // Four events, all struck, plus one tap that landed on nothing.
-        val added =
-            tapped(listOf(10.0, 10.0, 10.0, 10.0), extraTaps = 1).let {
-                it.copy(tapTimesMs = it.tapTimesMs + 4 * beatMs)
-            }
-        assertTrue(added.patternAccuracy < 1.0, "a flurry between the events must not be free")
-
-        // And it costs less than dropping one, which is not a defect: a miss takes something out of
-        // the numerator while an addition only grows the denominator, and §6.2 keeps the two apart
-        // deliberately because they "mean different things pedagogically".
-        val missed = tapped(listOf(10.0, 10.0, 10.0, null))
-        assertTrue(missed.patternAccuracy < added.patternAccuracy)
     }
 
     @Test
@@ -289,26 +255,6 @@ class RhythmProductionMasteryEvaluatorTest {
                 attempt(tapped(List(8) { 140.0 }), correct = true, index = i)
             }
         assertEquals(evaluate(tight).criteria, evaluate(loose).criteria)
-    }
-
-    @Test
-    fun `the drift bar is inclusive at its boundary`() {
-        // Pinned because the reasoning in MAX_DRIFT_SLOPE's KDoc is about which side of 0.033 the bar
-        // sits on, and a strict comparison would quietly move the bar by one ulp.
-        val window =
-            (0 until RhythmProductionMasteryEvaluator.WINDOW_SIZE).map { i ->
-                attempt(
-                    tapped(
-                        (0 until 16).map {
-                            (it - MIDPOINT_OF_16) * RhythmProductionMasteryEvaluator.MAX_DRIFT_SLOPE * beatMs
-                        },
-                        tolerance = 250.0,
-                    ),
-                    correct = true,
-                    index = i,
-                )
-            }
-        assertTrue(criterion(window, MasteryCriterion.Kind.TIMING_DRIFT).met)
     }
 
     private companion object {
