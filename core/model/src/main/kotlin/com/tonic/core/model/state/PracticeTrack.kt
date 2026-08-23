@@ -37,7 +37,6 @@ enum class PracticeTrack {
          * build of the app across a process restore. None of those is worth crashing a learner's
          * session over, and the pitch track is what every session did before this argument existed.
          */
-        fun parse(raw: String?): PracticeTrack =
-            entries.firstOrNull { it.name.equals(raw, ignoreCase = true) } ?: PITCH
+        fun parse(raw: String?): PracticeTrack = entries.firstOrNull { it.name.equals(raw, true) } ?: PITCH
     }
 }
