@@ -50,23 +50,30 @@ class RhythmItemTest {
     }
 
     @Test
-    fun `a pattern-choice item offers its choices as positions`() {
-        // Labels are positions because there is nothing else they could honestly be: this app shows no
-        // notation and a rhythm has no name the learner has been taught.
+    fun `a pattern-choice item labels its choices by figure, not position`() {
+        // docs/40-PHASE-4-SPEC.md §8. A position label names a different rhythm in every item, so a
+        // confusion matrix over positions would accumulate cells that mean nothing. The figure at the
+        // beat where the choices diverge is what the learner actually had to hear.
         val recognition =
             item(RhythmQuestion.WhichPattern(choices = listOf(plain, syncopated), answerIndex = 0))
         val alphabet = recognition.answerAlphabet
         assertIs<AnswerAlphabet.PatternChoice>(alphabet)
-        assertEquals(listOf("1", "2"), alphabet.labels)
-        assertEquals("1", recognition.correctLabel)
+        // The two patterns agree on beat 0 and diverge on beat 1: plain sounds `ta`, syncopated has
+        // nothing on the beat and a sound half a beat early, which reads as `di`.
+        assertEquals(listOf("ta", "ta-di"), alphabet.labels)
+        assertEquals("ta", recognition.correctLabel)
         assertEquals(RhythmMode.RECOGNITION, recognition.mode)
     }
 
     @Test
-    fun `the correct label finds the answer wherever it sits among the choices`() {
+    fun `the correct label follows the answer wherever it sits among the choices`() {
         val recognition =
             item(RhythmQuestion.WhichPattern(choices = listOf(plain, syncopated), answerIndex = 1))
-        assertEquals("2", recognition.correctLabel)
+        assertEquals("ta-di", recognition.correctLabel)
+        // And the screen can still map back to the option the learner was shown.
+        val question = recognition.question
+        assertIs<RhythmQuestion.WhichPattern>(question)
+        assertEquals(2, question.positionOf("ta-di"))
     }
 
     @Test
@@ -109,7 +116,14 @@ class RhythmItemTest {
     }
 
     @Test
-    fun `a choice count below two is refused by the alphabet itself`() {
-        assertFailsWith<IllegalArgumentException> { AnswerAlphabet.PatternChoice(1) }
+    fun `an alphabet that cannot identify a choice is refused`() {
+        assertFailsWith<IllegalArgumentException>("one option is not a choice") {
+            AnswerAlphabet.PatternChoice(listOf("ta"))
+        }
+        // Two choices sharing a label would make the attempt log unable to say which rhythm the
+        // learner picked - the whole point of labelling by figure rather than by position.
+        assertFailsWith<IllegalArgumentException>("duplicate labels") {
+            AnswerAlphabet.PatternChoice(listOf("ta", "ta"))
+        }
     }
 }

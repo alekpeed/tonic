@@ -6,6 +6,7 @@ import com.tonic.core.model.items.DifficultyAxis
 import com.tonic.core.model.items.RhythmMode
 import com.tonic.core.model.music.Mode
 import com.tonic.core.model.music.ScaleDegree
+import com.tonic.core.model.rhythm.RhythmFigure
 
 /**
  * The Phase 1 skill graph — docs/03-CURRICULUM.md §3/§5. Declarative,
@@ -456,6 +457,35 @@ object SkillGraph {
             -> RhythmMode.RECOGNITION
 
             else -> RhythmMode.PRODUCTION
+        }
+
+    /**
+     * The rhythmic figures a node teaches, as [com.tonic.core.model.rhythm.RhythmFigure] signatures —
+     * docs/40-PHASE-4-SPEC.md §8, and the rhythm counterpart of [SkillNode.activeDegrees].
+     *
+     * Declared rather than derived from the generator, for the same reason `activeDegrees` is declared:
+     * the mastery evaluator has to know what a node *should* have covered, and asking the generator
+     * would only tell it what one seed happened to produce. A figure missing from this set is a figure
+     * a learner can master the node without ever meeting.
+     *
+     * Empty for `M3.BEAT_FIND` and `M3.DOWNBEAT`, and that is not an oversight: neither node
+     * discriminates between figures. `BEAT_FIND` is plain beats throughout, and `DOWNBEAT` asks where
+     * the bar turned over, which is a position rather than a fill (§3.4). Those nodes are judged on the
+     * criteria that do not read figures.
+     */
+    fun activeFiguresFor(skillId: SkillId): Set<String> =
+        when (skillId) {
+            SkillIds.M3_BEAT_DIV_RECOG, SkillIds.M3_BEAT_DIV -> setOf("ta", "ta-di")
+            SkillIds.M3_SUBDIV_RECOG, SkillIds.M3_SUBDIV -> setOf("ta", "ta-ka-di-mi")
+            // Rests add the silent beat to the subdivision alphabet - a rest is a figure a learner can
+            // genuinely mistake for a sounded one, which is why it is named rather than absent.
+            SkillIds.M3_RESTS -> setOf("ta", "ta-ka-di-mi", RhythmFigure.SILENT)
+            // Syncopation's figure is the beat that sounds early: the "di" of the previous beat with
+            // nothing on the beat itself.
+            SkillIds.M3_SYNCOPATION_RECOG, SkillIds.M3_SYNCOPATION ->
+                setOf("ta", "ta-di", "di", RhythmFigure.SILENT)
+
+            else -> emptySet()
         }
 
     /**

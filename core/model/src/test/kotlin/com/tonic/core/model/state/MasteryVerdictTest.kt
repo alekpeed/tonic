@@ -33,10 +33,10 @@ class MasteryVerdictTest {
     @Test
     fun `the five degree-based criteria are intact, and the binary-node ones are additive`() {
         // The guard that makes adding a mastery criterion a decision rather than an accident, and it
-        // has now caught two of them - FOCUS_DEGREE in Stage 2.5 and PREDICT_GAP_MINIMUM in Stage 2.6,
-        // both of which were added without this list being updated and both of which failed here until
-        // they were named. That is the test working, so it is *extended* rather than loosened: every
-        // kind must still be accounted for by name, in one of three groups, with a reason.
+        // has now caught three - FOCUS_DEGREE in Stage 2.5, PREDICT_GAP_MINIMUM in Stage 2.6, and
+        // rhythm's three in Phase 4, all added without this list being updated and all failing here
+        // until they were named. That is the test working, so it is *extended* rather than loosened:
+        // every kind must still be accounted for by name, in one of four groups, with a reason.
         //
         // Group 1, docs/03-CURRICULUM.md §5.5's five: unchanged, and unchangeable -
         // docs/20-PHASE-2-SPEC.md §4 forbids altering the M2 mastery structure, which is why every
@@ -49,6 +49,16 @@ class MasteryVerdictTest {
         // M11's newly-introduced chromatic degree to its own sample (§3), and PREDICT_GAP_MINIMUM is
         // M12's counterpart of the cadence-fade rule (§3). Both apply to their own module only and
         // neither touches M2's.
+        //
+        // Group 4, rhythm's three (docs/40-PHASE-4-SPEC.md §5.3 and §8). §5.3 says M3's recognition
+        // nodes use the five existing criteria "unchanged", which cannot be taken literally: three of
+        // group 1 are about scale degrees and a fourth is about CADENCE_FADE, and a rhythm node has
+        // neither. What is preserved is the shape, with §8's rhythmic figure substituted for the
+        // degree one for one - FIGURE_COVERAGE for DEGREE_COVERAGE, WEAKEST_FIGURE_ACCURACY for
+        // WEAKEST_DEGREE_ACCURACY, METRONOME_FADE_MINIMUM for CADENCE_FADE_MINIMUM. OVERALL_ACCURACY
+        // and CONFUSION_CAP are reused unchanged, because neither mentions a degree: the confusion
+        // matrix is over strings and does not care what they name. Group 1 is untouched, which is what
+        // docs/20-PHASE-2-SPEC.md §4 requires.
         val degreeBased =
             listOf(
                 MasteryCriterion.Kind.OVERALL_ACCURACY,
@@ -64,9 +74,20 @@ class MasteryVerdictTest {
         val binaryNode = setOf(MasteryCriterion.Kind.WINDOW_COVERAGE, MasteryCriterion.Kind.D_PRIME)
         val nodeSpecific =
             setOf(MasteryCriterion.Kind.FOCUS_DEGREE, MasteryCriterion.Kind.PREDICT_GAP_MINIMUM)
+        val rhythm =
+            setOf(
+                MasteryCriterion.Kind.FIGURE_COVERAGE,
+                MasteryCriterion.Kind.WEAKEST_FIGURE_ACCURACY,
+                MasteryCriterion.Kind.METRONOME_FADE_MINIMUM,
+            )
+
+        // Rhythm substitutes for the degree criteria rather than joining them: no rhythm criterion may
+        // ever appear in group 1, or M2's mastery structure would have been altered by a phase that
+        // docs/20-PHASE-2-SPEC.md §4 forbids from altering it.
+        assertTrue(rhythm.none { it in degreeBased.toSet() }, "a rhythm criterion leaked into M2's five")
 
         assertEquals(
-            degreeBased.toSet() + binaryNode + nodeSpecific,
+            degreeBased.toSet() + binaryNode + nodeSpecific + rhythm,
             MasteryCriterion.Kind.entries.toSet(),
             "a mastery criterion exists that is not accounted for above. Adding one is a pedagogical " +
                 "decision, not a refactor: name it here, in the group it belongs to, with the section " +

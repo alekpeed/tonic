@@ -49,6 +49,30 @@ data class MasteryCriterion(
         /** No single confusion pair accounts for more than 15% of window attempts. */
         CONFUSION_CAP,
 
+        /**
+         * Every rhythmic figure the node teaches has ≥ 5 attempts in the window — `M3.*`'s counterpart
+         * of [DEGREE_COVERAGE], docs/40-PHASE-4-SPEC.md §8.
+         *
+         * The unit is the *beat's fill*, not the whole pattern. A pattern is very nearly unique — vary
+         * one sixteenth and it is a different pattern — so coverage over patterns could never be met by
+         * anyone. A beat's fill is a small alphabet that recurs, and it is the unit §3.1's Takadimi
+         * already names.
+         */
+        FIGURE_COVERAGE,
+
+        /** No individual rhythmic figure is below 80% accuracy — `M3.*`'s [WEAKEST_DEGREE_ACCURACY]. */
+        WEAKEST_FIGURE_ACCURACY,
+
+        /**
+         * `METRONOME_FADE` level ≥ 4 — docs/40-PHASE-4-SPEC.md §5.3 criterion 4, and the exact
+         * counterpart of [CADENCE_FADE_MINIMUM].
+         *
+         * L4 is the first level at which the metronome stops under the pattern (§3.2). Without this a
+         * learner masters rhythm having never once kept time unaided, which is the same crutch
+         * dependence [CADENCE_FADE_MINIMUM] exists to catch in the pitch track.
+         */
+        METRONOME_FADE_MINIMUM,
+
         /** CADENCE_FADE level ≥ 4 — "the one that matters." Without it, mastery can hide crutch dependence. */
         CADENCE_FADE_MINIMUM,
 

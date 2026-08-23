@@ -15,6 +15,15 @@
     <string name="progress_criterion_weakest_degree">Your weakest note is at %1$d%% — %2$d%% needed.</string>
     <string name="progress_criterion_confusion_cap">One mix-up is happening more often than it should — needs to be under %2$d%%, currently %1$d%%.</string>
     <string name="progress_criterion_cadence_fade">The reference is still playing before every note; it needs to fade further.</string>
+    <!--
+        Rhythm's counterparts. "Rhythm" rather than "figure" throughout: a figure is what the code
+        calls a beat's fill, and a learner has never been taught that word - docs/11-ONBOARDING-CLARITY.md
+        forbids naming a thing the app has not explained. They have been taught the syllables, so the
+        confusion sentence uses those.
+    -->
+    <string name="progress_criterion_figure_coverage">Not enough recent practice on every rhythm yet — %1$d of %2$d attempts needed on the least-practiced one.</string>
+    <string name="progress_criterion_weakest_figure">Your weakest rhythm is at %1$d%% — %2$d%% needed.</string>
+    <string name="progress_criterion_metronome_fade">The metronome is still playing under every pattern; it needs to fade further.</string>
 
     <!-- Per-degree accuracy - docs/08-UI-SPEC.md §6.2. -->
     <string name="progress_degree_accuracy_heading">Per-degree accuracy</string>

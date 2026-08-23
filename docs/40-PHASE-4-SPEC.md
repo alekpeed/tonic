@@ -322,16 +322,45 @@ Three consequences worth recording:
   in one is the same discrimination task `M3.SUBDIV_RECOG` already runs, while producing a rest is
   genuinely different — you must not tap, and holding time through silence is harder than filling it.
 
-⚠️ **Rhythm mastery criteria are open, and this is the decision that blocks Stage 4.5.** §5.3 says
-recognition nodes "use the existing five criteria unchanged", but three of those five are about scale
-degrees (coverage, weakest degree, confusion pairs) and a fourth is about `CADENCE_FADE`. A rhythm node
-has no degrees and no cadence, so "unchanged" cannot be taken literally. Rather than invent substitutes,
-`SkillStateReducer` gives rhythm nodes the same minimal state as any node without a mastery lifecycle:
-attempts replay, axis levels carry so a session resumes, and `MasteryState` stays `IN_PROGRESS`. Nothing
-routes a learner to a rhythm node yet — `M3` is outside `practiceChain` and there is no rhythm UI — so
-nobody can be stranded in the meantime. **That stops being true the moment Stage 4.5 ships a screen**,
-so the criteria must be settled first. §8's note that "the confusion matrix for rhythm is over *rhythmic
-figures*, not labels" is the most likely basis for the two degree-shaped criteria.
+**Rhythm mastery criteria — settled 2026-08-23 on the maintainer's instruction: use the rhythmic-figure
+confusion matrix.** §5.3's "use the existing five criteria unchanged" cannot be taken literally, since
+three of those five are about scale degrees and a fourth is about `CADENCE_FADE`, and a rhythm node has
+neither. What is preserved is the *shape*, with §8's unit substituted one for one:
+
+| Pitch (`03-CURRICULUM.md` §5.5) | Rhythm (`RhythmMasteryEvaluator`) |
+|---|---|
+| `OVERALL_ACCURACY` | unchanged — 90% over a rolling 30 |
+| `DEGREE_COVERAGE` | `FIGURE_COVERAGE` — every figure the node teaches, ≥ 5 attempts |
+| `WEAKEST_DEGREE_ACCURACY` | `WEAKEST_FIGURE_ACCURACY` — no figure below 80% |
+| `CONFUSION_CAP` | unchanged — the matrix is over strings and does not care what they name |
+| `CADENCE_FADE_MINIMUM` | `METRONOME_FADE_MINIMUM` — §5.3 criterion 4, `METRONOME_FADE` ≥ 4 |
+
+**A figure is one beat's fill, not a whole pattern**, and that choice is what makes the criteria usable.
+A pattern is very nearly unique — vary one sixteenth and it is a different pattern — so coverage over
+patterns could never be met by anyone and the matrix would have a cell per item. A beat's fill is a
+small recurring alphabet, and it is exactly what §3.1's Takadimi already names, so a confusion view can
+say "you hear `ta-di` when it was `ta-ka-di-mi`" in the learner's own vocabulary. `SkillGraph`
+declares each node's figures the way it declares active degrees, so the evaluator knows what a node
+*should* have covered rather than what one seed happened to produce.
+
+Two consequences follow. **The attempt label for a `*_RECOG` item is the figure, not the position** — a
+position label names a different rhythm in every item, so a matrix over positions would accumulate
+cells that mean nothing. `M3.DOWNBEAT` keeps positional labels, because there the position *is* the
+answer and means the same thing across items. And **nodes that discriminate no figures**
+(`M3.BEAT_FIND`, `M3.DOWNBEAT`) report the two figure criteria as vacuously met, so the criteria list
+keeps one shape for every rhythm node; they are still held to accuracy, window size and the fade
+minimum.
+
+⚠️ **Production nodes are still not evaluated.** §5.3 replaces their criteria outright with five of its
+own — including a drift trend and a per-figure floor over *tapped* accuracy — and none of that can be
+judged until Stage 4.5 records a tapped attempt. They take the no-mastery path meanwhile.
+
+One property worth knowing before anyone tunes the thresholds: with a node's figures evenly represented
+in the window, **criterion 3 is mathematically implied by criterion 1**. The 90% floor caps the misses
+at three out of thirty, and three misses concentrated on one of two figures leaves it at exactly 80%.
+The weakest-figure criterion only bites when a figure appears *rarely* — which is the case it is
+actually there for, and which `FIGURE_COVERAGE` bounds from below. `MasteryEvaluator` records the same
+property for the pitch track; it is a feature of the spec's own thresholds, not a defect.
 
 **Stage 4.3, what is built and what is not.** All four of the row's criteria are met, and none needed
 a device. `RhythmScorer` is a pure function of `(pattern, taps, calibration, tolerance)` with no clock

@@ -52,8 +52,32 @@ public sealed interface RhythmQuestion {
             require(answerIndex in choices.indices) { "The answer must be one of the choices offered" }
         }
 
-        override val answerAlphabet: AnswerAlphabet = AnswerAlphabet.PatternChoice(choices.size)
-        override val correctLabel: String = (answerIndex + 1).toString()
+        /**
+         * The figure each choice sounds at the beat where they diverge — see
+         * [RhythmFigure.discriminatingBeat].
+         *
+         * This, and not the position, is what the attempt log records. A position label is meaningless
+         * across items: "2" names a different rhythm every time, so a confusion matrix over positions
+         * would accumulate cells that mean nothing. §8 asks for the matrix to be over rhythmic figures,
+         * and this is the figure the item actually turns on — what the learner had to hear to answer.
+         */
+        public val figureSignatures: List<String> = RhythmFigure.signaturesAtDiscriminatingBeat(choices)
+
+        /** Which beat the choices diverge at, or null when they somehow do not. */
+        public val discriminatingBeat: Int? = RhythmFigure.discriminatingBeat(choices)
+
+        override val answerAlphabet: AnswerAlphabet = AnswerAlphabet.PatternChoice(figureSignatures)
+        override val correctLabel: String = figureSignatures[answerIndex]
+
+        /**
+         * Which option the learner picked, given the figure they answered with.
+         *
+         * Needed because the screen offers positions and the log stores figures. Returns the first
+         * match: two choices sounding the same figure at the divergent beat cannot happen by
+         * construction — that is what makes the beat divergent.
+         */
+        public fun positionOf(figureSignature: String): Int? =
+            figureSignatures.indexOf(figureSignature).takeIf { it >= 0 }?.plus(1)
     }
 
     /**
@@ -87,7 +111,18 @@ public sealed interface RhythmQuestion {
             }
         }
 
-        override val answerAlphabet: AnswerAlphabet = AnswerAlphabet.PatternChoice(beatsHeard)
+        /**
+         * Positions, not figures — and this is the one place a position label is the honest one.
+         *
+         * `M3.DOWNBEAT` asks where the bar turned over. The answer *is* a position, "the third beat you
+         * heard", and it means the same thing from one item to the next: a learner who keeps answering
+         * two when it was three has a consistent, nameable error. There is no figure to record because
+         * no figure is being discriminated (§3.4 — the skill is beat induction, not pattern
+         * recognition), which is also why this node is judged on the criteria in
+         * `RhythmMasteryEvaluator` that do not read figures.
+         */
+        override val answerAlphabet: AnswerAlphabet =
+            AnswerAlphabet.PatternChoice((1..beatsHeard).map { it.toString() })
         override val correctLabel: String = downbeatPosition.toString()
     }
 }

@@ -6,6 +6,7 @@ import com.tonic.core.engine.mastery.BinaryMasteryEvaluator
 import com.tonic.core.engine.mastery.IndependenceCheck
 import com.tonic.core.engine.mastery.MasteryEvaluator
 import com.tonic.core.engine.mastery.PredictionMasteryEvaluator
+import com.tonic.core.engine.mastery.RhythmMasteryEvaluator
 import com.tonic.core.engine.scheduling.AxisScheduler
 import com.tonic.core.engine.scheduling.AxisSchedulerState
 import com.tonic.core.model.attempts.Attempt
@@ -87,22 +88,21 @@ object SkillStateReducer : SkillStateReplayer {
                 DifficultyAxis.Scope.MODE_ID ->
                     return replayModeId(skillId, chronological, totalAttempts, updatedAt)
 
-                // Rhythm: attempts replay, mastery does not - and that is a decision pending, not an
-                // oversight. docs/40-PHASE-4-SPEC.md §5.3 says recognition nodes "use the existing five
-                // criteria unchanged", but three of those five are about scale degrees (coverage,
-                // weakest degree, confusion pairs) and a fourth is about CADENCE_FADE. A rhythm node has
-                // no degrees and no cadence, so "unchanged" cannot be taken literally, and inventing a
-                // substitute here would be guessing at the criteria that decide whether a learner has
-                // learned something (CLAUDE.md §2 rule 4).
+                // Rhythm, since the maintainer settled §5.3's ambiguity: recognition nodes keep the
+                // *shape* of the five criteria with the rhythmic figure substituted for the degree,
+                // per docs/40-PHASE-4-SPEC.md §8. See RhythmMasteryEvaluator for the mapping.
                 //
-                // So this returns the same minimal state as any node without a mastery lifecycle: the
-                // attempt log is preserved and axis levels carry from the last attempt, which is what
-                // makes a session resumable, and MasteryState stays IN_PROGRESS. Nothing routes a
-                // learner to a rhythm node yet - M3 is deliberately outside SkillGraph.practiceChain
-                // and there is no rhythm UI until Stage 4.5 - so nobody can be stranded by this in the
-                // meantime. The criteria must be settled before 4.5 changes that.
+                // Production nodes are still not evaluated: §5.3 replaces their criteria outright with
+                // five of its own, including a drift trend and a per-figure floor over *tapped*
+                // accuracy, and none of that can be judged until Stage 4.5 records a tapped attempt.
+                // They take the no-mastery path, which keeps their attempts and axis levels and claims
+                // nothing about what the learner has learned.
                 DifficultyAxis.Scope.RHYTHM ->
-                    return replayWithoutMastery(skillId, real, totalAttempts, updatedAt)
+                    return if (SkillGraph.usesRecognitionMastery(skillId)) {
+                        replayRhythmRecognition(skillId, real, chronological, totalAttempts, updatedAt)
+                    } else {
+                        replayWithoutMastery(skillId, real, totalAttempts, updatedAt)
+                    }
 
                 DifficultyAxis.Scope.RECOGNITION -> Unit
             }
@@ -282,6 +282,70 @@ object SkillStateReducer : SkillStateReplayer {
             totalAttempts = totalAttempts,
             updatedAt = updatedAt,
         )
+
+    /**
+     * The `M3` recognition reduction — docs/40-PHASE-4-SPEC.md §5.3 and §8.
+     *
+     * The same fold as the prediction path with rhythm's own axes and evaluator, and separate from the
+     * recognition path for the same reason that one is separate: the criteria differ. Sharing one
+     * object across both would have meant either weakening the degree criteria `M2` depends on or
+     * pretending a rhythm node has degrees.
+     *
+     * No independence check runs here. `M3.INDEPENDENCE_CHECK` is a node of its own (§5.4), unbuilt
+     * until Stage 4.6, and it probes production rather than recognition.
+     */
+    private fun replayRhythmRecognition(
+        skillId: SkillId,
+        real: List<Attempt>,
+        chronological: List<Attempt>,
+        totalAttempts: Int,
+        updatedAt: Instant,
+    ): SkillState {
+        val activeFigures = SkillGraph.activeFiguresFor(skillId)
+        var axisState = AxisSchedulerState.forScope(DifficultyAxis.Scope.RHYTHM)
+        val masteryWindow = ArrayDeque<Attempt>()
+        var masteryState = MasteryState.IN_PROGRESS
+        var masteredAt: Instant? = null
+        var fsrs = FsrsState(stability = 0.0, difficulty = 0.0, lastReview = null, due = null)
+        var reviewBlock = mutableListOf<Attempt>()
+
+        for (attempt in chronological) {
+            if (masteryState == MasteryState.MASTERED) {
+                reviewBlock.add(attempt)
+                if (reviewBlock.size >= REVIEW_BLOCK_SIZE) {
+                    val accuracy = reviewBlock.count { it.correct }.toDouble() / reviewBlock.size
+                    fsrs =
+                        FsrsScheduler.review(fsrs, FsrsGrade.fromBlockAccuracy(accuracy), reviewBlock.last().timestamp)
+                    reviewBlock = mutableListOf()
+                }
+                continue
+            }
+            if (attempt.isWarmup) continue
+
+            axisState = AxisScheduler.update(axisState, attempt.correct)
+            masteryWindow.addLast(attempt)
+            if (masteryWindow.size > RhythmMasteryEvaluator.WINDOW_SIZE) masteryWindow.removeFirst()
+
+            val verdict = RhythmMasteryEvaluator.evaluate(masteryWindow.toList(), activeFigures, axisState.levels)
+            if (verdict.isMastered) {
+                masteryState = MasteryState.MASTERED
+                masteredAt = attempt.timestamp
+                fsrs = FsrsScheduler.initial(FsrsGrade.GOOD, attempt.timestamp)
+            }
+        }
+
+        return SkillState(
+            skillId = skillId,
+            axisLevels = axisState.levels,
+            staircaseStates = axisState.staircases,
+            activeAxis = axisState.activeAxis,
+            masteryState = masteryState,
+            masteredAt = masteredAt,
+            fsrs = fsrs,
+            totalAttempts = totalAttempts,
+            updatedAt = updatedAt,
+        )
+    }
 
     /**
      * The `M12` reduction — docs/20-PHASE-2-SPEC.md §3/§4.

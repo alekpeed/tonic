@@ -51,20 +51,25 @@ sealed interface AnswerAlphabet {
      * `M3.*` recognition items: which of the patterns just played was the one asked about —
      * docs/40-PHASE-4-SPEC.md §3.3.
      *
-     * Labels are positions, `"1"`, `"2"`, `"3"`, because there is nothing else they could honestly be.
-     * A rhythm has no name the learner has been taught (§3.1 gives them syllables for positions within
-     * a beat, not names for whole patterns) and this app shows no notation, so the choices are the
-     * sounds themselves in the order they were heard. What the label means is recoverable from the item
-     * via its seed, which is what makes an attempt log of `"2"` analyzable later.
+     * The labels are supplied by the question rather than being positions, and which they are depends
+     * on what the node is testing. A `*_RECOG` item labels its choices by the **rhythmic figure** each
+     * sounds at the beat where they diverge (docs/40-PHASE-4-SPEC.md §8), because a position label
+     * means a different rhythm in every item and a confusion matrix over positions would accumulate
+     * cells that say nothing. `M3.DOWNBEAT` labels by position, because there the position *is* the
+     * answer and it means the same thing from one item to the next.
+     *
+     * The screen still shows the learner numbered options in the order they were played; the mapping
+     * between those and these labels lives on the question.
      */
     data class PatternChoice(
-        val choiceCount: Int,
+        override val labels: List<String>,
     ) : AnswerAlphabet {
         init {
-            require(choiceCount >= 2) { "A choice needs at least two options, was $choiceCount" }
+            require(labels.size >= 2) { "A choice needs at least two options, was ${labels.size}" }
+            require(labels.distinct().size == labels.size) { "Two choices cannot share a label: $labels" }
         }
 
-        override val labels: List<String> = (1..choiceCount).map { it.toString() }
+        val choiceCount: Int get() = labels.size
     }
 
     /**

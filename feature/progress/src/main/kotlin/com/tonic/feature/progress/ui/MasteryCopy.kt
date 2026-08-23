@@ -46,6 +46,23 @@ internal fun copyFor(
             )
         MasteryCriterion.Kind.CADENCE_FADE_MINIMUM ->
             MasteryCopy(R.string.progress_criterion_cadence_fade, emptyList())
+        // Rhythm's three, docs/40-PHASE-4-SPEC.md §5.3. Worded as "rhythm" rather than "figure":
+        // a figure is what the code calls a beat's fill, and the learner has never been taught that
+        // word - docs/11-ONBOARDING-CLARITY.md forbids naming a thing the app has not explained.
+        MasteryCriterion.Kind.FIGURE_COVERAGE ->
+            MasteryCopy(
+                R.string.progress_criterion_figure_coverage,
+                listOf(criterion.measuredValue.roundToInt(), criterion.requiredValue.roundToInt()),
+            )
+        MasteryCriterion.Kind.WEAKEST_FIGURE_ACCURACY ->
+            MasteryCopy(
+                R.string.progress_criterion_weakest_figure,
+                listOf(percent(criterion.measuredValue), percent(criterion.requiredValue)),
+            )
+        // The exact counterpart of CADENCE_FADE_MINIMUM, and phrased the same way for the same reason:
+        // a fade level is a step count, not a rate, so it gets a sentence rather than a percentage.
+        MasteryCriterion.Kind.METRONOME_FADE_MINIMUM ->
+            MasteryCopy(R.string.progress_criterion_metronome_fade, emptyList())
         MasteryCriterion.Kind.WINDOW_COVERAGE ->
             MasteryCopy(
                 R.string.progress_criterion_window_coverage,
