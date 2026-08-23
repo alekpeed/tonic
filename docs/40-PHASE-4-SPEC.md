@@ -283,13 +283,55 @@ Extends `05-DATA-MODEL.md` and `07-ADAPTIVE-ENGINE.md`.
 | 4.0 | Audio backend decision + timing infrastructure | Oboe-vs-AudioTrack decided **with measurements**. Output timestamp accuracy characterized on real hardware. Bluetooth detection working. Report numbers, not assumptions. **Partial as of 2026-08-22** — see below. |
 | 4.1 | Calibration | Median offset stable across repeated runs on one device. Per-route storage. Route-change invalidation. Sanity bounds reject garbage. **Partial as of 2026-08-22** — see below. |
 | 4.2 | Pattern generation + metronome rendering | Deterministic per `(skill, axes, seed)`. All 8 `METRONOME_FADE` levels render correctly. **Built 2026-08-23** — production items only; see below. |
-| 4.3 | Scoring pipeline | Pure function of inputs, byte-identical on replay. Windows never overlap. Extra/missed taps distinguished. |
+| 4.3 | Scoring pipeline | Pure function of inputs, byte-identical on replay. Windows never overlap. Extra/missed taps distinguished. **Built 2026-08-23** — persistence deferred; see below. |
 | 4.4 | Recognition nodes (`*_RECOG`, `DOWNBEAT`) | Complete path, no tapping required anywhere in it. |
 | 4.5 | Production nodes + tap UI + explanations | Worked example demonstrates real tapping. Visual pulse fades with audio. |
 | 4.6 | Compound meter, meter change, independence check | Takadimi syllables correct in compound meter (the case Kodály fails). |
 | 4.7 | Hardening + acceptance | All prior-phase criteria still met. Determinism holds. Bluetooth path verified on real hardware. |
 
 Same discipline: STOP gate per stage, delta report with production-wiring traces, no advancing on an unverified stage.
+
+**Stage 4.3, what is built and what is not.** All four of the row's criteria are met, and none needed
+a device. `RhythmScorer` is a pure function of `(pattern, taps, calibration, tolerance)` with no clock
+and no state; `ToleranceWindows` expresses every window as a fraction of the beat and clamps it when
+events crowd; extra and missed taps are counted separately throughout. **§6.3's owed test now exists**
+— `RawAsynchronyIsNeverScoredTest`, written because that section records the debt explicitly: the
+Phase 3 precedent it cites "was found not to exist." It takes two performances differing only in
+asynchrony, both inside the window, and requires everything the adaptive engine reads to be identical
+while the feedback the learner sees differs — including a sweep across the whole window, so a threshold
+hidden anywhere inside it fails.
+
+Three notes for whoever builds on this:
+
+- **Matching takes the closest pair first, not a left-to-right sweep.** Under a sweep one stray early
+  tap consumes the slot its neighbour needed and every later pairing shifts, turning a single mistake
+  into a whole pattern scored wrong. Ties break by earlier event then earlier tap, so the result never
+  depends on iteration order — without which §4.4's byte-identical promise would be false in exactly
+  the case hardest to reproduce.
+- **Drift is a slope, not a magnitude**, per §5.3 criterion 3. `driftSlope` is dimensionless and
+  `driftMsPerBeat(beatMs)` is the readable form. An earlier draft called the dimensionless value
+  `driftMsPerBeat`, which was a name that lied about its units — the sort of thing that survives until
+  someone writes a threshold against it.
+- **Calibration is applied in one place.** An earlier draft of `scoreRelative` took the learner's
+  constant, recorded it on the result, and matched against uncorrected taps — so passing a real
+  constant reported that the learner had missed every event. Caught by the fast-tempo test, which is
+  kept pointed at that function for the purpose.
+
+One finding worth carrying forward: at 100 BPM the tightest window is ±50 ms, so §9's simulation-2
+learner — uniformly 40 ms late — passes *without calibration mattering at all*. Calibration only starts
+to matter as tempo rises and the window shrinks in milliseconds; at 160 BPM the same learner fails every
+event uncalibrated. Both cases are asserted. The practical consequence is that a calibration defect
+would be invisible at the tempo most practice happens at, which is an argument for the device
+measurement Stage 4.1 still owes rather than against it.
+
+**Not built, deliberately.** §8's rhythm `Attempt` fields — `tapTimestamps`, `calibrationOffsetUsed`,
+`toleranceUsed`, `perEventAsynchrony`, `extraTaps`, `missedTaps` — are not persisted yet. They are a
+Room schema change with a migration, and nothing creates a rhythm attempt until Stage 4.5 builds the
+tap surface; adding columns nothing writes would be schema churn ahead of a need. The scoring pipeline's
+replayability does not depend on it: the function is pure, so identical inputs give identical output,
+which is what the criterion asks. Persistence lands with 4.5, and `05-DATA-MODEL.md` §4's migration rules
+apply when it does. Rhythm mastery evaluation (§5.3's five production criteria) is likewise not built —
+this stage produces the numbers those criteria will read, not the criteria.
 
 **Stage 4.2, what is built and what is not.** Both of the row's criteria are met and neither needed a
 device. Built and CI-verified: the rhythm model (`Meter`, `RhythmPattern`, `Takadimi`,
