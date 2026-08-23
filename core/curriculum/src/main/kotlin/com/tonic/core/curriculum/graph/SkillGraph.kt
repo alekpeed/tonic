@@ -3,6 +3,7 @@ package com.tonic.core.curriculum.graph
 import com.tonic.core.model.ids.SkillId
 import com.tonic.core.model.ids.SkillIds
 import com.tonic.core.model.items.DifficultyAxis
+import com.tonic.core.model.items.RhythmMode
 import com.tonic.core.model.music.Mode
 import com.tonic.core.model.music.ScaleDegree
 
@@ -296,6 +297,7 @@ object SkillGraph {
         when (skillId) {
             in m12Nodes.map { it.id } -> DifficultyAxis.Scope.PREDICTION
             in m9Nodes.map { it.id } -> DifficultyAxis.Scope.MODE_ID
+            in m3Nodes.map { it.id } -> DifficultyAxis.Scope.RHYTHM
             else -> DifficultyAxis.Scope.RECOGNITION
         }
 
@@ -373,11 +375,109 @@ object SkillGraph {
     fun triggersIndependenceCheck(skillId: SkillId): Boolean =
         skillId == m2Nodes.last().id || skillId == m10Nodes.last().id
 
+    /**
+     * `M3.*` — rhythm, docs/40-PHASE-4-SPEC.md §5.1's table, in its own prerequisite order.
+     *
+     * **A parallel track, not a continuation of the pitch chain.** §2 is explicit: rhythm "shares no
+     * prerequisites with pitch" and "a learner can start `M3.BEAT_FIND` on day one having never touched
+     * `M2`". So these nodes are deliberately absent from [practiceChain] — appending them would make
+     * every rhythm node wait on the entire pitch curriculum, which is the one thing §2 rules out.
+     * [rhythmChain] walks them instead.
+     *
+     * Note that recognition and production alternate, per §3.3: each concept is heard before it is
+     * produced. That alternation means the recognition nodes are *not* independently traversable —
+     * `M3.SUBDIV_RECOG` waits on `M3.BEAT_DIV`, which is tapped. §7.5's tap-free path is therefore not
+     * a property of this chain as §5.1 specifies it, and closing that gap would mean changing the
+     * prerequisites rather than adding nodes.
+     *
+     * `M3.RESTS` has no recognition sibling, and that is right rather than an omission: a rest is the
+     * *absence* of an onset, so "which of these did you hear" with a gap in one is the same
+     * discrimination task `M3.SUBDIV_RECOG` already runs. Producing a rest is genuinely different —
+     * you must not tap, and holding time through silence is harder than filling it — which is why
+     * production gets the node and recognition does not.
+     *
+     * `M3.COMPOUND`, `M3.METER_CHANGE` and `M3.INDEPENDENCE_CHECK` are absent until Stage 4.6 builds
+     * them. A node in this graph is a node a learner can be routed to, so registering one whose items
+     * cannot be generated would be the dangling-gate failure `m9Nodes` already records.
+     */
+    val m3Nodes: List<SkillNode> =
+        listOf(
+            SkillNode(SkillIds.M3_BEAT_FIND, prerequisite = null, activeDegrees = emptySet()),
+            SkillNode(SkillIds.M3_DOWNBEAT, prerequisite = SkillIds.M3_BEAT_FIND, activeDegrees = emptySet()),
+            SkillNode(SkillIds.M3_BEAT_DIV_RECOG, prerequisite = SkillIds.M3_DOWNBEAT, activeDegrees = emptySet()),
+            SkillNode(SkillIds.M3_BEAT_DIV, prerequisite = SkillIds.M3_BEAT_DIV_RECOG, activeDegrees = emptySet()),
+            SkillNode(SkillIds.M3_SUBDIV_RECOG, prerequisite = SkillIds.M3_BEAT_DIV, activeDegrees = emptySet()),
+            SkillNode(SkillIds.M3_SUBDIV, prerequisite = SkillIds.M3_SUBDIV_RECOG, activeDegrees = emptySet()),
+            SkillNode(SkillIds.M3_RESTS, prerequisite = SkillIds.M3_SUBDIV, activeDegrees = emptySet()),
+            SkillNode(SkillIds.M3_SYNCOPATION_RECOG, prerequisite = SkillIds.M3_RESTS, activeDegrees = emptySet()),
+            SkillNode(
+                SkillIds.M3_SYNCOPATION,
+                prerequisite = SkillIds.M3_SYNCOPATION_RECOG,
+                activeDegrees = emptySet(),
+            ),
+        )
+
+    /**
+     * The order rhythm nodes unlock in — [practiceChain]'s counterpart for the parallel track.
+     *
+     * Separate rather than merged because §2 makes the two tracks independent, and ⚠️ **whether a
+     * session interleaves them is still open** — §10 q3 asks it and says to decide with real usage
+     * evidence, which does not exist yet. Until it does, this chain says what order rhythm unlocks in
+     * and says nothing about when rhythm is offered.
+     */
+    val rhythmChain: List<SkillNode> = m3Nodes
+
+    /**
+     * Which `M3` node a learner should be working on, given what they have mastered.
+     *
+     * The rhythm counterpart of [currentNodeFor], and deliberately a separate function: asking "what is
+     * the learner working on" has two answers while the tracks are independent, and a single function
+     * returning one of them would have to decide which track wins — which is exactly §10 q3's
+     * undecided question.
+     */
+    fun currentRhythmNodeFor(mastered: (SkillId) -> Boolean): SkillId {
+        val open = rhythmChain.firstOrNull { node -> !mastered(node.id) && gatesFor(node).all(mastered) }
+        return (open ?: rhythmChain.last()).id
+    }
+
+    /**
+     * Whether an `M3` node is heard or tapped — docs/40-PHASE-4-SPEC.md §5.1's Mode column.
+     *
+     * Declared here rather than inferred from the name, even though every recognition node happens to
+     * end in `_RECOG` today. A naming convention is not a curriculum: `M3.BEAT_FIND` is production and
+     * `M3.DOWNBEAT` is recognition, and neither says so in its name.
+     */
+    fun rhythmModeFor(skillId: SkillId): RhythmMode =
+        when (skillId) {
+            SkillIds.M3_DOWNBEAT,
+            SkillIds.M3_BEAT_DIV_RECOG,
+            SkillIds.M3_SUBDIV_RECOG,
+            SkillIds.M3_SYNCOPATION_RECOG,
+            -> RhythmMode.RECOGNITION
+
+            else -> RhythmMode.PRODUCTION
+        }
+
+    /**
+     * Whether a node is scored by the five recognition criteria of docs/03-CURRICULUM.md §5.5.
+     *
+     * True for every pitch recognition node, and — since Stage 4.4 — for rhythm's *recognition* nodes
+     * too: docs/40-PHASE-4-SPEC.md §5.3 says outright that "recognition nodes use the existing five
+     * criteria unchanged", and only production nodes replace them. So the discriminator for mastery is
+     * the node's mode, not its scope; a rhythm node can be either.
+     */
+    fun usesRecognitionMastery(skillId: SkillId): Boolean =
+        when (scopeFor(skillId)) {
+            DifficultyAxis.Scope.RECOGNITION -> true
+            DifficultyAxis.Scope.RHYTHM -> rhythmModeFor(skillId) == RhythmMode.RECOGNITION
+            DifficultyAxis.Scope.PREDICTION, DifficultyAxis.Scope.MODE_ID -> false
+        }
+
     /** Every recognition node the practice loop can run, in either mode. */
     val recognitionNodes: List<SkillNode> = m2Nodes + m10Nodes + listOf(m10MixedModeNode) + m11Nodes
 
     /** Every node this graph knows: recognition, mode identification and prediction alike. */
-    val allNodes: List<SkillNode> = recognitionNodes + m9Nodes + m12Nodes
+    val allNodes: List<SkillNode> = recognitionNodes + m9Nodes + m12Nodes + m3Nodes
 
     /**
      * The order nodes unlock in, and **the single answer to "what is the learner working on."**

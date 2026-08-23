@@ -6,6 +6,7 @@ import com.tonic.core.model.items.DifficultyAxis
 import com.tonic.core.model.items.RhythmMode
 import com.tonic.core.model.rhythm.Meter
 import com.tonic.core.model.rhythm.MetronomeFadeLevel
+import com.tonic.core.model.rhythm.RhythmQuestion
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -107,21 +108,41 @@ class M3ItemGeneratorTest {
     }
 
     @Test
-    fun `density level zero subdivides nothing, and higher levels subdivide more`() {
-        fun offBeatCount(level: Int) =
-            (1L..30L).sumOf { seed ->
-                generate(
-                    SkillIds.M3_SUBDIV,
-                    levels(
-                        DifficultyAxis.PATTERN_LENGTH to 2,
-                        DifficultyAxis.RHYTHMIC_DENSITY to level,
-                    ),
-                    seed,
-                ).pattern.onsetTicks
-                    .count { it % Meter.TICKS_PER_BEAT != 0 }
-            }
-        assertEquals(0, offBeatCount(0), "density 0 must be plain beats")
-        assertTrue(offBeatCount(1) < offBeatCount(3), "density must increase with the level")
+    fun `density increases with the level, and a subdividing node always subdivides`() {
+        // Corrected at Stage 4.4. This used to assert that density level 0 produced plain beats for
+        // every node, which read as the axis doing what it says and was in fact a bug: M3.BEAT_DIV at
+        // level 0 generated plain beats and was indistinguishable from M3.BEAT_FIND, the node before
+        // it. A learner would meet the node that introduces division and hear nothing divided.
+        //
+        // So the floor is one subdivided beat for the nodes whose subject *is* subdivision, and the
+        // axis scales above it. M3RecognitionItemTest is what surfaced this - at density 0 those nodes
+        // had exactly one possible pattern, so a recognition item had nothing to choose between.
+        fun offBeatCount(
+            skill: SkillId,
+            level: Int,
+        ) = (1L..30L).sumOf { seed ->
+            generate(
+                skill,
+                levels(
+                    DifficultyAxis.PATTERN_LENGTH to 2,
+                    DifficultyAxis.RHYTHMIC_DENSITY to level,
+                ),
+                seed,
+            ).pattern.onsetTicks
+                .count { it % Meter.TICKS_PER_BEAT != 0 }
+        }
+
+        assertTrue(offBeatCount(SkillIds.M3_SUBDIV, 0) > 0, "a subdivision node must subdivide, even at level 0")
+        assertTrue(
+            offBeatCount(SkillIds.M3_SUBDIV, 1) < offBeatCount(SkillIds.M3_SUBDIV, 3),
+            "density must increase with the level",
+        )
+
+        // Where the axis has nothing to floor, it still means what it says: BEAT_FIND is plain beats at
+        // every level, because its subject is the pulse rather than what divides it.
+        for (level in 0..3) {
+            assertEquals(0, offBeatCount(SkillIds.M3_BEAT_FIND, level), "BEAT_FIND must stay on the beat")
+        }
     }
 
     @Test
@@ -190,16 +211,7 @@ class M3ItemGeneratorTest {
             val item = generate(skill)
             assertEquals(RhythmMode.PRODUCTION, item.mode)
             assertTrue(item.answerAlphabet.labels.isEmpty(), "$skill should have no labels to pick from")
-            assertTrue(item.choices.isEmpty())
-        }
-    }
-
-    @Test
-    fun `recognition nodes fail loudly rather than half-existing`() {
-        // Stage 4.4's, and M3.DOWNBEAT in particular asks which beat is "one" - a question whose answers
-        // are beat positions, not rhythms. Half-answering it here would leave a shape 4.4 has to undo.
-        for (skill in listOf(SkillIds.M3_DOWNBEAT, SkillIds.M3_BEAT_DIV_RECOG, SkillIds.M3_SUBDIV_RECOG)) {
-            assertFailsWith<IllegalArgumentException>("$skill should not generate yet") { generate(skill) }
+            assertEquals(RhythmQuestion.TapItBack, item.question)
         }
     }
 

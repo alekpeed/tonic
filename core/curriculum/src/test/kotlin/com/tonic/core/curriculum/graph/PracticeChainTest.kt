@@ -145,13 +145,46 @@ class PracticeChainTest {
     }
 
     @Test
-    fun `the chain contains every node the graph knows, and nothing twice`() {
-        val ids = SkillGraph.practiceChain.map { it.id }
-        assertEquals(ids.size, ids.toSet().size, "a node appears in the chain more than once")
+    fun `every node the graph knows sits in exactly one chain`() {
+        // Strengthened at Phase 4 Stage 4.4, not relaxed. It used to read "the chain contains every
+        // node", which was true while there was one chain. Rhythm is a parallel track -
+        // docs/40-PHASE-4-SPEC.md §2: it "shares no prerequisites with pitch" and a learner can start
+        // M3.BEAT_FIND "having never touched M2" - so appending M3 to practiceChain would have made
+        // every rhythm node wait on the entire pitch curriculum, which is the one thing §2 rules out.
+        //
+        // The invariant that replaces it is stronger: the two chains partition the graph. Every node is
+        // reachable through exactly one of them, so a node can still neither go missing nor be walked
+        // twice, and a future node that belonged to neither chain would fail here.
+        val pitch = SkillGraph.practiceChain.map { it.id }
+        val rhythm = SkillGraph.rhythmChain.map { it.id }
+
+        assertEquals(pitch.size, pitch.toSet().size, "a node appears in the pitch chain more than once")
+        assertEquals(rhythm.size, rhythm.toSet().size, "a node appears in the rhythm chain more than once")
+        assertTrue(
+            pitch.none { it in rhythm.toSet() },
+            "a node appears in both chains, so which track it belongs to is undefined",
+        )
         assertEquals(
             SkillGraph.allNodes.map { it.id }.toSet(),
-            ids.toSet(),
-            "the chain and the graph disagree about which nodes exist",
+            pitch.toSet() + rhythm.toSet(),
+            "the chains and the graph disagree about which nodes exist",
         )
+    }
+
+    @Test
+    fun `no rhythm node gates on a pitch node, or the other way round`() {
+        // §2's independence, asserted rather than assumed. A single stray prerequisite across the two
+        // tracks would silently make rhythm wait on pitch and nothing else would notice.
+        val rhythmIds = SkillGraph.rhythmChain.map { it.id }.toSet()
+        for (node in SkillGraph.rhythmChain) {
+            for (gate in SkillGraph.gatesFor(node)) {
+                assertTrue(gate in rhythmIds, "${node.id} gates on $gate, which is outside the rhythm track")
+            }
+        }
+        for (node in SkillGraph.practiceChain) {
+            for (gate in SkillGraph.gatesFor(node)) {
+                assertTrue(gate !in rhythmIds, "${node.id} gates on $gate, which is a rhythm node")
+            }
+        }
     }
 }

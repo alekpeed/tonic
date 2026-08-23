@@ -30,6 +30,25 @@ public data class MetronomePlan(
 
     /** Clicks that sound while the learner is producing. Empty from [MetronomeFadeLevel.L4] up. */
     public val underPattern: List<MetronomeClick> get() = clicks.filter { it.tick >= 0 }
+
+    /**
+     * The same plan with every downbeat click demoted to an ordinary beat.
+     *
+     * For `M3.DOWNBEAT` items, where the accent *is* the answer — docs/40-PHASE-4-SPEC.md §5.1 asks
+     * the learner to identify which beat is "one", and a metronome that stresses it has handed that
+     * over before the question is asked. §3.4 is explicit that the skill being trained is hearing the
+     * downbeat "in music that doesn't announce it".
+     *
+     * A transformation of the plan rather than a level of its own, because it is not a different amount
+     * of support: the same clicks sound at the same instants, and only the emphasis changes.
+     */
+    public fun withoutDownbeatAccents(): MetronomePlan =
+        copy(
+            clicks =
+                clicks.map { click ->
+                    if (click.accent == ClickAccent.DOWNBEAT) click.copy(accent = ClickAccent.BEAT) else click
+                },
+        )
 }
 
 /** One metronome click. [tick] is relative to the pattern's start; negative is count-in. */

@@ -1,5 +1,6 @@
 package com.tonic.core.curriculum.generators
 
+import com.tonic.core.curriculum.graph.SkillGraph
 import com.tonic.core.model.ids.SkillId
 import com.tonic.core.model.ids.SkillIds
 import com.tonic.core.model.items.DifficultyAxis
@@ -10,6 +11,7 @@ import com.tonic.core.model.rhythm.Meter
 import com.tonic.core.model.rhythm.MetronomeFadeLevel
 import com.tonic.core.model.rhythm.MetronomePlanner
 import com.tonic.core.model.rhythm.RhythmPattern
+import com.tonic.core.model.rhythm.RhythmQuestion
 import com.tonic.core.model.rhythm.Tempo
 import kotlin.random.Random
 
@@ -27,11 +29,9 @@ import kotlin.random.Random
  * Only simple meters are generated. Compound meter and meter changes are `M3.COMPOUND` and
  * `M3.METER_CHANGE`, built at Stage 4.6 with the nodes that teach them.
  *
- * **Production items only, at this stage.** §9 gives the recognition nodes to Stage 4.4, and building
- * them here would mean designing a question this stage has no reason to design: `M3.DOWNBEAT` asks
- * *which beat is "one"*, which is not a choice between patterns at all, and its answer set is beat
- * positions rather than rhythms. Half-answering that now would leave a shape that 4.4 has to undo. A
- * recognition node passed in fails loudly and says where it is built.
+ * Both halves of the module since Stage 4.4. Which question a node asks comes from
+ * [SkillGraph.rhythmModeFor] rather than from the skill id's spelling, and `M3.DOWNBEAT` gets a shape
+ * of its own — see [whichBeatIsOne].
  */
 object M3ItemGenerator {
     /**
@@ -61,43 +61,141 @@ object M3ItemGenerator {
         val (slow, fast) = Tempo.bpmPairFor(level(DifficultyAxis.TEMPO_DEVIATION))
         val tempoBpm = if (random.nextBoolean()) slow else fast
 
-        val mode = modeFor(skill)
-        require(mode == RhythmMode.PRODUCTION) {
-            "Recognition item generation for $skill is not built - docs/40-PHASE-4-SPEC.md stage 4.4"
-        }
-
-        val pattern = patternFor(skill, meter, bars, level(DifficultyAxis.RHYTHMIC_DENSITY), random)
+        val density = level(DifficultyAxis.RHYTHMIC_DENSITY)
+        val pattern = patternFor(skill, meter, bars, density, random)
         val fade = MetronomeFadeLevel.fromLevel(level(DifficultyAxis.METRONOME_FADE))
+        val basePlan = MetronomePlanner.plan(fade, meter, bars)
+
+        val question =
+            when (SkillGraph.rhythmModeFor(skill)) {
+                RhythmMode.PRODUCTION -> RhythmQuestion.TapItBack
+                RhythmMode.RECOGNITION ->
+                    recognitionQuestion(
+                        skill,
+                        pattern,
+                        meter,
+                        bars,
+                        density,
+                        level(DifficultyAxis.TIMING_TOLERANCE),
+                        random,
+                    )
+            }
 
         return Item.RhythmItem(
             skill = skill,
             meter = meter,
             tempoBpm = tempoBpm,
             pattern = pattern,
-            metronomePlan = MetronomePlanner.plan(fade, meter, bars),
-            mode = mode,
+            // On a downbeat item the accent is the answer, so it is removed - §5.1 asks the learner to
+            // find "one" and §3.4 says the skill is hearing it in music that does not announce it.
+            metronomePlan =
+                if (question is RhythmQuestion.WhichBeatIsOne) basePlan.withoutDownbeatAccents() else basePlan,
+            question = question,
             timbre = timbreFor(level(DifficultyAxis.TIMBRE_VARIETY), random),
             seed = seed,
         )
     }
 
     /**
-     * Which half of the module a node belongs to — docs/40-PHASE-4-SPEC.md §5.1's Mode column.
+     * What a recognition node asks — docs/40-PHASE-4-SPEC.md §3.3, and §5.1 for `M3.DOWNBEAT`.
      *
-     * Exhaustive over the twelve nodes rather than inferred from the name, even though every recognition
-     * node happens to end in `_RECOG` today. A naming convention is not a curriculum: `M3.BEAT_FIND` is
-     * production and `M3.DOWNBEAT` is recognition, and neither says so in its name.
+     * Two shapes, because `M3.DOWNBEAT` genuinely asks something else. The other three ask "which of
+     * these did you just hear"; that one asks where the bar turned over, and its answers are positions
+     * in time rather than rhythms.
      */
-    private fun modeFor(skill: SkillId): RhythmMode =
-        when (skill) {
-            SkillIds.M3_DOWNBEAT,
-            SkillIds.M3_BEAT_DIV_RECOG,
-            SkillIds.M3_SUBDIV_RECOG,
-            SkillIds.M3_SYNCOPATION_RECOG,
-            -> RhythmMode.RECOGNITION
-
-            else -> RhythmMode.PRODUCTION
+    private fun recognitionQuestion(
+        skill: SkillId,
+        pattern: RhythmPattern,
+        meter: Meter,
+        bars: Int,
+        density: Int,
+        toleranceLevel: Int,
+        random: Random,
+    ): RhythmQuestion =
+        if (skill == SkillIds.M3_DOWNBEAT) {
+            whichBeatIsOne(meter, bars, random)
+        } else {
+            whichPattern(skill, pattern, meter, bars, density, toleranceLevel, random)
         }
+
+    /**
+     * `M3.DOWNBEAT` — docs/40-PHASE-4-SPEC.md §5.1 and §3.4.
+     *
+     * §3.4 makes beat induction a first-class skill: "finding the beat in music that doesn't announce
+     * it — hearing where 'one' is". The presentation follows from that phrase. **Playback begins
+     * part-way into the bar**, so the first beat heard is usually not the downbeat and the learner has
+     * to feel where the bar turns over rather than read it off the start of the audio. An item that
+     * always began on the downbeat would have the same answer every time and would train nothing.
+     *
+     * The rotation is drawn from the seed and is *sometimes* zero. A node whose answer is never the
+     * first option teaches a strategy rather than a skill — the same reason `M9` draws its major/minor
+     * answer from a coin rather than alternating.
+     */
+    private fun whichBeatIsOne(
+        meter: Meter,
+        bars: Int,
+        random: Random,
+    ): RhythmQuestion.WhichBeatIsOne {
+        val beatsHeard = bars * meter.beatsPerBar
+        // How far into the bar playback starts. Zero means it starts on the downbeat, which is a real
+        // and occasional case rather than one to be excluded.
+        val rotation = random.nextInt(meter.beatsPerBar)
+        val downbeatPosition = if (rotation == 0) 1 else meter.beatsPerBar - rotation + 1
+        return RhythmQuestion.WhichBeatIsOne(beatsHeard = beatsHeard, downbeatPosition = downbeatPosition)
+    }
+
+    /**
+     * The wrong answers for a `*_RECOG` item, plus the right one, in the order they are played.
+     *
+     * Every distractor is generated by the same rules as the answer, so the learner discriminates
+     * between two real rhythms of the same kind rather than spotting the odd one out. A distractor
+     * built differently is answerable without hearing the rhythm at all.
+     *
+     * How many choices comes off `TIMING_TOLERANCE`, because a recognition item has no timing tolerance
+     * of its own — tap timing is irrelevant there (§3.3) — and an axis that changed nothing for half
+     * the module would have the scheduler moving a level with no effect. Three is the ceiling: §3.3's
+     * own wording is "which of these three patterns did you just hear", and a fourth would test memory
+     * for a sequence of sounds rather than discrimination between them.
+     */
+    private fun whichPattern(
+        skill: SkillId,
+        answer: RhythmPattern,
+        meter: Meter,
+        bars: Int,
+        density: Int,
+        toleranceLevel: Int,
+        random: Random,
+    ): RhythmQuestion.WhichPattern {
+        val wanted = if (toleranceLevel >= TWO_TO_THREE_CHOICE_LEVEL) 3 else 2
+        val patterns = mutableListOf(answer)
+        var attempts = 0
+        while (patterns.size < wanted && attempts < MAX_DISTRACTOR_ATTEMPTS) {
+            attempts++
+            val candidate = patternFor(skill, meter, bars, density, random)
+            if (patterns.none { it.onsetTicks == candidate.onsetTicks }) patterns += candidate
+        }
+        // A short pattern at a low density has few distinct forms, and two identical choices have no
+        // right answer at all. Widening the density is the smallest change that reliably yields a
+        // different rhythm and stays within the same node's own figures - the alternative, offering
+        // fewer choices than the level asked for, would make the axis mean nothing at the very levels
+        // where patterns are scarcest.
+        var widened = density
+        while (patterns.size < wanted && widened < MAX_DENSITY) {
+            widened++
+            repeat(MAX_DISTRACTOR_ATTEMPTS) {
+                if (patterns.size < wanted) {
+                    val candidate = patternFor(skill, meter, bars, widened, random)
+                    if (patterns.none { it.onsetTicks == candidate.onsetTicks }) patterns += candidate
+                }
+            }
+        }
+        require(patterns.size >= 2) {
+            "Could not build a second distinct pattern for $skill - a choice needs something to choose between"
+        }
+
+        val shuffled = patterns.shuffled(random)
+        return RhythmQuestion.WhichPattern(choices = shuffled, answerIndex = shuffled.indexOf(answer))
+    }
 
     /**
      * The rhythmic figures a node may use.
@@ -122,16 +220,16 @@ object M3ItemGenerator {
 
                 // Beats, some of them split in two. The first time anything falls between beats.
                 SkillIds.M3_BEAT_DIV_RECOG, SkillIds.M3_BEAT_DIV ->
-                    subdivide(beatTicks, meter, parts = 2, densityLevel, random)
+                    subdivide(beatTicks, parts = 2, densityLevel, random)
 
                 // Beats split in four.
                 SkillIds.M3_SUBDIV_RECOG, SkillIds.M3_SUBDIV ->
-                    subdivide(beatTicks, meter, parts = 4, densityLevel, random)
+                    subdivide(beatTicks, parts = 4, densityLevel, random)
 
                 // As SUBDIV, then silence punched into it. A rest is the absence of an onset, so this is
                 // a removal rather than a new kind of event - see RhythmPattern.
                 SkillIds.M3_RESTS ->
-                    withRests(subdivide(beatTicks, meter, parts = 4, densityLevel, random), random)
+                    withRests(subdivide(beatTicks, parts = 4, densityLevel, random), random)
 
                 // Emphasis off the beat: the beat itself is missing where the ear expects it.
                 SkillIds.M3_SYNCOPATION_RECOG, SkillIds.M3_SYNCOPATION ->
@@ -158,16 +256,25 @@ object M3ItemGenerator {
      * Which beats subdivide is drawn from the seed, so the figure varies while the *amount* of
      * subdivision stays exactly what `RHYTHMIC_DENSITY` asked for. Varying the count instead would make
      * the axis mean "on average this dense", and a learner could get an easy item at a hard level.
+     *
+     * **At least one beat always subdivides**, whatever the density level says. This is only called for
+     * nodes whose subject *is* subdivision, and `RHYTHMIC_DENSITY` level 0 asks for none of it — so
+     * without the floor, `M3.BEAT_DIV` at level 0 produces plain beats and is indistinguishable from
+     * `M3.BEAT_FIND`, the node before it. A learner would meet the node that introduces division and
+     * hear nothing divided.
+     *
+     * It also makes recognition answerable at all: a `*_RECOG` item needs two *distinct* patterns to
+     * choose between, and at density 0 without this floor every pattern a node can produce is the same
+     * one. That is how this was found — `M3RecognitionItemTest` could not build three choices.
      */
     private fun subdivide(
         beatTicks: List<Int>,
-        meter: Meter,
         parts: Int,
         densityLevel: Int,
         random: Random,
     ): List<Int> {
         val perTwelve = RhythmAxisParameters.subdividedBeatsPerTwelve(densityLevel)
-        val howMany = beatTicks.size * perTwelve / TWELFTHS
+        val howMany = (beatTicks.size * perTwelve / TWELFTHS).coerceIn(1, beatTicks.size)
         val chosen = beatTicks.shuffled(random).take(howMany).toSet()
         val step = Meter.TICKS_PER_BEAT / parts
         return beatTicks.flatMap { beat ->
@@ -215,4 +322,7 @@ object M3ItemGenerator {
 
     private const val TWELFTHS = 12
     private const val REST_COUNT_RANGE = 2
+    private const val MAX_DISTRACTOR_ATTEMPTS = 40
+    private const val TWO_TO_THREE_CHOICE_LEVEL = 2
+    private const val MAX_DENSITY = 3
 }

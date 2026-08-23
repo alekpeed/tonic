@@ -87,30 +87,29 @@ object SkillStateReducer : SkillStateReplayer {
                 DifficultyAxis.Scope.MODE_ID ->
                     return replayModeId(skillId, chronological, totalAttempts, updatedAt)
 
-                // Unreachable until Stage 4.4 registers an M3 node. A loud failure rather than a
-                // fallthrough to the recognition path: rhythm's mastery criteria are not the five
-                // recognition ones (docs/40-PHASE-4-SPEC.md §5.3 replaces them for production nodes),
-                // so replaying a rhythm node as if it were an M2 node would reconstruct a state that
-                // never existed - and this reducer is what the whole attempt log is re-derived through.
+                // Rhythm: attempts replay, mastery does not - and that is a decision pending, not an
+                // oversight. docs/40-PHASE-4-SPEC.md §5.3 says recognition nodes "use the existing five
+                // criteria unchanged", but three of those five are about scale degrees (coverage,
+                // weakest degree, confusion pairs) and a fourth is about CADENCE_FADE. A rhythm node has
+                // no degrees and no cadence, so "unchanged" cannot be taken literally, and inventing a
+                // substitute here would be guessing at the criteria that decide whether a learner has
+                // learned something (CLAUDE.md §2 rule 4).
+                //
+                // So this returns the same minimal state as any node without a mastery lifecycle: the
+                // attempt log is preserved and axis levels carry from the last attempt, which is what
+                // makes a session resumable, and MasteryState stays IN_PROGRESS. Nothing routes a
+                // learner to a rhythm node yet - M3 is deliberately outside SkillGraph.practiceChain
+                // and there is no rhythm UI until Stage 4.5 - so nobody can be stranded by this in the
+                // meantime. The criteria must be settled before 4.5 changes that.
                 DifficultyAxis.Scope.RHYTHM ->
-                    error("Replay for rhythm nodes is not built - docs/40-PHASE-4-SPEC.md stage 4.4")
+                    return replayWithoutMastery(skillId, real, totalAttempts, updatedAt)
 
                 DifficultyAxis.Scope.RECOGNITION -> Unit
             }
         }
 
         if (!SkillGraph.isRecognitionNode(skillId)) {
-            return SkillState(
-                skillId = skillId,
-                axisLevels = real.last().axisLevels,
-                staircaseStates = emptyMap(),
-                activeAxis = null,
-                masteryState = MasteryState.IN_PROGRESS,
-                masteredAt = null,
-                fsrs = FsrsState(stability = 0.0, difficulty = 0.0, lastReview = null, due = null),
-                totalAttempts = totalAttempts,
-                updatedAt = updatedAt,
-            )
+            return replayWithoutMastery(skillId, real, totalAttempts, updatedAt)
         }
 
         val activeDegrees = SkillGraph.activeDegreesFor(skillId)
@@ -259,6 +258,32 @@ object SkillStateReducer : SkillStateReplayer {
     }
 
     /**
+     * The state of a node whose attempts are recorded but whose mastery lifecycle is not defined.
+     *
+     * Axis levels carry from the last attempt so a session resumes where it left off; everything that
+     * would claim the learner has *learned* something stays empty. Used for nodes outside the
+     * recognition graph and, since Stage 4.4, for rhythm — see the RHYTHM branch above for why its
+     * criteria are still open.
+     */
+    private fun replayWithoutMastery(
+        skillId: SkillId,
+        real: List<Attempt>,
+        totalAttempts: Int,
+        updatedAt: Instant,
+    ): SkillState =
+        SkillState(
+            skillId = skillId,
+            axisLevels = real.last().axisLevels,
+            staircaseStates = emptyMap(),
+            activeAxis = null,
+            masteryState = MasteryState.IN_PROGRESS,
+            masteredAt = null,
+            fsrs = FsrsState(stability = 0.0, difficulty = 0.0, lastReview = null, due = null),
+            totalAttempts = totalAttempts,
+            updatedAt = updatedAt,
+        )
+
+    /**
      * The `M12` reduction — docs/20-PHASE-2-SPEC.md §3/§4.
      *
      * Structurally the same fold as the recognition path and deliberately not shared with it: the
@@ -272,6 +297,7 @@ object SkillStateReducer : SkillStateReplayer {
      * the cadence propping it up, and every `M12` item plays the full cadence by design — the question
      * it answers is already answered by the `M2` chain, which is `M12.PREDICT_TRIAD`'s prerequisite.
      */
+
     private fun replayPrediction(
         skillId: SkillId,
         real: List<Attempt>,

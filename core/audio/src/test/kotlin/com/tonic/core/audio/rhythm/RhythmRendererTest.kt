@@ -2,12 +2,12 @@ package com.tonic.core.audio.rhythm
 
 import com.tonic.core.model.ids.SkillIds
 import com.tonic.core.model.items.Item
-import com.tonic.core.model.items.RhythmMode
 import com.tonic.core.model.music.TimbreId
 import com.tonic.core.model.rhythm.Meter
 import com.tonic.core.model.rhythm.MetronomeFadeLevel
 import com.tonic.core.model.rhythm.MetronomePlanner
 import com.tonic.core.model.rhythm.RhythmPattern
+import com.tonic.core.model.rhythm.RhythmQuestion
 import com.tonic.core.model.rhythm.Tempo
 import kotlin.math.abs
 import kotlin.test.Test
@@ -39,7 +39,7 @@ class RhythmRendererTest {
             tempoBpm = tempoBpm,
             pattern = pattern,
             metronomePlan = MetronomePlanner.plan(level, meter, bars),
-            mode = RhythmMode.PRODUCTION,
+            question = RhythmQuestion.TapItBack,
             timbre = TimbreId.PURE,
             seed = 1L,
         )

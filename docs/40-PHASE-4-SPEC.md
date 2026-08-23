@@ -284,12 +284,54 @@ Extends `05-DATA-MODEL.md` and `07-ADAPTIVE-ENGINE.md`.
 | 4.1 | Calibration | Median offset stable across repeated runs on one device. Per-route storage. Route-change invalidation. Sanity bounds reject garbage. **Partial as of 2026-08-22** — see below. |
 | 4.2 | Pattern generation + metronome rendering | Deterministic per `(skill, axes, seed)`. All 8 `METRONOME_FADE` levels render correctly. **Built 2026-08-23** — production items only; see below. |
 | 4.3 | Scoring pipeline | Pure function of inputs, byte-identical on replay. Windows never overlap. Extra/missed taps distinguished. **Built 2026-08-23** — persistence deferred; see below. |
-| 4.4 | Recognition nodes (`*_RECOG`, `DOWNBEAT`) | Complete path, no tapping required anywhere in it. |
+| 4.4 | Recognition nodes (`*_RECOG`, `DOWNBEAT`) | Complete path, no tapping required anywhere in it. **Built 2026-08-23** — mastery criteria open; see below. |
 | 4.5 | Production nodes + tap UI + explanations | Worked example demonstrates real tapping. Visual pulse fades with audio. |
 | 4.6 | Compound meter, meter change, independence check | Takadimi syllables correct in compound meter (the case Kodály fails). |
 | 4.7 | Hardening + acceptance | All prior-phase criteria still met. Determinism holds. Bluetooth path verified on real hardware. |
 
 Same discipline: STOP gate per stage, delta report with production-wiring traces, no advancing on an unverified stage.
+
+**Stage 4.4, what is built and what is not.** Built and CI-verified: all four recognition nodes
+generate, `M3` is registered in `SkillGraph` as a parallel track with its own chain, and
+`RhythmQuestion` replaced the mode-plus-choices pair that Stage 4.2 left behind.
+
+**`M3.DOWNBEAT` now has a design**, which is what stalled it at 4.2. §3.4 asks for "finding the beat in
+music that doesn't announce it", and the presentation follows from that phrase: **playback begins
+part-way into the bar**, so the first beat heard is usually not the downbeat and the learner has to feel
+where the bar turns over rather than read it off the start of the audio. The rotation is seeded and is
+*sometimes* zero, because a node whose answer is never the first option teaches a strategy rather than a
+skill — the same reason `M9` draws its major/minor answer from a coin. The metronome's downbeat accent is
+removed on these items: the accent is the answer.
+
+Three consequences worth recording:
+
+- **Rhythm is not in `practiceChain`.** §2 says rhythm "shares no prerequisites with pitch" and that a
+  learner can start `M3.BEAT_FIND` "having never touched `M2`", so appending it to the pitch chain would
+  make every rhythm node wait on the entire pitch curriculum. `rhythmChain` walks it instead, and
+  `PracticeChainTest` now asserts the two chains *partition* the graph and that no prerequisite crosses
+  between them — a stronger invariant than the "one chain contains everything" it replaced.
+- **A real bug from Stage 4.2, found by this stage's tests.** `RHYTHMIC_DENSITY` level 0 asks for no
+  subdivision, so `M3.BEAT_DIV` at level 0 produced plain beats and was indistinguishable from
+  `M3.BEAT_FIND`, the node before it — a learner would meet the node that introduces division and hear
+  nothing divided. Nodes whose subject *is* subdivision now always subdivide at least one beat. It
+  surfaced because a recognition item needs two distinct patterns and at density 0 there was only one.
+- **§7.5's tap-free path does not exist, and closing it means changing prerequisites rather than adding
+  nodes.** §5.1's chain alternates recognition and production, so `M3.SUBDIV_RECOG` waits on
+  `M3.BEAT_DIV`, which is tapped. `M3.RESTS` having no recognition sibling is *not* part of that gap and
+  is right as specified: a rest is the absence of an onset, so "which of these did you hear" with a gap
+  in one is the same discrimination task `M3.SUBDIV_RECOG` already runs, while producing a rest is
+  genuinely different — you must not tap, and holding time through silence is harder than filling it.
+
+⚠️ **Rhythm mastery criteria are open, and this is the decision that blocks Stage 4.5.** §5.3 says
+recognition nodes "use the existing five criteria unchanged", but three of those five are about scale
+degrees (coverage, weakest degree, confusion pairs) and a fourth is about `CADENCE_FADE`. A rhythm node
+has no degrees and no cadence, so "unchanged" cannot be taken literally. Rather than invent substitutes,
+`SkillStateReducer` gives rhythm nodes the same minimal state as any node without a mastery lifecycle:
+attempts replay, axis levels carry so a session resumes, and `MasteryState` stays `IN_PROGRESS`. Nothing
+routes a learner to a rhythm node yet — `M3` is outside `practiceChain` and there is no rhythm UI — so
+nobody can be stranded in the meantime. **That stops being true the moment Stage 4.5 ships a screen**,
+so the criteria must be settled first. §8's note that "the confusion matrix for rhythm is over *rhythmic
+figures*, not labels" is the most likely basis for the two degree-shaped criteria.
 
 **Stage 4.3, what is built and what is not.** All four of the row's criteria are met, and none needed
 a device. `RhythmScorer` is a pure function of `(pattern, taps, calibration, tolerance)` with no clock

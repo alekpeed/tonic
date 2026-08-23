@@ -8,6 +8,7 @@ import com.tonic.core.model.music.TimbreId
 import com.tonic.core.model.rhythm.Meter
 import com.tonic.core.model.rhythm.MetronomePlan
 import com.tonic.core.model.rhythm.RhythmPattern
+import com.tonic.core.model.rhythm.RhythmQuestion
 
 /**
  * One generated exercise, of whichever skill produced it. Every generator
@@ -187,46 +188,29 @@ sealed interface Item {
         val pattern: RhythmPattern,
         /** Exactly what the metronome does, from `METRONOME_FADE` (§3.2). */
         val metronomePlan: MetronomePlan,
-        val mode: RhythmMode,
-        /**
-         * On a recognition item, the patterns offered as choices, in the order they are played;
-         * [pattern] is one of them. Empty on a production item, which has nothing to choose between.
-         */
-        val choices: List<RhythmPattern> = emptyList(),
+        /** What the learner is actually asked. The mode follows from this rather than being asserted beside it. */
+        val question: RhythmQuestion,
         val timbre: TimbreId,
         override val seed: Long,
     ) : Item {
-        init {
-            when (mode) {
-                RhythmMode.RECOGNITION -> {
-                    require(choices.size >= 2) { "A recognition item needs at least two choices" }
-                    require(pattern in choices) { "The answer must be one of the choices offered" }
-                }
-
-                RhythmMode.PRODUCTION ->
-                    require(choices.isEmpty()) { "A production item is tapped back, not chosen from" }
-            }
-        }
-
-        override val answerAlphabet: AnswerAlphabet =
-            when (mode) {
-                RhythmMode.RECOGNITION -> AnswerAlphabet.PatternChoice(choices.size)
-                RhythmMode.PRODUCTION -> AnswerAlphabet.Tapped
-            }
+        override val answerAlphabet: AnswerAlphabet = question.answerAlphabet
 
         /**
-         * The label a correct answer carries into the attempt log.
+         * Whether this item is heard or produced — derived, never stored.
          *
-         * On a recognition item that is the position of the right pattern among the choices. On a
-         * production item there is no label to choose, so the pattern's own onsets stand in — the thing
-         * scoring compares tap times against, and enough to reconstruct what was asked without the seed.
+         * An earlier version carried a `mode` field beside a list of choices and checked that the two
+         * agreed. Deriving it removes the disagreement rather than detecting it: there is no longer a
+         * state where an item claims to be a recognition item and offers nothing to choose from.
          */
-        val correctLabel: String
+        val mode: RhythmMode
             get() =
-                when (mode) {
-                    RhythmMode.RECOGNITION -> (choices.indexOf(pattern) + 1).toString()
-                    RhythmMode.PRODUCTION -> pattern.onsetTicks.joinToString(",")
+                when (question) {
+                    is RhythmQuestion.TapItBack -> RhythmMode.PRODUCTION
+                    is RhythmQuestion.WhichPattern, is RhythmQuestion.WhichBeatIsOne -> RhythmMode.RECOGNITION
                 }
+
+        /** The label a correct answer carries into the attempt log — see [RhythmQuestion.correctLabel]. */
+        val correctLabel: String get() = question.correctLabel
 
         /** When each onset sounds, in milliseconds from the start of the pattern. */
         val onsetTimesMs: List<Double>

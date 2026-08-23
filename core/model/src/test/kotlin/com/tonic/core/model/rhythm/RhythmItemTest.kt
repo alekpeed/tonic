@@ -27,9 +27,8 @@ class RhythmItemTest {
     private val plan = MetronomePlanner.plan(MetronomeFadeLevel.L1, meter, bars = 1)
 
     private fun item(
-        mode: RhythmMode,
+        question: RhythmQuestion,
         pattern: RhythmPattern = plain,
-        choices: List<RhythmPattern> = emptyList(),
         tempoBpm: Int = 100,
     ) = Item.RhythmItem(
         skill = SkillIds.M3_BEAT_FIND,
@@ -37,66 +36,75 @@ class RhythmItemTest {
         tempoBpm = tempoBpm,
         pattern = pattern,
         metronomePlan = plan,
-        mode = mode,
-        choices = choices,
+        question = question,
         timbre = TimbreId.PURE,
         seed = 1L,
     )
 
     @Test
     fun `a production item is tapped, with nothing to choose from`() {
-        val production = item(RhythmMode.PRODUCTION)
+        val production = item(RhythmQuestion.TapItBack)
         assertEquals(AnswerAlphabet.Tapped, production.answerAlphabet)
         assertTrue(production.answerAlphabet.labels.isEmpty())
+        assertEquals(RhythmMode.PRODUCTION, production.mode)
     }
 
     @Test
-    fun `a recognition item offers its choices as positions`() {
+    fun `a pattern-choice item offers its choices as positions`() {
         // Labels are positions because there is nothing else they could honestly be: this app shows no
         // notation and a rhythm has no name the learner has been taught.
-        val recognition = item(RhythmMode.RECOGNITION, choices = listOf(plain, syncopated))
+        val recognition =
+            item(RhythmQuestion.WhichPattern(choices = listOf(plain, syncopated), answerIndex = 0))
         val alphabet = recognition.answerAlphabet
         assertIs<AnswerAlphabet.PatternChoice>(alphabet)
         assertEquals(listOf("1", "2"), alphabet.labels)
         assertEquals("1", recognition.correctLabel)
+        assertEquals(RhythmMode.RECOGNITION, recognition.mode)
     }
 
     @Test
     fun `the correct label finds the answer wherever it sits among the choices`() {
-        val recognition = item(RhythmMode.RECOGNITION, pattern = syncopated, choices = listOf(plain, syncopated))
+        val recognition =
+            item(RhythmQuestion.WhichPattern(choices = listOf(plain, syncopated), answerIndex = 1))
         assertEquals("2", recognition.correctLabel)
     }
 
     @Test
-    fun `a production item labels itself by its onsets`() {
-        // There is no label to choose, so the pattern's own onsets stand in - the thing scoring compares
-        // tap times against, and enough to reconstruct what was asked without the seed.
-        assertEquals("0,12,24,36", item(RhythmMode.PRODUCTION).correctLabel)
+    fun `a downbeat item asks which beat was one`() {
+        // M3.DOWNBEAT's answers are positions in time rather than rhythms - the distinction that made
+        // it a question of its own rather than a choice between patterns.
+        val downbeat = item(RhythmQuestion.WhichBeatIsOne(beatsHeard = 4, downbeatPosition = 3))
+        assertEquals(listOf("1", "2", "3", "4"), downbeat.answerAlphabet.labels)
+        assertEquals("3", downbeat.correctLabel)
+        assertEquals(RhythmMode.RECOGNITION, downbeat.mode)
     }
 
     @Test
-    fun `an item whose mode and choices disagree is refused`() {
-        assertFailsWith<IllegalArgumentException>("a recognition item needs choices") {
-            item(RhythmMode.RECOGNITION)
-        }
+    fun `a question that means nothing cannot be built`() {
+        // The reason the question is a sealed type rather than a mode flag beside a list: there is no
+        // longer a state where an item claims to be a recognition item and offers nothing to choose
+        // between, because the two facts are one fact.
         assertFailsWith<IllegalArgumentException>("one choice is not a choice") {
-            item(RhythmMode.RECOGNITION, choices = listOf(plain))
+            RhythmQuestion.WhichPattern(choices = listOf(plain), answerIndex = 0)
         }
         assertFailsWith<IllegalArgumentException>("the answer must be among the choices") {
-            item(RhythmMode.RECOGNITION, pattern = plain, choices = listOf(syncopated, syncopated))
+            RhythmQuestion.WhichPattern(choices = listOf(plain, syncopated), answerIndex = 2)
         }
-        assertFailsWith<IllegalArgumentException>("a production item is tapped, not chosen from") {
-            item(RhythmMode.PRODUCTION, choices = listOf(plain, syncopated))
+        assertFailsWith<IllegalArgumentException>("a downbeat must be one of the beats heard") {
+            RhythmQuestion.WhichBeatIsOne(beatsHeard = 4, downbeatPosition = 5)
+        }
+        assertFailsWith<IllegalArgumentException>("one beat is not a choice") {
+            RhythmQuestion.WhichBeatIsOne(beatsHeard = 1, downbeatPosition = 1)
         }
     }
 
     @Test
     fun `onset times follow the tempo, not the tick grid`() {
-        val atHundred = item(RhythmMode.PRODUCTION)
+        val atHundred = item(RhythmQuestion.TapItBack)
         assertEquals(listOf(0.0, 600.0, 1200.0, 1800.0), atHundred.onsetTimesMs)
 
         // Twice the tempo, half the elapsed time. The ticks did not move; only the rendering of them.
-        val atTwoHundred = item(RhythmMode.PRODUCTION, tempoBpm = 200)
+        val atTwoHundred = item(RhythmQuestion.TapItBack, tempoBpm = 200)
         assertEquals(listOf(0.0, 300.0, 600.0, 900.0), atTwoHundred.onsetTimesMs)
     }
 
