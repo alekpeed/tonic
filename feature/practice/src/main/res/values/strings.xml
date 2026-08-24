@@ -189,6 +189,24 @@
     <string name="practice_rhythm_timing_behind">You were a little behind the beat.</string>
     <string name="practice_rhythm_landing_extra">There were a few more taps than sounds.</string>
     <string name="practice_rhythm_landing_description">You played %1$d of %2$d sounds, with %3$d extra taps.</string>
+
+    <!-- Calibration, docs/40-PHASE-4-SPEC.md §4.3 with §7.1's explanation in front of it. §7.1 gives
+         the register: "why it exists, in plain terms". No millisecond figure appears anywhere,
+         including on success - a number here is a score to chase, and there is no better one. -->
+    <string name="calibration_explanation">Your phone takes a moment to turn sound into something you hear, and your finger takes a moment to reach the glass. Both are small, and together they would make your tapping look late when it isn\'t. This measures them once so we can allow for it.</string>
+    <string name="calibration_instruction">You\'ll hear a steady beat. Tap along with it, comfortably, until it stops. Don\'t worry about the first few — we ignore those while you settle in.</string>
+    <string name="calibration_start">Start</string>
+    <string name="calibration_running">Tap along with the beat.</string>
+    <string name="calibration_done">All set. We\'ll allow for it from now on.</string>
+    <string name="calibration_finish">Done</string>
+    <string name="calibration_retry">Try again</string>
+    <string name="calibration_back">Go back</string>
+    <string name="calibration_failed_few_taps">We didn\'t catch enough taps to measure anything. Tap along with every beat you hear, right through to the end.</string>
+    <string name="calibration_failed_implausible">Those taps didn\'t line up with the beat we played — it can happen if you tap between the beats, or at half speed. Try tapping once on each beat.</string>
+    <string name="calibration_failed_interrupted">Something changed while we were measuring. Let\'s run that again.</string>
+    <string name="calibration_blocked_bluetooth">Tapping exercises need wired headphones or your phone\'s own speaker. Bluetooth adds a delay that shifts around too much to measure. Everything else works as usual — switch over when you want to tap along.</string>
+    <string name="calibration_blocked_route">This audio output isn\'t one we can time tapping against. Switch to wired headphones or your phone\'s speaker when you want to tap along.</string>
+    <string name="calibration_blocked_unknown">We can&apos;t tell where your sound is going just yet. Give it a moment &#8212; if this stays, try unplugging and reconnecting your headphones.</string>
     <!-- Sung response explanation - docs/30-PHASE-3-SPEC.md §6.2. Plain words only: every term is
          one the learner already has, and the reassurance about not being judged is stated outright
          rather than implied, per docs/11-ONBOARDING-CLARITY.md §9.4. -->

@@ -16,6 +16,7 @@ import com.tonic.app.summary.SummaryViewModel
 import com.tonic.core.model.state.PracticeTrack
 import com.tonic.feature.diagnostic.ui.DiagnosticScreen
 import com.tonic.feature.practice.ui.PracticeScreen
+import com.tonic.feature.practice.ui.calibration.CalibrationScreen
 import com.tonic.feature.progress.ui.ProgressScreen
 import com.tonic.feature.settings.ui.SettingsScreen
 
@@ -57,6 +58,17 @@ sealed interface TonicRoute {
 
     data object Progress : TonicRoute {
         override val route = "progress"
+    }
+
+    /**
+     * `calibration` — docs/40-PHASE-4-SPEC.md §4.3: "a required, explicit calibration step before the
+     * first production exercise, and re-runnable from Settings."
+     *
+     * Its own destination rather than a dialog over Practice, because it is re-runnable from Settings
+     * and a dialog owned by one screen cannot be opened from another.
+     */
+    data object Calibration : TonicRoute {
+        override val route = "calibration"
     }
 
     data object Settings : TonicRoute {
@@ -169,8 +181,12 @@ fun TonicNavGraph(navController: NavHostController = rememberNavController()) {
             )
         }
         composable(TonicRoute.Progress.route) { ProgressScreen() }
+        composable(TonicRoute.Calibration.route) {
+            CalibrationScreen(onDone = { navController.popBackStack() })
+        }
         composable(TonicRoute.Settings.route) {
             SettingsScreen(
+                onOpenCalibration = { navController.navigate(TonicRoute.Calibration.route) },
                 // Debug-only, and a no-op in a release build because the section that fires it is
                 // compiled out. Straight into practice on the seeded node - that is what a "jump to
                 // node" button means, and what the first version conspicuously did not do.

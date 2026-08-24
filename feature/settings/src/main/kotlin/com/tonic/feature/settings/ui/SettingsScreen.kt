@@ -41,6 +41,8 @@ import com.tonic.feature.settings.R
 
 @Composable
 fun SettingsScreen(
+    /** docs/40-PHASE-4-SPEC.md §4.3: calibration is "re-runnable from Settings". */
+    onOpenCalibration: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel(),
     /**
      * Debug-only. A "jump to node" button that seeds progress and then leaves you sitting on Settings
@@ -96,6 +98,7 @@ fun SettingsScreen(
             onHapticsEnabledChanged = viewModel::onHapticsEnabledChanged,
             onSoundEffectsEnabledChanged = viewModel::onSoundEffectsEnabledChanged,
             onAudibleTapsEnabledChanged = viewModel::onAudibleTapsEnabledChanged,
+            onOpenCalibration = onOpenCalibration,
             onThemeModeChanged = viewModel::onThemeModeChanged,
             onReduceMotionChanged = viewModel::onReduceMotionChanged,
             onSungResponseEnabledChanged = viewModel::onSungResponseEnabledChanged,
@@ -122,6 +125,7 @@ private fun SettingsContent(
     onHapticsEnabledChanged: (Boolean) -> Unit,
     onSoundEffectsEnabledChanged: (Boolean) -> Unit,
     onAudibleTapsEnabledChanged: (Boolean) -> Unit,
+    onOpenCalibration: () -> Unit = {},
     onThemeModeChanged: (ThemeMode) -> Unit,
     onReduceMotionChanged: (Boolean) -> Unit,
     onSungResponseEnabledChanged: (Boolean) -> Unit,
@@ -212,6 +216,28 @@ private fun SettingsContent(
                 onCheckedChange = onAudibleTapsEnabledChanged,
                 testTag = "settings_audible_taps",
             )
+        }
+        item {
+            // §4.3: "re-runnable from Settings." Not only for a learner who wants another go - the
+            // same section requires re-calibration when the output route changes, and this is where
+            // someone who has just plugged in headphones comes to do it.
+            Column(modifier = Modifier.fillMaxWidth().padding(vertical = TonicSpacing.sm)) {
+                Text(
+                    text = stringResource(R.string.settings_calibration_heading),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                Text(
+                    text = stringResource(R.string.settings_calibration_supporting),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                TextButton(
+                    onClick = onOpenCalibration,
+                    modifier = Modifier.testTag("settings_open_calibration"),
+                ) {
+                    Text(stringResource(R.string.settings_calibration_action))
+                }
+            }
         }
         item {
             ToggleSection(
