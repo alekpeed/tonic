@@ -1,5 +1,6 @@
 package com.tonic.feature.settings.ui
 
+import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -79,6 +80,20 @@ class SettingsScreenControlsTest {
         compose.waitForIdle()
     }
 
+    /**
+     * Brings [tag] into view and returns it, for asserting that something is on screen.
+     *
+     * The counterpart of [tap], and it exists for the same reason: this is a scrolling list, so
+     * whether a given row happens to be inside the viewport is a fact about how many rows precede it
+     * rather than about the behavior under test. `settings_discard_result` renders directly beneath
+     * the button that produces it, so scrolling the button into view puts the result just past the
+     * bottom edge — which held until Phase 4 added a row above them both.
+     */
+    private fun see(tag: String): SemanticsNodeInteraction {
+        compose.onNodeWithTag("settings_list").performScrollToNode(hasTestTag(tag))
+        return compose.onNodeWithTag(tag)
+    }
+
     @Test
     fun `choosing solfege reaches the repository`() {
         render()
@@ -146,6 +161,6 @@ class SettingsScreenControlsTest {
     fun `discarding a saved session reports back on screen`() {
         render()
         tap("settings_discard_session")
-        compose.onNodeWithTag("settings_discard_result").assertIsDisplayed()
+        see("settings_discard_result").assertIsDisplayed()
     }
 }
