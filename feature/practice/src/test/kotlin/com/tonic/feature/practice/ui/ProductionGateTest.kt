@@ -119,10 +119,10 @@ class ProductionGateTest {
             // shows no button rather than one that leads nowhere.
             assertNull(blocked.recognitionAlternative)
 
-            // Once the first node is done, the offer becomes real. M3.DOWNBEAT is suspended - it
-            // cannot be answered - so the most advanced open listening node is the one after it.
+            // Once the first node is done, the offer becomes real: M3.DOWNBEAT is the listening node
+            // that opens behind it.
             val later = SkillGraph.currentRhythmRecognitionNodeFor { it == SkillIds.M3_BEAT_FIND }
-            assertEquals(SkillIds.M3_BEAT_DIV_RECOG, later)
+            assertEquals(SkillIds.M3_DOWNBEAT, later)
         }
 
     private companion object {

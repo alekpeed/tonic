@@ -60,5 +60,21 @@ public data class Meter(
 
         /** Two in a bar, simple. */
         public val TWO_FOUR: Meter = Meter(beatsPerBar = 2, division = SIMPLE)
+
+        /**
+         * Two in a bar, each splitting in three — what notation calls 6/8, and what `M3.COMPOUND`
+         * teaches.
+         *
+         * Two beats, not six. That is the whole point of §3.1's argument for Takadimi: a learner in
+         * 6/8 feels two pulses that each divide in three, and calling it "six beats" describes the
+         * page rather than the sound. The syllables follow — `ta-ki-da` per beat, not six of anything.
+         */
+        public val SIX_EIGHT: Meter = Meter(beatsPerBar = 2, division = COMPOUND)
+
+        /** Three in a bar, each splitting in three — 9/8. */
+        public val NINE_EIGHT: Meter = Meter(beatsPerBar = 3, division = COMPOUND)
+
+        /** Four in a bar, each splitting in three — 12/8. */
+        public val TWELVE_EIGHT: Meter = Meter(beatsPerBar = 4, division = COMPOUND)
     }
 }

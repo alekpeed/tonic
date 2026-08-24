@@ -2,7 +2,6 @@ package com.tonic.feature.practice.ui
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.tonic.core.curriculum.graph.SkillGraph
-import com.tonic.core.model.ids.SkillIds
 import com.tonic.core.model.items.Item
 import com.tonic.core.model.rhythm.RhythmCalibration
 import com.tonic.core.model.rhythm.RhythmCalibrations
@@ -127,20 +126,11 @@ class RhythmTrackTest {
         }
 
     @Test
-    fun `M3 DOWNBEAT is never the node a learner is sent to`() =
-        runBlocking {
-            // It cannot be answered: plain identical beats, no downbeat accent, and a rotation that
-            // never reaches the audio. Suspended in SkillGraph until its pattern carries a metrical
-            // cue - see SkillGraph.ROUTING_SUSPENDED. Asserted here as well as there because the cost
-            // of getting it wrong is a learner stuck on a question with no answer.
-            assertTrue(SkillIds.M3_DOWNBEAT in SkillGraph.ROUTING_SUSPENDED)
-
-            // And the chain still moves past it: mastering the node before must not leave the learner
-            // parked, which is what a naive suspension would have caused.
-            val mastered = setOf(SkillIds.M3_BEAT_FIND)
-            val next = SkillGraph.currentRhythmNodeFor { it in mastered }
-            assertEquals(SkillIds.M3_BEAT_DIV_RECOG, next)
-        }
+    fun `nothing is suspended from routing any more`() {
+        // M3.DOWNBEAT was, while it was unanswerable. It is not any more - see M3ItemGenerator's
+        // barSignature - and a node left suspended after it works is a node nobody can reach.
+        assertTrue(SkillGraph.ROUTING_SUSPENDED.isEmpty())
+    }
 
     private companion object {
         const val TIMEOUT_MS = 20_000L

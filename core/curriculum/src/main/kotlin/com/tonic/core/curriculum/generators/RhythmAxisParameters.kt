@@ -59,4 +59,19 @@ internal object RhythmAxisParameters {
             3, 4 -> listOf(Meter.FOUR_FOUR, Meter.THREE_FOUR, Meter.TWO_FOUR)
             else -> error("PATTERN_LENGTH level out of range: $level")
         }
+
+    /**
+     * The compound meters `M3.COMPOUND` draws from at [level] of `PATTERN_LENGTH`.
+     *
+     * Starts at 6/8 and widens, mirroring the simple ladder: two in a bar is the easiest grouping to
+     * hold, and the node is teaching the *division*, not the grouping. Meeting a new division and a
+     * new bar length at once would leave a learner unable to tell which one they were failing at.
+     */
+    fun compoundMeters(level: Int): List<Meter> =
+        when (level) {
+            0, 1 -> listOf(Meter.SIX_EIGHT)
+            2 -> listOf(Meter.SIX_EIGHT, Meter.NINE_EIGHT)
+            3, 4 -> listOf(Meter.SIX_EIGHT, Meter.NINE_EIGHT, Meter.TWELVE_EIGHT)
+            else -> error("PATTERN_LENGTH level out of range: $level")
+        }
 }

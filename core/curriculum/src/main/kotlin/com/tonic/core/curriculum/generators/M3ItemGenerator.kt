@@ -54,7 +54,13 @@ object M3ItemGenerator {
         fun level(axis: DifficultyAxis) = axisLevels[axis] ?: 0
 
         val lengthLevel = level(DifficultyAxis.PATTERN_LENGTH)
-        val meter = RhythmAxisParameters.meters(lengthLevel).let { it[random.nextInt(it.size)] }
+        val meterPool =
+            if (skill == SkillIds.M3_COMPOUND) {
+                RhythmAxisParameters.compoundMeters(lengthLevel)
+            } else {
+                RhythmAxisParameters.meters(lengthLevel)
+            }
+        val meter = meterPool[random.nextInt(meterPool.size)]
         val bars = RhythmAxisParameters.bars(lengthLevel)
 
         // Both tempi at this level are offered; which one this item takes is part of what the seed
@@ -64,14 +70,29 @@ object M3ItemGenerator {
         val tempoBpm = if (random.nextBoolean()) slow else fast
 
         val density = level(DifficultyAxis.RHYTHMIC_DENSITY)
-        val pattern = patternFor(skill, meter, bars, density, random)
         val fade = MetronomeFadeLevel.fromLevel(level(DifficultyAxis.METRONOME_FADE))
+
+        // M3.DOWNBEAT is the one node whose pattern and whose question share a secret: how far into
+        // the bar playback begins. Drawn once, here, and used by both. Drawing it inside the question
+        // - which is what this did first - left the pattern unrotated while the recorded answer was
+        // derived as though it had been, so the stated answer described audio nobody heard.
+        val rotation =
+            if (skill == SkillIds.M3_DOWNBEAT) random.nextInt(meter.beatsPerBar) else 0
+        val pattern = rotate(patternFor(skill, meter, bars, density, random), meter, rotation)
 
         val question =
             when (SkillGraph.rhythmModeFor(skill)) {
                 RhythmMode.PRODUCTION -> RhythmQuestion.TapItBack
                 RhythmMode.RECOGNITION ->
-                    recognitionQuestion(skill, pattern, meter, bars, level(DifficultyAxis.TIMING_TOLERANCE), random)
+                    recognitionQuestion(
+                        skill,
+                        pattern,
+                        meter,
+                        bars,
+                        level(DifficultyAxis.TIMING_TOLERANCE),
+                        rotation,
+                        random,
+                    )
             }
 
         // Planned across the item's whole *audio*, not across one pattern. A `WhichPattern` item plays
@@ -116,10 +137,11 @@ object M3ItemGenerator {
         meter: Meter,
         bars: Int,
         toleranceLevel: Int,
+        rotation: Int,
         random: Random,
     ): RhythmQuestion =
         if (skill == SkillIds.M3_DOWNBEAT) {
-            whichBeatIsOne(meter, bars, random)
+            whichBeatIsOne(meter, bars, rotation)
         } else {
             whichPattern(skill, pattern, random, toleranceLevel)
         }
@@ -140,14 +162,42 @@ object M3ItemGenerator {
     private fun whichBeatIsOne(
         meter: Meter,
         bars: Int,
-        random: Random,
+        rotation: Int,
     ): RhythmQuestion.WhichBeatIsOne {
         val beatsHeard = bars * meter.beatsPerBar
-        // How far into the bar playback starts. Zero means it starts on the downbeat, which is a real
-        // and occasional case rather than one to be excluded.
-        val rotation = random.nextInt(meter.beatsPerBar)
+        // [rotation] beats of the bar have already gone by when playback starts, so the first "one"
+        // the learner hears arrives that many beats from the end of the bar. Zero is a real and
+        // occasional case rather than one to exclude - a node whose answer is never the first option
+        // teaches a strategy rather than a skill.
         val downbeatPosition = if (rotation == 0) 1 else meter.beatsPerBar - rotation + 1
         return RhythmQuestion.WhichBeatIsOne(beatsHeard = beatsHeard, downbeatPosition = downbeatPosition)
+    }
+
+    /**
+     * [pattern] with its first [rotation] beats moved to the end — playback beginning part-way into
+     * the bar, which is what makes `M3.DOWNBEAT` a question about hearing rather than about reading
+     * the start of a file.
+     *
+     * A rotation of zero returns the pattern untouched, which is the ordinary case for every other
+     * node.
+     */
+    private fun rotate(
+        pattern: RhythmPattern,
+        meter: Meter,
+        rotation: Int,
+    ): RhythmPattern {
+        if (rotation == 0) return pattern
+        val shift = rotation * Meter.TICKS_PER_BEAT
+        val total = pattern.totalTicks
+        val moved =
+            pattern.onsetTicks
+                .map { (it - shift + total) % total }
+                .distinct()
+                .sorted()
+        // The rotated pattern must still open with a sound, for the same reason every other pattern
+        // does: a rhythm starting in silence asks the learner to guess where it began.
+        val anchored = (moved + 0).distinct().sorted()
+        return RhythmPattern(meter, pattern.bars, anchored)
     }
 
     /**
@@ -248,7 +298,18 @@ object M3ItemGenerator {
         val onsets =
             when (skill) {
                 // Plain beats, every one of them. Finding and keeping the pulse is the whole task.
-                SkillIds.M3_BEAT_FIND, SkillIds.M3_DOWNBEAT -> beatTicks
+                SkillIds.M3_BEAT_FIND -> beatTicks
+
+                // A figure that repeats once a bar - see barSignature. Plain beats cannot serve here:
+                // they carry no information about where the bar starts, so the question had no
+                // answer in the sound.
+                SkillIds.M3_DOWNBEAT -> barSignature(meter, bars, random)
+
+                // The beat splits in three. §3.1's case for Takadimi is exactly this one - ta-ki-da is
+                // three equal parts of one beat, which is what a learner hears, while Kodaly has to
+                // reach for a note value that describes the page instead.
+                SkillIds.M3_COMPOUND ->
+                    subdivide(beatTicks, parts = Meter.COMPOUND, densityLevel, random)
 
                 // Beats, some of them split in two. The first time anything falls between beats.
                 SkillIds.M3_BEAT_DIV_RECOG, SkillIds.M3_BEAT_DIV ->
@@ -270,8 +331,8 @@ object M3ItemGenerator {
                 else ->
                     error(
                         "Pattern generation for $skill is not built - " +
-                            "docs/40-PHASE-4-SPEC.md stage 4.6 covers compound meter, meter change " +
-                            "and the independence check",
+                            "docs/40-PHASE-4-SPEC.md stage 4.6 covers meter change and the " +
+                            "independence check",
                     )
             }
 
@@ -312,6 +373,47 @@ object M3ItemGenerator {
         return beatTicks.flatMap { beat ->
             if (beat in chosen) (0 until parts).map { beat + it * step } else listOf(beat)
         }
+    }
+
+    /**
+     * A one-bar rhythmic figure, repeated for every bar — what `M3.DOWNBEAT` is heard against.
+     *
+     * **The repetition is the information.** §3.4 asks the learner to find "one" in music that does
+     * not announce it, and the honest way to make that findable without announcing it is a figure
+     * whose period is the bar: hear it come round, and you have found the downbeat. The first version
+     * of this node played plain identical beats with the metronome's accent removed, which left
+     * literally nothing in the sound to answer from — the question was unanswerable and the recorded
+     * answer corresponded to nothing the learner heard.
+     *
+     * The figure always sounds on beat one and skips at least one other beat, so the bar has a shape
+     * rather than being uniform. Which beats it skips comes from the seed.
+     */
+    private fun barSignature(
+        meter: Meter,
+        bars: Int,
+        random: Random,
+    ): List<Int> {
+        val perBar = meter.beatsPerBar
+        // Beat 0 always sounds; at least one of the rest does not, or the bar is uniform again.
+        val silent =
+            if (perBar <= 2) {
+                setOf(perBar - 1)
+            } else {
+                (1 until perBar)
+                    .shuffled(random)
+                    .take(1 + random.nextInt(perBar - 2))
+                    .toSet()
+            }
+        val inBar = (0 until perBar).filterNot { it in silent }
+        // An off-beat sound inside the bar, so the figure is not merely "some beats missing" - it
+        // gives the bar an internal shape that survives being heard from the middle.
+        val accentAt = (meter.ticksPerBar / 2) + (Meter.TICKS_PER_BEAT / meter.division)
+        val onsets =
+            (0 until bars).flatMap { bar ->
+                val barStart = bar * meter.ticksPerBar
+                inBar.map { barStart + it * Meter.TICKS_PER_BEAT } + listOf(barStart + accentAt)
+            }
+        return onsets.distinct().sorted()
     }
 
     /** Removes a few onsets, leaving silence where the ear expected a sound. Never the downbeat. */

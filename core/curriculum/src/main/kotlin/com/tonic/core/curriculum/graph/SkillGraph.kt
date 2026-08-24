@@ -416,6 +416,15 @@ object SkillGraph {
                 prerequisite = SkillIds.M3_SYNCOPATION_RECOG,
                 activeDegrees = emptySet(),
             ),
+            // §5.1 gives M3.COMPOUND the prerequisite M3.SUBDIV rather than the node before it in
+            // this list: it needs the beat to divide reliably and nothing syncopation teaches.
+            // Placed last so the chain walks it after syncopation, which is the order §5.1's table
+            // shows, while the gate stays the one §5.1 names.
+            SkillNode(
+                SkillIds.M3_COMPOUND,
+                prerequisite = SkillIds.M3_SUBDIV,
+                activeDegrees = emptySet(),
+            ),
         )
 
     /**
@@ -468,24 +477,18 @@ object SkillGraph {
             }?.id
 
     /**
-     * `M3` nodes a learner is not sent to, however open their gates — and why each one is here.
+     * `M3` nodes a learner is not sent to, however open their gates.
      *
-     * **`M3.DOWNBEAT` cannot be answered.** Its pattern is plain identical beats; the item removes the
-     * metronome's downbeat accent, because the accent would *be* the answer; and the rotation the
-     * generator draws to decide which beat is "one" never reaches the audio, only the stated answer
-     * derived from it. So the learner hears N indistinguishable beats, is asked which was "one", and
-     * the recorded answer does not correspond to anything they heard. Stage 4.4 built the question and
-     * the answer and never checked that the sound carried the information between them.
+     * Empty since Stage 4.6. It held `M3.DOWNBEAT` while that node was unanswerable — its pattern was
+     * plain identical beats with the metronome's accent removed, so nothing in the sound said where
+     * the bar began. The node now plays a figure that repeats once a bar, and the rotation deciding
+     * how far into the bar playback starts reaches the audio instead of only the recorded answer.
      *
-     * Suspended rather than deleted, and suspended *here* rather than removed from [rhythmChain],
-     * because the node itself is right — docs/40-PHASE-4-SPEC.md §3.4 makes beat induction a
-     * first-class skill and §5.1 gives it a place in the order. What it needs is a metrical cue in the
-     * pattern the learner can actually hear. Until then, routing steps over it *and* treats it as
-     * satisfying the gates that name it, so the chain continues past it rather than stopping at the
-     * node before. A learner is never parked in front of a question that has no answer, and never
-     * blocked behind one either.
+     * Kept rather than deleted because the mechanism is the useful part: a node can be taken out of
+     * routing without being taken out of the curriculum, and [gateSatisfied] makes the chain step over
+     * it without unlocking the work behind it.
      */
-    val ROUTING_SUSPENDED: Set<SkillId> = setOf(SkillIds.M3_DOWNBEAT)
+    val ROUTING_SUSPENDED: Set<SkillId> = emptySet()
 
     /**
      * Whether a prerequisite is met, treating a suspended node as met *only if the work behind it is*.
@@ -553,6 +556,12 @@ object SkillGraph {
             // nothing on the beat itself.
             SkillIds.M3_SYNCOPATION_RECOG, SkillIds.M3_SYNCOPATION ->
                 setOf("ta", "ta-di", "di", RhythmFigure.SILENT)
+
+            // Compound's own three-part beat. `ta-ki-da` is the whole beat filled; `ta` is the beat
+            // undivided, which still sounds the same in either meter and is what makes the contrast
+            // audible. docs/40-PHASE-4-SPEC.md §3.1's case for Takadimi is exactly this: the
+            // syllables name three equal parts of a beat, with no note value involved.
+            SkillIds.M3_COMPOUND -> setOf("ta", "ta-ki-da")
 
             else -> emptySet()
         }
