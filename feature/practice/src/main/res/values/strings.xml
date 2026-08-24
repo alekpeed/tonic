@@ -207,6 +207,15 @@
     <string name="calibration_blocked_bluetooth">Tapping exercises need wired headphones or your phone\'s own speaker. Bluetooth adds a delay that shifts around too much to measure. Everything else works as usual — switch over when you want to tap along.</string>
     <string name="calibration_blocked_route">This audio output isn\'t one we can time tapping against. Switch to wired headphones or your phone\'s speaker when you want to tap along.</string>
     <string name="calibration_blocked_unknown">We can\'t tell where your sound is going just yet. Give it a moment — if this stays, try unplugging and reconnecting your headphones.</string>
+
+    <!-- docs/40-PHASE-4-SPEC.md §4.2: an actual mode change, phrased as what to do next. -->
+    <string name="practice_blocked_not_calibrated">Before you tap rhythms back, we need to measure a small delay between what you hear and what your phone records. It takes about ten seconds and you only do it once.</string>
+    <string name="practice_blocked_bluetooth">Tapping needs wired headphones or your phone\'s own speaker. Bluetooth adds a delay that shifts around too much to measure. You can still practice listening.</string>
+    <string name="practice_blocked_route">This audio output isn\'t one we can time tapping against. Switch to wired headphones or your phone\'s speaker, or carry on with listening for now.</string>
+    <string name="practice_blocked_unknown">We can\'t tell where your sound is going just yet. Give it a moment, or carry on with listening.</string>
+    <string name="practice_blocked_calibrate">Measure it now</string>
+    <string name="practice_blocked_listen">Practice listening instead</string>
+    <string name="practice_blocked_exit">Back to home</string>
     <!-- Sung response explanation - docs/30-PHASE-3-SPEC.md §6.2. Plain words only: every term is
          one the learner already has, and the reassurance about not being judged is stated outright
          rather than implied, per docs/11-ONBOARDING-CLARITY.md §9.4. -->

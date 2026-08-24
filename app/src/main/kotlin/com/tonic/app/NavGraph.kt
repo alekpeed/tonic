@@ -154,6 +154,7 @@ fun TonicNavGraph(navController: NavHostController = rememberNavController()) {
                 ),
         ) {
             PracticeScreen(
+                onOpenCalibration = { navController.navigate(TonicRoute.Calibration.route) },
                 onSessionComplete = { sessionId ->
                     navController.navigate(TonicRoute.Summary.routeFor(sessionId)) {
                         popUpTo(TonicRoute.Practice.route) { inclusive = true }

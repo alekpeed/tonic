@@ -7,6 +7,7 @@ import com.tonic.core.audio.capture.MicrophoneSource
 import com.tonic.core.audio.pitch.SungResponseAnalyzer
 import com.tonic.core.audio.player.AudioPlayer
 import com.tonic.core.audio.rhythm.RhythmRenderer
+import com.tonic.core.audio.route.OutputRouteMonitor
 import com.tonic.core.audio.synth.SynthEngine
 import com.tonic.core.curriculum.graph.SkillGraph
 import com.tonic.core.data.repository.SessionRepository
@@ -24,6 +25,8 @@ import com.tonic.core.model.music.ScaleDegree
 import com.tonic.core.model.music.SungAnswer
 import com.tonic.core.model.music.UnclearReason
 import com.tonic.core.model.rhythm.AudioOutputRoute
+import com.tonic.core.model.rhythm.ProductionGate
+import com.tonic.core.model.rhythm.ProductionReadiness
 import com.tonic.core.model.rhythm.RhythmQuestion
 import com.tonic.core.model.state.AppSettings
 import com.tonic.core.model.state.MasteryState
@@ -71,6 +74,7 @@ class PracticeViewModel
         private val sessionRepository: SessionRepository,
         private val settingsRepository: SettingsRepository,
         private val microphoneSource: MicrophoneSource,
+        private val routeMonitor: OutputRouteMonitor,
         private val clock: Clock,
         savedStateHandle: SavedStateHandle = SavedStateHandle(),
     ) : ViewModel() {
@@ -180,8 +184,66 @@ class PracticeViewModel
                     _uiState.update { it.copy(isLoading = false, resumableSession = resumable) }
                     return@launch
                 }
+                if (blockProductionSessionIfNeeded()) return@launch
                 beginFreshSession()
             }
+        }
+
+        /**
+         * Refuses to start a rhythm session the learner cannot actually take part in —
+         * docs/40-PHASE-4-SPEC.md §4.2 and §4.3.
+         *
+         * §4.3 wants calibration "before the first production exercise", and §4.2 wants a route that
+         * cannot be timed to produce "an actual mode change" rather than a dismissible warning. Both
+         * are the same check, and it happens **here**, before a session is planned, rather than at the
+         * item that would be blocked.
+         *
+         * Checking per item was the first design and it is worse in a way that matters: by the time an
+         * item is presented the loop has already planned a session around it and played its audio, so
+         * the learner would hear a rhythm, be told they cannot tap it back, and be left holding a
+         * half-run session. Refusing at the door costs them nothing and can say what to do instead.
+         *
+         * Recognition nodes are never blocked. Tapping is what needs the calibration and the route;
+         * listening needs neither, which is exactly why §4.2 offers it as the alternative.
+         *
+         * @return true if the session was blocked and must not start.
+         */
+        private suspend fun blockProductionSessionIfNeeded(): Boolean {
+            if (track != PracticeTrack.RHYTHM) return false
+            val states = skillStateRepository.observeAll().first()
+            val mastered = { id: SkillId -> states[id]?.masteryState == MasteryState.MASTERED }
+            val node = SkillGraph.currentRhythmNodeFor(mastered)
+            if (SkillGraph.usesRecognitionMastery(node)) return false
+
+            val readiness =
+                ProductionGate.evaluate(
+                    route = routeMonitor.route.value,
+                    calibratedSlots = gateSettings.rhythmCalibrations.calibratedSlots,
+                )
+            if (readiness !is ProductionReadiness.Blocked) return false
+
+            _uiState.update {
+                it.copy(
+                    isLoading = false,
+                    productionBlock = readiness.reason,
+                    // §4.2's "offering recognition exercises instead", resolved now so the screen can
+                    // say whether there is one rather than offering a button that might lead nowhere.
+                    recognitionAlternative = SkillGraph.currentRhythmRecognitionNodeFor(mastered),
+                )
+            }
+            return true
+        }
+
+        /**
+         * Starts a listening session instead — the way out §4.2 requires a block to offer.
+         *
+         * Runs the same rhythm track against a recognition node, so the learner is not pushed into the
+         * pitch curriculum to escape a headphone problem.
+         */
+        fun onPracticeRecognitionInstead() {
+            val node = _uiState.value.recognitionAlternative ?: return
+            _uiState.update { it.copy(productionBlock = null, isLoading = true) }
+            viewModelScope.launch { beginFreshSession(forcedNode = node) }
         }
 
         /**
@@ -255,8 +317,66 @@ class PracticeViewModel
             _uiState.update { it.copy(resumableSession = null, isLoading = true) }
             viewModelScope.launch {
                 session.id?.let { sessionRepository.complete(it, session.completedItemCount, clock.now()) }
+                if (blockProductionSessionIfNeeded()) return@launch
                 beginFreshSession()
             }
+        }
+
+        /**
+         * Refuses to start a rhythm session the learner cannot actually take part in —
+         * docs/40-PHASE-4-SPEC.md §4.2 and §4.3.
+         *
+         * §4.3 wants calibration "before the first production exercise", and §4.2 wants a route that
+         * cannot be timed to produce "an actual mode change" rather than a dismissible warning. Both
+         * are the same check, and it happens **here**, before a session is planned, rather than at the
+         * item that would be blocked.
+         *
+         * Checking per item was the first design and it is worse in a way that matters: by the time an
+         * item is presented the loop has already planned a session around it and played its audio, so
+         * the learner would hear a rhythm, be told they cannot tap it back, and be left holding a
+         * half-run session. Refusing at the door costs them nothing and can say what to do instead.
+         *
+         * Recognition nodes are never blocked. Tapping is what needs the calibration and the route;
+         * listening needs neither, which is exactly why §4.2 offers it as the alternative.
+         *
+         * @return true if the session was blocked and must not start.
+         */
+        private suspend fun blockProductionSessionIfNeeded(): Boolean {
+            if (track != PracticeTrack.RHYTHM) return false
+            val states = skillStateRepository.observeAll().first()
+            val mastered = { id: SkillId -> states[id]?.masteryState == MasteryState.MASTERED }
+            val node = SkillGraph.currentRhythmNodeFor(mastered)
+            if (SkillGraph.usesRecognitionMastery(node)) return false
+
+            val readiness =
+                ProductionGate.evaluate(
+                    route = routeMonitor.route.value,
+                    calibratedSlots = gateSettings.rhythmCalibrations.calibratedSlots,
+                )
+            if (readiness !is ProductionReadiness.Blocked) return false
+
+            _uiState.update {
+                it.copy(
+                    isLoading = false,
+                    productionBlock = readiness.reason,
+                    // §4.2's "offering recognition exercises instead", resolved now so the screen can
+                    // say whether there is one rather than offering a button that might lead nowhere.
+                    recognitionAlternative = SkillGraph.currentRhythmRecognitionNodeFor(mastered),
+                )
+            }
+            return true
+        }
+
+        /**
+         * Starts a listening session instead — the way out §4.2 requires a block to offer.
+         *
+         * Runs the same rhythm track against a recognition node, so the learner is not pushed into the
+         * pitch curriculum to escape a headphone problem.
+         */
+        fun onPracticeRecognitionInstead() {
+            val node = _uiState.value.recognitionAlternative ?: return
+            _uiState.update { it.copy(productionBlock = null, isLoading = true) }
+            viewModelScope.launch { beginFreshSession(forcedNode = node) }
         }
 
         /**
@@ -390,10 +510,26 @@ class PracticeViewModel
             engine.onBackgrounded()
         }
 
-        private suspend fun beginFreshSession() {
+        /**
+         * @param forcedNode a node to run instead of the one the chain resolves to. Only
+         *   [onPracticeRecognitionInstead] passes one: a learner escaping a production block is asking
+         *   for a specific alternative, and re-resolving would hand them back the node they cannot do.
+         */
+        private suspend fun beginFreshSession(forcedNode: SkillId? = null) {
             val settings = settingsRepository.settings.first()
             gateSettings = settings
-            val (currentNode, dueReviews) = resolveSessionStart()
+            val (resolvedNode, dueReviews) = resolveSessionStart()
+            val currentNode =
+                if (forcedNode == null) {
+                    resolvedNode
+                } else {
+                    val state = skillStateRepository.observeAll().first()[forcedNode]
+                    SkillWorkContext(
+                        skillId = forcedNode,
+                        axisLevels = state?.axisLevels ?: emptyMap(),
+                        totalAttempts = state?.totalAttempts ?: 0,
+                    )
+                }
             engine.start(
                 currentNode = currentNode,
                 dueReviews = dueReviews,

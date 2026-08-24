@@ -43,6 +43,7 @@ import com.tonic.core.model.items.DifficultyAxis
 import com.tonic.core.model.items.Item
 import com.tonic.core.model.music.Mode
 import com.tonic.core.model.music.ScaleDegree
+import com.tonic.core.model.rhythm.BlockReason
 import com.tonic.core.ui.components.MinimalProgressIndicator
 import com.tonic.core.ui.components.PlaybackPhase
 import com.tonic.core.ui.components.PlaybackPhaseIndicator
@@ -56,6 +57,8 @@ import com.tonic.feature.practice.R
 fun PracticeScreen(
     onSessionComplete: (Long) -> Unit,
     onExitToHome: () -> Unit,
+    /** docs/40-PHASE-4-SPEC.md §4.3: the way out of a not-calibrated block. */
+    onOpenCalibration: () -> Unit = {},
     viewModel: PracticeViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -116,6 +119,21 @@ fun PracticeScreen(
         PausedState(
             onContinue = viewModel::onResumeFromPause,
             onExit = { viewModel.onExitSession(onExitToHome) },
+        )
+        return
+    }
+
+    val block = uiState.productionBlock
+    if (block != null) {
+        // docs/40-PHASE-4-SPEC.md §4.2: "not a warning the user can dismiss into a broken experience -
+        // an actual mode change." No session was planned and none starts from here; the two ways out
+        // are the two things that actually help.
+        ProductionBlocked(
+            reason = block,
+            hasRecognitionAlternative = uiState.recognitionAlternative != null,
+            onCalibrate = onOpenCalibration,
+            onPracticeRecognition = viewModel::onPracticeRecognitionInstead,
+            onExit = onExitToHome,
         )
         return
     }
@@ -338,6 +356,66 @@ private fun revealedModeRes(mode: Mode): Int =
     when (mode) {
         Mode.MAJOR -> R.string.practice_that_was_major
         Mode.MINOR -> R.string.practice_that_was_minor
+    }
+
+/**
+ * Tapping is unavailable, and what to do about it — docs/40-PHASE-4-SPEC.md §4.2.
+ *
+ * Calibrating is offered only when calibration is the problem. On Bluetooth it would send the learner
+ * to run a measurement that cannot succeed on the route they are on, which §4.3's own ordering rules
+ * out — `ProductionGate` puts the route first for exactly this reason.
+ */
+@Composable
+private fun ProductionBlocked(
+    reason: BlockReason,
+    hasRecognitionAlternative: Boolean,
+    onCalibrate: () -> Unit,
+    onPracticeRecognition: () -> Unit,
+    onExit: () -> Unit,
+) {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(TonicSpacing.lg),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = stringResource(productionBlockRes(reason)),
+            style = MaterialTheme.typography.bodyLarge,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().testTag("production_blocked"),
+        )
+        Spacer(modifier = Modifier.height(TonicSpacing.lg))
+
+        if (reason == BlockReason.NOT_CALIBRATED) {
+            Button(onClick = onCalibrate, modifier = Modifier.testTag("production_blocked_calibrate")) {
+                Text(stringResource(R.string.practice_blocked_calibrate))
+            }
+            Spacer(modifier = Modifier.height(TonicSpacing.sm))
+        }
+        if (hasRecognitionAlternative) {
+            // §4.2's own instruction: offer recognition exercises instead. Within M3, so a headphone
+            // problem does not push the learner out of the module they came to practice.
+            Button(
+                onClick = onPracticeRecognition,
+                modifier = Modifier.testTag("production_blocked_listen"),
+            ) {
+                Text(stringResource(R.string.practice_blocked_listen))
+            }
+            Spacer(modifier = Modifier.height(TonicSpacing.sm))
+        }
+        // docs/08-UI-SPEC.md §2a: every screen has a way out, including this one.
+        TextButton(onClick = onExit, modifier = Modifier.testTag("production_blocked_exit")) {
+            Text(stringResource(R.string.practice_blocked_exit))
+        }
+    }
+}
+
+private fun productionBlockRes(reason: BlockReason): Int =
+    when (reason) {
+        BlockReason.NOT_CALIBRATED -> R.string.practice_blocked_not_calibrated
+        BlockReason.BLUETOOTH_OUTPUT -> R.string.practice_blocked_bluetooth
+        BlockReason.UNSUPPORTED_ROUTE -> R.string.practice_blocked_route
+        BlockReason.ROUTE_UNKNOWN -> R.string.practice_blocked_unknown
     }
 
 private fun phaseCaptionRes(phase: PlaybackPhase): Int =

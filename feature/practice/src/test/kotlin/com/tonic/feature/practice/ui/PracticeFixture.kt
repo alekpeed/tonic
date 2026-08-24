@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.viewModelScope
+import com.tonic.core.model.rhythm.AudioOutputRoute
 import com.tonic.core.model.state.AppSettings
 import com.tonic.core.model.state.PracticeTrack
 import com.tonic.core.model.time.Clock
@@ -13,6 +14,7 @@ import com.tonic.feature.practice.engine.FakeAudioInterruptions
 import com.tonic.feature.practice.engine.FakeAudioPlayer
 import com.tonic.feature.practice.engine.FakeConfusionRepository
 import com.tonic.feature.practice.engine.FakeMicrophoneSource
+import com.tonic.feature.practice.engine.FakeOutputRouteMonitor
 import com.tonic.feature.practice.engine.FakeSessionRepository
 import com.tonic.feature.practice.engine.FakeSkillStateRepository
 import com.tonic.feature.practice.engine.PracticeLoopEngine
@@ -33,6 +35,8 @@ internal class PracticeFixture(
     shared: PracticeFixture? = null,
     /** Which curriculum the session walks - docs/40-PHASE-4-SPEC.md §2. Arrives on the route in the app. */
     track: PracticeTrack = PracticeTrack.PITCH,
+    /** Where audio is going - decides whether tapping is blocked (docs/40-PHASE-4-SPEC.md §4.2). */
+    route: AudioOutputRoute = AudioOutputRoute.SPEAKER,
 ) {
     /** Mutable so time-dependent behavior (the wall-clock budget, the time bar) can be driven from a test. */
     var now: Instant = Instant.EPOCH
@@ -46,6 +50,7 @@ internal class PracticeFixture(
     val audioInterruptions = FakeAudioInterruptions()
     val settingsRepository = FakeSettingsRepository(settings)
     val microphoneSource = FakeMicrophoneSource()
+    val routeMonitor = FakeOutputRouteMonitor(route)
     val clock = Clock { now }
     val engine =
         PracticeLoopEngine(
@@ -65,6 +70,7 @@ internal class PracticeFixture(
             sessionRepository,
             settingsRepository,
             microphoneSource,
+            routeMonitor,
             clock,
             SavedStateHandle(mapOf(PracticeTrack.ROUTE_ARG to track.name)),
         )

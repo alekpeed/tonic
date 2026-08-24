@@ -451,6 +451,27 @@ object SkillGraph {
     }
 
     /**
+     * The most advanced `M3` *recognition* node a learner can work on right now, or null if none is
+     * open yet — docs/40-PHASE-4-SPEC.md §4.2.
+     *
+     * §4.2 requires that a blocked learner be "offer[ed] recognition exercises instead" rather than
+     * simply refused, and §7.5 requires the recognition nodes to form "a complete, coherent path
+     * through every rhythmic concept" for someone who cannot tap at all. This is what both of those
+     * sentences need to be actionable.
+     *
+     * The *last* open node rather than the first unmastered one, and that is the difference between
+     * a useful offer and a patronizing one: a learner whose route blocks tapping should be given the
+     * most advanced listening work they have earned, not sent back to the beginning of the module.
+     */
+    fun currentRhythmRecognitionNodeFor(mastered: (SkillId) -> Boolean): SkillId? =
+        rhythmChain
+            .lastOrNull { node ->
+                node.id !in ROUTING_SUSPENDED &&
+                    rhythmModeFor(node.id) == RhythmMode.RECOGNITION &&
+                    gatesFor(node).all { gate -> gate in ROUTING_SUSPENDED || mastered(gate) }
+            }?.id
+
+    /**
      * `M3` nodes a learner is not sent to, however open their gates — and why each one is here.
      *
      * **`M3.DOWNBEAT` cannot be answered.** Its pattern is plain identical beats; the item removes the

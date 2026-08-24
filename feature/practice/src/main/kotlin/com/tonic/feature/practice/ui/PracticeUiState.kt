@@ -1,10 +1,12 @@
 package com.tonic.feature.practice.ui
 
+import com.tonic.core.model.ids.SkillId
 import com.tonic.core.model.items.AxisChange
 import com.tonic.core.model.items.Item
 import com.tonic.core.model.music.AudiatedPitch
 import com.tonic.core.model.music.Mode
 import com.tonic.core.model.music.ScaleDegree
+import com.tonic.core.model.rhythm.BlockReason
 import com.tonic.core.model.rhythm.RhythmScore
 import com.tonic.core.model.state.LabelStyle
 import com.tonic.core.model.state.Session
@@ -141,6 +143,21 @@ data class PracticeUiState(
      * in `:core:engine` reads this field, and `RawAsynchronyIsNeverScoredTest` holds the other end.
      */
     val lastRhythmScore: RhythmScore? = null,
+    /**
+     * Why tapping is unavailable, when it is — docs/40-PHASE-4-SPEC.md §4.2 and §4.3.
+     *
+     * Non-null means no session started at all. §4.2 asks for "an actual mode change" rather than a
+     * dismissible warning, so this is not a banner over a running session: it replaces it, and the
+     * screen offers the ways out instead.
+     */
+    val productionBlock: BlockReason? = null,
+    /**
+     * A rhythm recognition node the learner can do instead, or null if none is open yet.
+     *
+     * §4.2's "offering recognition exercises instead", resolved before the offer is made rather than
+     * when the button is pressed — a way out that might lead nowhere is not a way out.
+     */
+    val recognitionAlternative: SkillId? = null,
 ) {
     /** The ladder's contents. Empty for an item type that does not answer with a degree, such as `M9`. */
     val activeDegrees: List<ScaleDegree>
