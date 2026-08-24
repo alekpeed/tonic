@@ -16,6 +16,7 @@ import com.tonic.feature.practice.engine.FakeAudioInterruptions
 import com.tonic.feature.practice.engine.FakeAudioPlayer
 import com.tonic.feature.practice.engine.FakeConfusionRepository
 import com.tonic.feature.practice.engine.FakeMicrophoneSource
+import com.tonic.feature.practice.engine.FakeOutputRouteMonitor
 import com.tonic.feature.practice.engine.FakeSessionRepository
 import com.tonic.feature.practice.engine.FakeSkillStateRepository
 import com.tonic.feature.practice.engine.PracticeLoopEngine
@@ -122,6 +123,7 @@ class PracticeViewModelTest {
                 sessionRepository,
                 settingsRepository,
                 microphoneSource,
+                FakeOutputRouteMonitor(),
                 clock,
             ).also { retain(it) }
 
