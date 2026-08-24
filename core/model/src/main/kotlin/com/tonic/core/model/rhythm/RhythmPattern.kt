@@ -20,6 +20,16 @@ public data class RhythmPattern(
     public val meter: Meter,
     public val bars: Int,
     public val onsetTicks: List<Int>,
+    /**
+     * A second meter that takes over part-way through — `M3.METER_CHANGE`, docs/40-PHASE-4-SPEC.md
+     * §5.1. Null for every other pattern, which is all of them until that node.
+     *
+     * **The beat does not change, only the grouping.** That is what makes this a small addition
+     * rather than a second time system: a beat is [Meter.TICKS_PER_BEAT] ticks in both meters, so
+     * every onset position, every Takadimi syllable and every metronome beat-click is unaffected.
+     * What moves is where the bar turns over, which is exactly the thing the learner has to hear.
+     */
+    public val changesTo: MeterChange? = null,
 ) {
     init {
         require(bars >= 1) { "A pattern is at least one bar, was $bars" }
@@ -29,10 +39,26 @@ public data class RhythmPattern(
         require(onsetTicks.first() >= 0 && onsetTicks.last() < totalTicks) {
             "Onsets must lie inside the pattern's $totalTicks ticks: $onsetTicks"
         }
+        changesTo?.let { change ->
+            require(change.atBar < bars) { "A change at bar ${change.atBar} never happens in $bars bars" }
+            require(change.meter != meter) { "A change to the same meter is not a change" }
+        }
     }
 
-    /** Length of the whole pattern in ticks. */
-    public val totalTicks: Int get() = bars * meter.ticksPerBar
+    /** Length of the whole pattern in ticks, both meters counted. */
+    public val totalTicks: Int
+        get() {
+            val change = changesTo ?: return bars * meter.ticksPerBar
+            return change.atBar * meter.ticksPerBar + (bars - change.atBar) * change.meter.ticksPerBar
+        }
+
+    /** The tick the bar at [barIndex] starts on. */
+    public fun barStartTick(barIndex: Int): Int {
+        require(barIndex in 0..bars) { "Bar $barIndex is outside a $bars-bar pattern" }
+        val change = changesTo ?: return barIndex * meter.ticksPerBar
+        if (barIndex <= change.atBar) return barIndex * meter.ticksPerBar
+        return change.atBar * meter.ticksPerBar + (barIndex - change.atBar) * change.meter.ticksPerBar
+    }
 
     /** How many sounds the learner has to produce. The count `M3`'s pattern accuracy is measured against. */
     public val onsetCount: Int get() = onsetTicks.size
@@ -48,8 +74,13 @@ public data class RhythmPattern(
      */
     public fun beatIndexOf(tick: Int): Int = tick / Meter.TICKS_PER_BEAT
 
-    /** True when [tick] is the first beat of a bar — where "one" is. */
-    public fun isDownbeat(tick: Int): Boolean = tick % meter.ticksPerBar == 0
+    /**
+     * True when [tick] is the first beat of a bar — where "one" is.
+     *
+     * Walks the bars rather than taking a remainder, because with a meter change the bars are not all
+     * the same length and a single modulus would put "one" in the wrong place from the change onward.
+     */
+    public fun isDownbeat(tick: Int): Boolean = (0 until bars).any { barStartTick(it) == tick }
 
     /**
      * The Takadimi syllable for the onset at [tick], given the finest division this pattern actually
@@ -79,4 +110,21 @@ public data class RhythmPattern(
                 .sorted()
                 .firstOrNull { parts -> onsetTicks.all { it % (Meter.TICKS_PER_BEAT / parts) == 0 } }
                 ?: throw IllegalStateException("No supported Takadimi division describes $onsetTicks")
+}
+
+/**
+ * Where a pattern changes meter, and to what — `M3.METER_CHANGE`.
+ *
+ * @property atBar the first bar in the new meter, counting from zero. Never zero: a pattern that
+ *   "changes" at its first bar is simply a pattern in the second meter, and allowing it would give two
+ *   spellings of one rhythm.
+ * @property meter what it changes to. Never equal to the pattern's own, for the same reason.
+ */
+public data class MeterChange(
+    public val atBar: Int,
+    public val meter: Meter,
+) {
+    init {
+        require(atBar >= 1) { "A meter change at bar 0 is just a pattern in that meter" }
+    }
 }

@@ -92,12 +92,37 @@ public object MetronomePlanner {
         level: MetronomeFadeLevel,
         meter: Meter,
         bars: Int,
+        changesTo: MeterChange? = null,
     ): MetronomePlan {
         require(bars >= 1) { "A pattern is at least one bar, was $bars" }
         return MetronomePlan(
-            clicks = countInClicks(level, meter) + underPatternClicks(level, meter, bars),
+            // The count-in is in the *starting* meter, always. It precedes the pattern, so a change
+            // part-way through has not happened yet - counting a learner in with the meter they are
+            // about to leave would announce the change before they could hear it.
+            clicks = countInClicks(level, meter) + underPatternClicks(level, meter, bars, changesTo),
             announcesTempoAtBlockStart = level == MetronomeFadeLevel.L7,
         )
+    }
+
+    /** Where each bar begins, and where the pattern ends — the one place the meter change is unrolled. */
+    private fun barStarts(
+        meter: Meter,
+        bars: Int,
+        changesTo: MeterChange?,
+    ): Pair<List<Int>, Int> {
+        val starts = mutableListOf<Int>()
+        var tick = 0
+        for (bar in 0 until bars) {
+            starts += tick
+            val barLength =
+                if (changesTo != null && bar >= changesTo.atBar) {
+                    changesTo.meter.ticksPerBar
+                } else {
+                    meter.ticksPerBar
+                }
+            tick += barLength
+        }
+        return starts to tick
     }
 
     /**
@@ -170,11 +195,16 @@ public object MetronomePlanner {
         level: MetronomeFadeLevel,
         meter: Meter,
         bars: Int,
+        changesTo: MeterChange? = null,
     ): List<MetronomeClick> {
-        val totalTicks = bars * meter.ticksPerBar
+        val (starts, totalTicks) = barStarts(meter, bars, changesTo)
         val beatTicks = (0 until totalTicks step Meter.TICKS_PER_BEAT).toList()
+        val barStartSet = starts.toSet()
 
-        fun accentFor(tick: Int) = if (tick % meter.ticksPerBar == 0) ClickAccent.DOWNBEAT else ClickAccent.BEAT
+        // Membership rather than a remainder. With a meter change the bars are not all the same
+        // length, so one modulus would put every downbeat after the change in the wrong place - and
+        // the downbeat moving is precisely what the learner is being asked to hear.
+        fun accentFor(tick: Int) = if (tick in barStartSet) ClickAccent.DOWNBEAT else ClickAccent.BEAT
 
         return when (level) {
             MetronomeFadeLevel.L0 ->
@@ -187,7 +217,7 @@ public object MetronomePlanner {
 
             MetronomeFadeLevel.L2 ->
                 beatTicks
-                    .filter { it % meter.ticksPerBar == 0 }
+                    .filter { it in barStartSet }
                     .map { MetronomeClick(it, ClickAccent.DOWNBEAT) }
 
             // The fade. From here the learner keeps time alone, and nothing may be re-supplied.

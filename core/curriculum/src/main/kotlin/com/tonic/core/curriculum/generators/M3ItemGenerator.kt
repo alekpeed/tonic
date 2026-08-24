@@ -9,6 +9,7 @@ import com.tonic.core.model.items.RhythmMode
 import com.tonic.core.model.music.TimbreId
 import com.tonic.core.model.rhythm.ChoiceSequence
 import com.tonic.core.model.rhythm.Meter
+import com.tonic.core.model.rhythm.MeterChange
 import com.tonic.core.model.rhythm.MetronomeFadeLevel
 import com.tonic.core.model.rhythm.MetronomePlanner
 import com.tonic.core.model.rhythm.RhythmFigure
@@ -69,6 +70,12 @@ object M3ItemGenerator {
         val (slow, fast) = Tempo.bpmPairFor(level(DifficultyAxis.TEMPO_DEVIATION))
         val tempoBpm = if (random.nextBoolean()) slow else fast
 
+        // §5.1's "meter changes mid-pattern". The change is drawn before the pattern so both the
+        // pattern and the metronome plan are built against the same one - the M3.DOWNBEAT bug was
+        // exactly this shape, a secret drawn twice and agreed on once.
+        val meterChange =
+            if (skill == SkillIds.M3_METER_CHANGE) meterChangeFor(meter, bars, random) else null
+
         val density = level(DifficultyAxis.RHYTHMIC_DENSITY)
         // The check runs at a fixed fade whatever the learner's axis says - §5.1: "30 production items
         // at METRONOME_FADE L6". That is the whole assessment: two beats of count-in and then nothing,
@@ -87,7 +94,8 @@ object M3ItemGenerator {
         // derived as though it had been, so the stated answer described audio nobody heard.
         val rotation =
             if (skill == SkillIds.M3_DOWNBEAT) random.nextInt(meter.beatsPerBar) else 0
-        val pattern = rotate(patternFor(skill, meter, bars, density, random), meter, rotation)
+        val pattern =
+            rotate(patternFor(skill, meter, bars, density, random, meterChange), meter, rotation)
 
         val question =
             when (SkillGraph.rhythmModeFor(skill)) {
@@ -116,7 +124,7 @@ object M3ItemGenerator {
 
                 is RhythmQuestion.TapItBack, is RhythmQuestion.WhichBeatIsOne -> bars
             }
-        val basePlan = MetronomePlanner.plan(fade, meter, planBars)
+        val basePlan = MetronomePlanner.plan(fade, meter, planBars, meterChange)
 
         return Item.RhythmItem(
             skill = skill,
@@ -300,9 +308,18 @@ object M3ItemGenerator {
         bars: Int,
         densityLevel: Int,
         random: Random,
+        meterChange: MeterChange? = null,
     ): RhythmPattern {
-        val beats = bars * meter.beatsPerBar
-        val beatTicks = (0 until beats).map { it * Meter.TICKS_PER_BEAT }
+        // The beat is the same length in both meters - only the grouping changes - so the beat grid is
+        // just the total span divided by the beat, whether or not a change happens part-way.
+        val totalTicks =
+            if (meterChange == null) {
+                bars * meter.ticksPerBar
+            } else {
+                meterChange.atBar * meter.ticksPerBar +
+                    (bars - meterChange.atBar) * meterChange.meter.ticksPerBar
+            }
+        val beatTicks = (0 until totalTicks step Meter.TICKS_PER_BEAT).toList()
 
         val onsets =
             when (skill) {
@@ -337,11 +354,16 @@ object M3ItemGenerator {
                 SkillIds.M3_SYNCOPATION_RECOG, SkillIds.M3_SYNCOPATION, SkillIds.M3_INDEPENDENCE_CHECK ->
                     syncopate(beatTicks, meter, random)
 
+                // Beats and divisions across both meters. Nothing new rhythmically - the whole skill
+                // is hearing the bar length change under a rhythm that does not otherwise surprise
+                // you, so adding syncopation on top would test two things at once.
+                SkillIds.M3_METER_CHANGE ->
+                    subdivide(beatTicks, parts = meter.division, densityLevel, random)
+
                 else ->
                     error(
                         "Pattern generation for $skill is not built - " +
-                            "docs/40-PHASE-4-SPEC.md stage 4.6 covers meter change and the " +
-                            "independence check",
+                            "no pattern shape is defined for it in docs/40-PHASE-4-SPEC.md §5.1",
                     )
             }
 
@@ -349,7 +371,7 @@ object M3ItemGenerator {
         // pattern to the bar, and a learner tapping a rhythm that starts in silence is being asked to
         // guess where it began rather than to reproduce it.
         val anchored = (onsets + 0).distinct().sorted()
-        return RhythmPattern(meter, bars, anchored)
+        return RhythmPattern(meter, bars, anchored, meterChange)
     }
 
     /**
@@ -425,6 +447,31 @@ object M3ItemGenerator {
         return onsets.distinct().sorted()
     }
 
+    /**
+     * Where the meter changes and to what — `M3.METER_CHANGE`, docs/40-PHASE-4-SPEC.md §5.1.
+     *
+     * Changes to a *simple* meter of a different length, never between simple and compound. Two
+     * things changing at once - how many beats in a bar and how each beat divides - is two skills,
+     * and a learner who misses it could not say which one they missed. `M3.COMPOUND` teaches the
+     * division on its own; this teaches the grouping on its own.
+     *
+     * Never in the first bar: the learner needs at least one bar of the original meter to have
+     * something to hear the change *against*.
+     */
+    private fun meterChangeFor(
+        meter: Meter,
+        bars: Int,
+        random: Random,
+    ): MeterChange? {
+        if (bars < MIN_BARS_FOR_METER_CHANGE) return null
+        val alternatives =
+            listOf(Meter.FOUR_FOUR, Meter.THREE_FOUR, Meter.TWO_FOUR).filter { it != meter }
+        val to = alternatives[random.nextInt(alternatives.size)]
+        // At least one bar either side of it.
+        val atBar = 1 + random.nextInt(bars - 1)
+        return MeterChange(atBar = atBar, meter = to)
+    }
+
     /** Removes a few onsets, leaving silence where the ear expected a sound. Never the downbeat. */
     private fun withRests(
         onsets: List<Int>,
@@ -462,6 +509,9 @@ object M3ItemGenerator {
         val pool = AxisParameters.timbrePool(level)
         return pool[random.nextInt(pool.size)]
     }
+
+    /** A change needs a bar before it and a bar after it, or there is nothing to hear it against. */
+    private const val MIN_BARS_FOR_METER_CHANGE = 2
 
     private const val TWELFTHS = 12
     private const val REST_COUNT_RANGE = 2

@@ -425,12 +425,18 @@ object SkillGraph {
                 prerequisite = SkillIds.M3_SUBDIV,
                 activeDegrees = emptySet(),
             ),
-            // §5.1's capstone: 30 production items at METRONOME_FADE L6. Gated on M3.SYNCOPATION
-            // rather than on M3.METER_CHANGE, which §5.1 names - meter change is not built, and a
-            // node gated on one that does not exist is the dangling gate m9Nodes already records.
+            // §5.1 gates this on M3.COMPOUND *and* M3.SYNCOPATION. SkillNode carries one
+            // prerequisite, and COMPOUND is the later of the two in this chain, so gating on it also
+            // gates on everything before it - syncopation included.
+            SkillNode(
+                SkillIds.M3_METER_CHANGE,
+                prerequisite = SkillIds.M3_COMPOUND,
+                activeDegrees = emptySet(),
+            ),
+            // §5.1's capstone: 30 production items at METRONOME_FADE L6.
             SkillNode(
                 SkillIds.M3_INDEPENDENCE_CHECK,
-                prerequisite = SkillIds.M3_SYNCOPATION,
+                prerequisite = SkillIds.M3_METER_CHANGE,
                 activeDegrees = emptySet(),
             ),
         )
