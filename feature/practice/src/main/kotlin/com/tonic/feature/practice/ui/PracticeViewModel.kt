@@ -504,6 +504,9 @@ class PracticeViewModel
                             // Taps belong to the item they were entered for. Carrying them across
                             // would score one pattern with another pattern's performance.
                             tapCount = if (itemChanged) 0 else it.tapCount,
+                            // Feedback belongs to the attempt it describes. Carrying it across would
+                            // show one pattern's taps under the next pattern.
+                            lastRhythmScore = if (itemChanged) null else it.lastRhythmScore,
                             // Raised in the *same* update as the item it explains, not one after.
                             //
                             // The playback gate held this item silent for an explanation the learner
@@ -654,10 +657,20 @@ class PracticeViewModel
                 autoAdvance = false,
             )
             val feedback = engine.state.value.lastFeedback ?: return
-            _uiState.update { it.copy(correctAnswerLabel = feedback.correctLabel) }
+            _uiState.update {
+                it.copy(
+                    correctAnswerLabel = feedback.correctLabel,
+                    lastRhythmScore = engine.state.value.lastRhythmScore,
+                )
+            }
             if (_uiState.value.hapticsEnabled) _hapticEvents.tryEmit(Unit)
 
-            delay(if (feedback.correct) CORRECT_FEEDBACK_MS else INCORRECT_MODE_SETTLE_MS)
+            // Longer than any other feedback pause in this class, and deliberately. §7.4 puts the most
+            // instructive feedback in the module on screen at this moment - where every tap landed -
+            // and the pauses the pitch track uses were set for a single flashing button. Advancing at
+            // that pace would show the learner the one thing they most need to look at and take it
+            // away before they had looked at it.
+            delay(if (feedback.correct) RHYTHM_FEEDBACK_MS else RHYTHM_INCORRECT_FEEDBACK_MS)
             delay(INTER_ITEM_PAUSE_MS)
             engine.proceedToNextItem()
         }
@@ -1047,6 +1060,18 @@ class PracticeViewModel
         // guards fits inside the gap; duplicating the numbers there would make that check pass by
         // construction the moment either constant moved, which is exactly when it needs to fail.
         internal companion object {
+            /**
+             * How long a tapped attempt's feedback stays up — docs/40-PHASE-4-SPEC.md §7.4.
+             *
+             * ⚠️ Reasoned, not measured. Long enough to read a row of eight marks without hurrying,
+             * and short enough not to feel like a penalty for getting it wrong. What would move it is
+             * watching someone use it, which is Stage 4.7's listening-and-looking gate.
+             */
+            const val RHYTHM_FEEDBACK_MS = 1_400L
+
+            /** Longer still when it was wrong, because that is when there is something to learn from. */
+            const val RHYTHM_INCORRECT_FEEDBACK_MS = 2_200L
+
             const val CORRECT_FEEDBACK_MS = 300L
             const val INCORRECT_FLASH_SETTLE_MS = 250L
 

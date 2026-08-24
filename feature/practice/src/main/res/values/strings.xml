@@ -181,6 +181,14 @@
     <string name="practice_rhythm_tap_surface_description">Tapping area. Tap along with the rhythm you heard.</string>
     <string name="practice_rhythm_which_pattern_prompt">Which one did you just hear?</string>
     <string name="practice_rhythm_which_beat_prompt">Which beat was \"one\"?</string>
+
+    <!-- docs/40-PHASE-4-SPEC.md §7.4. No numbers anywhere: the section forbids a precision grade,
+         and a millisecond figure is one the moment a learner can read it. -->
+    <string name="practice_rhythm_timing_on_beat">Right on the beat.</string>
+    <string name="practice_rhythm_timing_ahead">You were a little ahead of the beat.</string>
+    <string name="practice_rhythm_timing_behind">You were a little behind the beat.</string>
+    <string name="practice_rhythm_landing_extra">There were a few more taps than sounds.</string>
+    <string name="practice_rhythm_landing_description">You played %1$d of %2$d sounds, with %3$d extra taps.</string>
     <!-- Sung response explanation - docs/30-PHASE-3-SPEC.md §6.2. Plain words only: every term is
          one the learner already has, and the reassurance about not being judged is stated outright
          rather than implied, per docs/11-ONBOARDING-CLARITY.md §9.4. -->

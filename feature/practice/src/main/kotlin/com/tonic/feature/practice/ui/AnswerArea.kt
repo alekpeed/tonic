@@ -98,6 +98,7 @@ internal fun AnswerArea(
                 reduceMotion = uiState.reduceMotion,
                 audibleTaps = uiState.audibleTaps,
                 tapCount = uiState.tapCount,
+                score = uiState.lastRhythmScore,
             )
 
         // The six diagnostic types belong to :feature:diagnostic's own loop and have no control here.

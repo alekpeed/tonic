@@ -1,5 +1,6 @@
 package com.tonic.feature.practice.ui
 
+import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -10,13 +11,16 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.tonic.core.model.ids.SkillIds
 import com.tonic.core.model.items.Item
 import com.tonic.core.model.music.TimbreId
+import com.tonic.core.model.rhythm.EventMatch
 import com.tonic.core.model.rhythm.Meter
 import com.tonic.core.model.rhythm.MetronomeFadeLevel
 import com.tonic.core.model.rhythm.MetronomePlanner
 import com.tonic.core.model.rhythm.RhythmPattern
 import com.tonic.core.model.rhythm.RhythmQuestion
+import com.tonic.core.model.rhythm.RhythmScore
 import com.tonic.core.ui.theme.TonicTheme
 import com.tonic.feature.practice.ui.rhythm.CHOICE_TAG_PREFIX
+import com.tonic.feature.practice.ui.rhythm.LANDING_STRIP_TAG
 import com.tonic.feature.practice.ui.rhythm.TAP_SURFACE_TAG
 import org.junit.Rule
 import org.junit.Test
@@ -62,6 +66,7 @@ class RhythmAnswerAreaTest {
         correctLabel: String? = null,
         onLabelSelected: (String) -> Unit = {},
         onTap: (Long) -> Unit = {},
+        score: RhythmScore? = null,
     ) {
         compose.setContent {
             TonicTheme {
@@ -72,6 +77,7 @@ class RhythmAnswerAreaTest {
                             inputEnabled = enabled,
                             selectedAnswerLabel = selectedLabel,
                             correctAnswerLabel = correctLabel,
+                            lastRhythmScore = score,
                         ),
                     onDegreeSelected = {},
                     onLabelSelected = onLabelSelected,
@@ -79,6 +85,16 @@ class RhythmAnswerAreaTest {
                 )
             }
         }
+    }
+
+    private fun scoreOf(vararg asynchronies: Double?): RhythmScore {
+        val matches = asynchronies.mapIndexed { i, a -> EventMatch(i * 600.0, a) }
+        return RhythmScore(
+            matches = matches,
+            extraTaps = emptyList(),
+            toleranceHalfWidthMs = 150.0,
+            calibrationOffsetMs = 0.0,
+        )
     }
 
     @Test
@@ -112,6 +128,30 @@ class RhythmAnswerAreaTest {
         compose.onNodeWithTag(TAP_SURFACE_TAG).performTouchInput { click() }
 
         assertTrue(taps.isEmpty(), "a disabled surface must not record taps, got $taps")
+    }
+
+    @Test
+    fun `where the taps landed is not on screen while the learner is still tapping`() {
+        // §7.4's visual belongs to feedback rather than to the performance. On screen during the
+        // attempt it would turn the exercise into chasing a mark, which is the same failure "never a
+        // precision grade" is guarding against in a different form.
+        render(RhythmQuestion.TapItBack)
+        compose.onNodeWithTag(LANDING_STRIP_TAG).assertDoesNotExist()
+    }
+
+    @Test
+    fun `where the taps landed appears once the attempt has been scored`() {
+        render(RhythmQuestion.TapItBack, enabled = false, score = scoreOf(10.0, -5.0, 20.0, null))
+        compose.onNodeWithTag(LANDING_STRIP_TAG).assertIsDisplayed()
+    }
+
+    @Test
+    fun `the tap surface survives the feedback appearing beneath it`() {
+        // The strip is added below the surface rather than swapped in for it. A learner looking at
+        // where their taps landed should still see the thing they tapped, or the screen appears to
+        // have taken the exercise away as a consequence of answering.
+        render(RhythmQuestion.TapItBack, enabled = false, score = scoreOf(10.0, -5.0))
+        compose.onNodeWithTag(TAP_SURFACE_TAG).assertIsDisplayed()
     }
 
     @Test

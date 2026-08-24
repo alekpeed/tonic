@@ -23,6 +23,7 @@ import com.tonic.core.model.rhythm.MetronomeFadeLevel
 import com.tonic.core.model.rhythm.MetronomePlanner
 import com.tonic.core.model.rhythm.RhythmPattern
 import com.tonic.core.model.rhythm.RhythmQuestion
+import com.tonic.core.model.rhythm.RhythmScore
 import com.tonic.core.ui.theme.TonicSpacing
 import com.tonic.core.ui.theme.TonicTheme
 import com.tonic.feature.practice.R
@@ -52,18 +53,27 @@ internal fun RhythmAnswerArea(
     reduceMotion: Boolean = false,
     audibleTaps: Boolean = false,
     tapCount: Int = 0,
+    score: RhythmScore? = null,
 ) {
     when (val question = item.question) {
         is RhythmQuestion.TapItBack ->
-            TapSurface(
-                enabled = enabled,
-                onTap = onTap,
-                modifier = modifier,
-                hapticsEnabled = hapticsEnabled,
-                reduceMotion = reduceMotion,
-                audibleTaps = audibleTaps,
-                tapCount = tapCount,
-            )
+            Column(modifier = modifier) {
+                TapSurface(
+                    enabled = enabled,
+                    onTap = onTap,
+                    hapticsEnabled = hapticsEnabled,
+                    reduceMotion = reduceMotion,
+                    audibleTaps = audibleTaps,
+                    tapCount = tapCount,
+                )
+                // Only once the attempt has been scored. Showing where taps landed while the learner
+                // is still tapping would turn the exercise into a game of chasing a mark, which is the
+                // failure §7.4's "never a precision grade" is guarding against in a different form.
+                if (score != null) {
+                    Spacer(modifier = Modifier.height(TonicSpacing.md))
+                    TapLandingStrip(score = score)
+                }
+            }
 
         is RhythmQuestion.WhichPattern ->
             RhythmChoiceButtons(

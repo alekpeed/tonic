@@ -5,6 +5,7 @@ import com.tonic.core.model.items.Item
 import com.tonic.core.model.music.AudiatedPitch
 import com.tonic.core.model.music.Mode
 import com.tonic.core.model.music.ScaleDegree
+import com.tonic.core.model.rhythm.RhythmScore
 import com.tonic.core.model.state.LabelStyle
 import com.tonic.core.model.state.Session
 import com.tonic.core.ui.components.PlaybackPhase
@@ -128,6 +129,18 @@ data class PracticeUiState(
      * note that it should be revisited with real testing stands.
      */
     val audibleTaps: Boolean = false,
+    /**
+     * How the last tapped attempt landed, shown after the answer — docs/40-PHASE-4-SPEC.md §7.4.
+     *
+     * Carried whole rather than reduced to a number on the way here, because §7.4 asks for "a simple
+     * visual of where taps landed relative to where events were" and calls it "the most instructive
+     * feedback in the whole module ... worth designing properly rather than reducing to a percentage."
+     * A percentage is exactly what a summarized version would become.
+     *
+     * This is the display side of §6.3's split: raw asynchrony is shown here and never scored. Nothing
+     * in `:core:engine` reads this field, and `RawAsynchronyIsNeverScoredTest` holds the other end.
+     */
+    val lastRhythmScore: RhythmScore? = null,
 ) {
     /** The ladder's contents. Empty for an item type that does not answer with a degree, such as `M9`. */
     val activeDegrees: List<ScaleDegree>

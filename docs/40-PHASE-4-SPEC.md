@@ -276,9 +276,10 @@ Motor impairment affects tapping in a way it doesn't affect choosing from a list
 
 Stage 4.5 was scoped down by the maintainer to a working rhythm loop rather than a complete one. Rhythm is reachable, playable and scored; the following are **specified, agreed, and not built**, and each is written here rather than left to be rediscovered. None is a disagreement with §7 — they are unbuilt, not declined.
 
+**Since built:** §7.4's post-attempt feedback. Where every tap landed is shown as one cell per expected sound, with the beat down the middle and the tolerance window as the cell's width — a single timeline was tried first and does not work, because a tap 20 ms off in a pattern lasting 2.4 seconds is under one percent of the width and every mark sits on its event. Underneath it, one sentence naming a direction and never a number (`TimingNote`), which is §6.3's sanctioned showing of raw asynchrony and §7.4's "never a precision grade or score".
+
 | Gap | Section | Consequence today |
 |---|---|---|
-| Post-attempt tap feedback | §7.4 | A learner is told whether the pattern was right and never shown *where* their taps landed. §7.4 calls this "the most instructive feedback in the whole module"; without it a wrong attempt teaches nothing about why |
 | Explanation and worked example | §7.1 | A learner meets the tap surface with no explanation of it, and §7.1 calls these non-optional for exactly this interaction. The production example must *demonstrate* tapping, which is why it is not a paragraph of copy |
 | Calibration screen | §4.3, §7.1 | No learner has a calibration constant, so tapping is scored against a zero and every device's output latency is charged to the learner. Honest at `TIMING_TOLERANCE` L0, whose window is a quarter of a beat; progressively dishonest as the axis tightens. `ProductionGate` is written and is not consulted, so a Bluetooth route is not blocked either |
 | Visual pulse | §7.3 | No visual beat at low fade levels. Nothing is *wrong* — the failure §7.3 warns about is a pulse that outlives the audio, and there is no pulse — but the support it describes is absent |
