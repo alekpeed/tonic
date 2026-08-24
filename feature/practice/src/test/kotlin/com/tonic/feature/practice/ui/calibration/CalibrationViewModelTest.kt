@@ -42,7 +42,9 @@ import kotlin.test.assertTrue
  */
 @RunWith(AndroidJUnit4::class)
 class CalibrationViewModelTest {
-    private class FakeRouteMonitor(initial: AudioOutputRoute) : OutputRouteMonitor {
+    private class FakeRouteMonitor(
+        initial: AudioOutputRoute,
+    ) : OutputRouteMonitor {
         private val flow = MutableStateFlow(initial)
         override val route: StateFlow<AudioOutputRoute> = flow.asStateFlow()
     }
@@ -79,7 +81,8 @@ class CalibrationViewModelTest {
                 // Bounded, per docs/21-HANDOFF.md §8 on unbounded waits in this repository's tests: a
                 // scope that will not finish a second after cancellation is a bug to fail on rather
                 // than hang on.
-                withTimeout(CANCEL_TIMEOUT_MS) { viewModel.viewModelScope.coroutineContext.job.join() }
+                val scope = viewModel.viewModelScope.coroutineContext.job
+                withTimeout(CANCEL_TIMEOUT_MS) { scope.join() }
             }
         }
         built.clear()
@@ -149,7 +152,8 @@ class CalibrationViewModelTest {
             assertEquals(CalibrationStage.FAILED, failed.stage)
             assertEquals(CalibrationFailure.NOT_ENOUGH_TAPS, failed.failure)
             // §4.3's sanity bounds: "re-prompt rather than storing garbage."
-            assertNull(settings.settings.first().rhythmCalibrations.forSlot(CalibrationSlot.SPEAKER))
+            val stored = settings.settings.first().rhythmCalibrations
+            assertNull(stored.forSlot(CalibrationSlot.SPEAKER))
         }
 
     @Test
