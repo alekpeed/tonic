@@ -150,15 +150,24 @@ Do not, without explicit chat approval:
 - American English spelling and grammar throughout — code, comments, docs, and UI strings.
 - Report what you built, what you verified, and what you did not verify. State uncertainty explicitly.
 - **Do not build or test locally. CI is the only gate.** By the maintainer's instruction: no
-  `scripts/verify.sh`, no `scripts/android-sdk.sh`, no `./gradlew`, no `scripts/ktlint.sh`. A local
-  build in this sandbox takes around ten minutes and consumes resources the maintainer needs
-  elsewhere, and that cost outweighs what it catches. `.github/workflows/verify.yml` runs
-  `scripts/verify.sh` on every push and pull request, and it is the authoritative signal — it always
-  was, since it runs on a known-clean machine and checks things a local run does not (the committed
-  Room schemas, the APK signature).
+  `scripts/verify.sh`, no `scripts/android-sdk.sh`, no `./gradlew`. A local build in this sandbox
+  takes around ten minutes and consumes resources the maintainer needs elsewhere, and that cost
+  outweighs what it catches. `.github/workflows/verify.yml` runs `scripts/verify.sh` on every push and
+  pull request, and it is the authoritative signal — it always was, since it runs on a known-clean
+  machine and checks things a local run does not (the committed Room schemas, the APK signature).
 
   The scripts stay in the repository. They are what CI runs, and `android-sdk.sh` documents exactly
   which SDK packages the gate needs. They are simply not to be run here.
+
+- **One exception: run `scripts/ktlint.sh` before every push.** Granted by the maintainer after five
+  of eight consecutive CI rounds failed on formatting alone — line wrapping, import order,
+  first-line-of-body — and never on logic. It is a standalone jar, already cached, needing no Android
+  SDK and no Gradle daemon, and it finishes in about five seconds; the cost the rule above exists to
+  avoid is not present here. Its pin is derived from the ktlint the Gradle plugin resolves, so what it
+  reports is what the build reports.
+
+  It is a lint check and nothing more. A clean run says nothing about whether the code compiles, and
+  reporting green still requires a CI run.
 
   What this costs, stated plainly so it is not rediscovered: nothing can be confirmed before pushing,
   so some pushes will be red and each fix costs a full CI round. Two habits follow from that, and they

@@ -209,10 +209,12 @@ so rather than predicting green.
   jar after any `ktlintGradle` bump.
 - `scripts/symcheck.py` — unresolved-reference check. §6 says what it cannot do.
 
-**Before every push:** nothing, locally. As of 2026-08-23 the maintainer's instruction is that
-**nothing is built or tested in the sandbox** — no `verify.sh`, no `android-sdk.sh`, no `./gradlew`,
-no `ktlint.sh`. A local run costs about ten minutes and resources needed elsewhere, and CI is the
-gate. `CLAUDE.md` §8 is authoritative on this and this file is not.
+**Before every push:** `scripts/ktlint.sh`, and nothing else. As of 2026-08-23 the maintainer's
+instruction is that **nothing is built or tested in the sandbox** — no `verify.sh`, no
+`android-sdk.sh`, no `./gradlew`. A local run costs about ten minutes and resources needed elsewhere,
+and CI is the gate. ktlint was carved back out on 2026-08-24 after five of eight consecutive rounds
+failed on formatting alone: it is a standalone jar, five seconds, no SDK. `CLAUDE.md` §8 is
+authoritative on this and this file is not.
 
 That inverts most of §6 and the paragraphs above: they are kept because they are still true about
 *what each check can and cannot see*, which is what makes a red CI run readable. What is no longer

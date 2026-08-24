@@ -10,8 +10,9 @@ from absolute zero. See `docs/00-README.md` for the full spec set and
 > **Agents: do not build or test in the development sandbox.** By the
 > maintainer's instruction, CI is the only gate — see `CLAUDE.md` §8. A local
 > build here takes around ten minutes and consumes resources needed elsewhere.
-> Push and read the workflow run. The rest of this section is for a human
-> working on their own machine.
+> Push and read the workflow run. The one exception is `scripts/ktlint.sh`,
+> which is a five-second standalone jar and is expected before every push. The
+> rest of this section is for a human working on their own machine.
 
 Requires JDK 17+ and the Android SDK (`ANDROID_HOME` or `local.properties`
 pointing at it — platform 35 and matching build-tools).
