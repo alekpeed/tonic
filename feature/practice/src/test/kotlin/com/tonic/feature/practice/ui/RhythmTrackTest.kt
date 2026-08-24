@@ -32,7 +32,7 @@ class RhythmTrackTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
 
-    private fun rhythmFixture() = PracticeFixture(AppSettings(module2IntroSeen = true), PracticeTrack.RHYTHM)
+    private fun rhythmFixture() = PracticeFixture(AppSettings(module2IntroSeen = true), track = PracticeTrack.RHYTHM)
 
     @Test
     fun `the rhythm track starts on a rhythm node, not a pitch one`() =
