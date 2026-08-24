@@ -13,7 +13,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 /**
- * docs/40-PHASE-4-SPEC.md §9's Stage 4.2 acceptance: "Deterministic per `(skill, axes, seed)`."
+ * docs/40-PHASE-4-SPEC.md's Stage 4.2 acceptance: "Deterministic per `(skill, axes, seed)`."
  *
  * That requirement carries more weight in this module than anywhere before it. Rhythm is the first
  * module whose *input* is genuinely non-deterministic — real human tap times — and §4.4's whole scheme

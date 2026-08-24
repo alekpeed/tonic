@@ -7,7 +7,7 @@ import kotlin.test.assertTrue
 
 /**
  * Stage 2.0's literal acceptance criterion: generalizing the engine produces **zero** behavior change to
- * `M2` (docs/20-PHASE-2-SPEC.md §7). This test is the proof, not a proxy for it.
+ * `M2` (docs/20-PHASE-2-SPEC.md). This test is the proof, not a proxy for it.
  *
  * The golden file was written from the pre-Phase-2 generator and is committed. It is not regenerated as
  * part of a normal run and must not be: a golden file that rewrites itself when it disagrees with the

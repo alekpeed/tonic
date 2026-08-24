@@ -1,6 +1,6 @@
 # 40 — Phase 4 Specification: Rhythm
 
-**Status: designed ahead of Phase 3 completion.** Sections marked ⚠️ depend on evidence earlier phases will produce and should be revisited before Stage 4.0.
+**Reference, not instructions.** Sections marked ⚠️ rest on evidence nobody has gathered yet — mostly device measurements. Treat them as reasoned guesses, not settled design.
 
 **Prerequisite: Phase 3 complete and stable, OR explicitly skipped.** Unlike Phases 2 and 3, rhythm is *pedagogically independent* of everything built so far — it shares no skill nodes with pitch work and could in principle ship before Phase 3. But it shares the audio engine, and Phase 3's Oboe/NDK decision (`30-PHASE-3-SPEC.md` §5.1) directly determines this phase's foundation. If Phase 3 is skipped, that decision moves here and must be made first.
 
@@ -21,7 +21,7 @@ Rhythm shares no prerequisites with pitch. A learner can start `M3.BEAT_FIND` on
 Consequences:
 
 - `M3` nodes have no pitch prerequisites and gate nothing in the pitch track.
-- Rhythm items may be interleaved into the same session as pitch items, or practiced alone. ⚠️ Whether to interleave by default is an open question — see §9.
+- Rhythm items may be interleaved into the same session as pitch items, or practiced alone. ⚠️ Whether to interleave by default is an open question — see §10.
 - Rhythm has its **own** difficulty axes, its own staircase state, and its own mastery evaluation. It does not share axes with `M2`/`M10`/`M11`.
 - A learner who only ever does rhythm must have a coherent, complete experience.
 
@@ -130,7 +130,7 @@ Design requirements:
 - **Median, not mean.** One distracted tap must not skew the constant.
 - **Spread is diagnostic, not scored.** A large spread means either an inconsistent user or an unstable device path; either way, tolerance windows should widen rather than the user being failed.
 - **Re-calibrate on output route change.** Plugging in headphones changes the offset. Detect the route change and either re-calibrate or invalidate the stored constant.
-- **Calibration is per output route**, not global. Store separately for speaker and wired output. ⚠️ USB output shares the wired constant as of Stage 4.0. That grouping is an assumption, not a measurement — a USB DAC's latency is its own — and it is grouped only because inventing a third stored constant before anyone has measured a USB device would be adding schema on a guess. Confirm or split it here, with a device.
+- **Calibration is per output route**, not global. Store separately for speaker and wired output. ⚠️ USB output shares the wired constant as of Stage 4.0. That grouping is an assumption, not a measurement — a USB DAC's latency is its own — and it is grouped only because inventing a third stored constant before anyone has measured a USB device would be adding schema on a guess. Confirming or splitting it needs a device.
 - ⚠️ **Sanity bounds.** An implausible measured offset (negative beyond a threshold, or larger than a beat) means calibration failed — re-prompt rather than storing garbage.
 
 ### 4.4 Determinism under real time
@@ -241,15 +241,17 @@ Recorded on every attempt: full tap timestamp list, calibration offset used, tol
 
 Extends `08-UI-SPEC.md` in full — including §2a (every screen has a way out) and `11-ONBOARDING-CLARITY.md` (explanation plus worked example before any new task shape, stage labeling, no silent difficulty changes).
 
-### 7.1 Explanation and worked example are non-optional here
+### 7.1 What rhythm needs explaining about
 
-Rhythm introduces the app's first genuinely new interaction since Phase 1. Per `11-ONBOARDING-CLARITY.md` §4, before the first item of *each* of these, an explanation and worked example:
+Rhythm introduces the app's first genuinely new interaction since Phase 1. Only calibration has an
+explanation screen so far — the others are unbuilt (§7.6). What each would need to get across:
 
 - Recognition items — what you're listening for, what the choices mean.
 - Production items — that you'll tap, where you tap, what the count-in means, that approximate is fine at first.
-- Calibration — why it exists, in plain terms ("your phone has a small delay; this measures it"), before it runs.
+- Calibration — why it exists, in plain terms ("your phone has a small delay; this measures it"). Built.
 
-The production worked example must actually *demonstrate* a tapped answer — showing the pattern, showing taps landing, showing the result. A verbal description of tapping is not sufficient.
+A production worked example only works if it *demonstrates* a tapped answer — the pattern, the taps
+landing, the result. A verbal description of tapping does not convey it.
 
 ### 7.2 The tap surface
 
@@ -272,27 +274,31 @@ At low `METRONOME_FADE` levels, a visual pulse may accompany the audible metrono
 
 Motor impairment affects tapping in a way it doesn't affect choosing from a list. Therefore: **recognition nodes must form a complete, coherent path through every rhythmic concept.** A user who cannot tap accurately must still be able to learn and demonstrate rhythmic understanding through recognition alone, even though they cannot complete production nodes or `M3.INDEPENDENCE_CHECK`. Document this explicitly rather than leaving it emergent.
 
-### 7.6 What Stage 4.5 shipped, and what it did not
+### 7.6 What is not built
 
-Stage 4.5 was scoped down by the maintainer to a working rhythm loop rather than a complete one. Rhythm is reachable, playable and scored; the following are **specified, agreed, and not built**, and each is written here rather than left to be rediscovered. None is a disagreement with §7 — they are unbuilt, not declined.
+Rhythm is reachable, playable and scored. These parts of §7 are unbuilt, and none of them is declined
+— they are simply not there.
 
-**Since built:** §4.3's calibration run, reachable from Settings, with §7.1's explanation in front of it. One deviation, deliberate and recorded in `CalibrationViewModel`: the run measures taps against the instants the beats were *scheduled*, not the instants they were heard as §4.3 asks. The constant exists to cancel a systematic error, `PracticeViewModel` scores against scheduled instants, and a constant measured against heard beats would omit the output-latency term and under-correct by exactly it. The version §4.3 describes is better and waits on §10 q2 — whether Android's reported output timing can be trusted at all. Both sides move together when it is answered.
-
-**Since built:** §7.4's post-attempt feedback. Where every tap landed is shown as one cell per expected sound, with the beat down the middle and the tolerance window as the cell's width — a single timeline was tried first and does not work, because a tap 20 ms off in a pattern lasting 2.4 seconds is under one percent of the width and every mark sits on its event. Underneath it, one sentence naming a direction and never a number (`TimingNote`), which is §6.3's sanctioned showing of raw asynchrony and §7.4's "never a precision grade or score".
-
-| Gap | Section | Consequence today |
+| Gap | Section | Consequence |
 |---|---|---|
-| Explanation and worked example | §7.1 | A learner meets the tap surface with no explanation of it, and §7.1 calls these non-optional for exactly this interaction. The production example must *demonstrate* tapping, which is why it is not a paragraph of copy |
-| The production gate | §4.2, §4.3 | Calibration now exists and is runnable, and nothing *requires* it: §4.3 asks for "a required, explicit calibration step before the first production exercise", and a learner who never opens Settings still taps with a zero constant. `ProductionGate` remains unconsulted by the practice loop, so Bluetooth does not block tapping there either — only the calibration screen refuses it |
+| Explanation and worked example for tapping | §7.1 | A learner meets the tap surface with no introduction. Calibration has one; recognition and production do not |
 | Visual pulse | §7.3 | No visual beat at low fade levels. Nothing is *wrong* — the failure §7.3 warns about is a pulse that outlives the audio, and there is no pulse — but the support it describes is absent |
-| Recognition-only path, documented | §7.5 | The recognition nodes do form a path, but nothing says so to a learner who cannot tap accurately, and §7.5 requires it to be documented "explicitly rather than leaving it emergent" |
+| Recognition-only path, written down | §7.5 | The recognition nodes do not form an independently traversable path: `M3.SUBDIV_RECOG` gates on `M3.BEAT_DIV`, which is tapped. Closing it means changing prerequisites, not adding nodes |
 
-And one defect rather than an omission:
+Two design notes on what *is* built, both deliberate deviations worth not rediscovering:
 
-**`M3.DOWNBEAT` cannot be answered.** Its pattern is plain identical beats, the item removes the metronome's downbeat accent because the accent would *be* the answer, and the rotation the generator draws to decide which beat is "one" never reaches the audio — only the stated answer derived from it. So the learner hears N indistinguishable beats and is asked which was "one", with nothing in the sound to tell them. Stage 4.4 built the question and the answer and never checked that the audio carried the information between them. The node is suspended from routing (`SkillGraph.ROUTING_SUSPENDED`) and treated as satisfying the gates that name it, so the chain continues past it. Fixing it means giving the pattern a metrical cue a learner can hear, which is a design question for §3.4 rather than wiring.
+**Calibration measures against scheduled instants, not heard ones.** §4.3 asks for the instants each
+beat was heard, from the output timebase. The constant exists to cancel a systematic error;
+`PracticeViewModel` scores taps against the scheduled start of a pattern, so the error it makes
+contains output latency, and a constant measured against heard beats would omit that term and
+under-correct by exactly it. The version §4.3 describes is better and waits on §10 q2 — whether
+Android's reported output timing can be trusted at all. Both sides move together when it is answered.
 
-Still owed from earlier stages, unchanged: every device measurement in §9's Stage 4.0 and 4.1 rows, and §10 q1 (Oboe vs `AudioTrack`) and q2 (whether Android's reported output timing can be trusted).
-
+**Where taps landed is drawn as one cell per expected sound**, with the beat down the middle and the
+tolerance window as the cell's width. A single timeline was tried first and does not work: a tap 20 ms
+off in a pattern lasting 2.4 seconds is under one percent of the width, so every mark sits on its
+event and the picture says "perfect" to everyone. Underneath it, one sentence naming a direction and
+never a number — §6.3's sanctioned showing of raw asynchrony, and §7.4's "never a precision grade".
 
 ## 8. Data model and engine
 
@@ -300,205 +306,15 @@ Extends `05-DATA-MODEL.md` and `07-ADAPTIVE-ENGINE.md`.
 
 - New `Item` subtype: `RhythmItem` (pattern, tempo, meter, metronome plan, expected event times).
 - `Attempt` gains rhythm fields: `tapTimestamps`, `calibrationOffsetUsed`, `toleranceUsed`, `perEventAsynchrony`, `extraTaps`, `missedTaps`.
-- New settings: `rhythm_calibration_offset_speaker`, `rhythm_calibration_offset_wired`, `rhythm_audible_tap_feedback` (default off), `rhythm_visual_pulse` (default on). As built at Stage 4.1 the two calibration keys are six: each slot stores its offset, its spread and its tap count, because §4.3 step 5 measures a spread and then requires it to widen tolerance windows, which a discarded number cannot do. `05-DATA-MODEL.md` §3 carries the reasoning. The two UI settings are Stage 4.5's and are not built.
+- New settings: `rhythm_calibration_offset_speaker`, `rhythm_calibration_offset_wired`, `rhythm_audible_tap_feedback` (default off), `rhythm_visual_pulse` (default on). As built at Stage 4.1 the two calibration keys are six: each slot stores its offset, its spread and its tap count, because §4.3 step 5 measures a spread and then requires it to widen tolerance windows, which a discarded number cannot do. `05-DATA-MODEL.md` §3 carries the reasoning. `rhythm_audible_tap_feedback` is built; `rhythm_visual_pulse` is not (§7.6).
 - Six new difficulty axes (§5.2), registered as rhythm-specific — the axis scheduler already handles skill-specific axes as of Phase 2's Stage 2.0.
 - Confusion tracking adapts: the "confusion matrix" for rhythm is over *rhythmic figures*, not labels — which patterns get mistaken for which. Same remediation weighting logic applies.
 
 **Engine work is otherwise reused.** Staircase, axis scheduler, mastery evaluator, FSRS, session composer all apply unchanged. As with Phase 2, if this phase tempts a change to any of those, that signals something is being modeled wrong — stop and ask.
 
-## 9. Build plan
+## 10. Open questions
 
-| Stage | Content | Key acceptance criteria |
-|---|---|---|
-| 4.0 | Audio backend decision + timing infrastructure | Oboe-vs-AudioTrack decided **with measurements**. Output timestamp accuracy characterized on real hardware. Bluetooth detection working. Report numbers, not assumptions. **Partial as of 2026-08-22** — see below. |
-| 4.1 | Calibration | Median offset stable across repeated runs on one device. Per-route storage. Route-change invalidation. Sanity bounds reject garbage. **Partial as of 2026-08-22** — see below. |
-| 4.2 | Pattern generation + metronome rendering | Deterministic per `(skill, axes, seed)`. All 8 `METRONOME_FADE` levels render correctly. **Built 2026-08-23** — production items only; see below. |
-| 4.3 | Scoring pipeline | Pure function of inputs, byte-identical on replay. Windows never overlap. Extra/missed taps distinguished. **Built 2026-08-23** — persistence deferred; see below. |
-| 4.4 | Recognition nodes (`*_RECOG`, `DOWNBEAT`) | Complete path, no tapping required anywhere in it. **Built 2026-08-23** — mastery criteria open; see below. |
-| 4.5 | Production nodes + tap UI + explanations | Worked example demonstrates real tapping. Visual pulse fades with audio. |
-| 4.6 | Compound meter, meter change, independence check | Takadimi syllables correct in compound meter (the case Kodály fails). |
-| 4.7 | Hardening + acceptance | All prior-phase criteria still met. Determinism holds. Bluetooth path verified on real hardware. |
-
-Same discipline: STOP gate per stage, delta report with production-wiring traces, no advancing on an unverified stage.
-
-**Stage 4.4, what is built and what is not.** Built and CI-verified: all four recognition nodes
-generate, `M3` is registered in `SkillGraph` as a parallel track with its own chain, and
-`RhythmQuestion` replaced the mode-plus-choices pair that Stage 4.2 left behind.
-
-**`M3.DOWNBEAT` now has a design**, which is what stalled it at 4.2. §3.4 asks for "finding the beat in
-music that doesn't announce it", and the presentation follows from that phrase: **playback begins
-part-way into the bar**, so the first beat heard is usually not the downbeat and the learner has to feel
-where the bar turns over rather than read it off the start of the audio. The rotation is seeded and is
-*sometimes* zero, because a node whose answer is never the first option teaches a strategy rather than a
-skill — the same reason `M9` draws its major/minor answer from a coin. The metronome's downbeat accent is
-removed on these items: the accent is the answer.
-
-Three consequences worth recording:
-
-- **Rhythm is not in `practiceChain`.** §2 says rhythm "shares no prerequisites with pitch" and that a
-  learner can start `M3.BEAT_FIND` "having never touched `M2`", so appending it to the pitch chain would
-  make every rhythm node wait on the entire pitch curriculum. `rhythmChain` walks it instead, and
-  `PracticeChainTest` now asserts the two chains *partition* the graph and that no prerequisite crosses
-  between them — a stronger invariant than the "one chain contains everything" it replaced.
-- **A real bug from Stage 4.2, found by this stage's tests.** `RHYTHMIC_DENSITY` level 0 asks for no
-  subdivision, so `M3.BEAT_DIV` at level 0 produced plain beats and was indistinguishable from
-  `M3.BEAT_FIND`, the node before it — a learner would meet the node that introduces division and hear
-  nothing divided. Nodes whose subject *is* subdivision now always subdivide at least one beat. It
-  surfaced because a recognition item needs two distinct patterns and at density 0 there was only one.
-- **§7.5's tap-free path does not exist, and closing it means changing prerequisites rather than adding
-  nodes.** §5.1's chain alternates recognition and production, so `M3.SUBDIV_RECOG` waits on
-  `M3.BEAT_DIV`, which is tapped. `M3.RESTS` having no recognition sibling is *not* part of that gap and
-  is right as specified: a rest is the absence of an onset, so "which of these did you hear" with a gap
-  in one is the same discrimination task `M3.SUBDIV_RECOG` already runs, while producing a rest is
-  genuinely different — you must not tap, and holding time through silence is harder than filling it.
-
-**Rhythm mastery criteria — settled 2026-08-23 on the maintainer's instruction: use the rhythmic-figure
-confusion matrix.** §5.3's "use the existing five criteria unchanged" cannot be taken literally, since
-three of those five are about scale degrees and a fourth is about `CADENCE_FADE`, and a rhythm node has
-neither. What is preserved is the *shape*, with §8's unit substituted one for one:
-
-| Pitch (`03-CURRICULUM.md` §5.5) | Rhythm (`RhythmMasteryEvaluator`) |
-|---|---|
-| `OVERALL_ACCURACY` | unchanged — 90% over a rolling 30 |
-| `DEGREE_COVERAGE` | `FIGURE_COVERAGE` — every figure the node teaches, ≥ 5 attempts |
-| `WEAKEST_DEGREE_ACCURACY` | `WEAKEST_FIGURE_ACCURACY` — no figure below 80% |
-| `CONFUSION_CAP` | unchanged — the matrix is over strings and does not care what they name |
-| `CADENCE_FADE_MINIMUM` | `METRONOME_FADE_MINIMUM` — §5.3 criterion 4, `METRONOME_FADE` ≥ 4 |
-
-**A figure is one beat's fill, not a whole pattern**, and that choice is what makes the criteria usable.
-A pattern is very nearly unique — vary one sixteenth and it is a different pattern — so coverage over
-patterns could never be met by anyone and the matrix would have a cell per item. A beat's fill is a
-small recurring alphabet, and it is exactly what §3.1's Takadimi already names, so a confusion view can
-say "you hear `ta-di` when it was `ta-ka-di-mi`" in the learner's own vocabulary. `SkillGraph`
-declares each node's figures the way it declares active degrees, so the evaluator knows what a node
-*should* have covered rather than what one seed happened to produce.
-
-Two consequences follow. **The attempt label for a `*_RECOG` item is the figure, not the position** — a
-position label names a different rhythm in every item, so a matrix over positions would accumulate
-cells that mean nothing. `M3.DOWNBEAT` keeps positional labels, because there the position *is* the
-answer and means the same thing across items. And **nodes that discriminate no figures**
-(`M3.BEAT_FIND`, `M3.DOWNBEAT`) report the two figure criteria as vacuously met, so the criteria list
-keeps one shape for every rhythm node; they are still held to accuracy, window size and the fade
-minimum.
-
-⚠️ **Production nodes are still not evaluated.** §5.3 replaces their criteria outright with five of its
-own — including a drift trend and a per-figure floor over *tapped* accuracy — and none of that can be
-judged until Stage 4.5 records a tapped attempt. They take the no-mastery path meanwhile.
-
-One property worth knowing before anyone tunes the thresholds: with a node's figures evenly represented
-in the window, **criterion 3 is mathematically implied by criterion 1**. The 90% floor caps the misses
-at three out of thirty, and three misses concentrated on one of two figures leaves it at exactly 80%.
-The weakest-figure criterion only bites when a figure appears *rarely* — which is the case it is
-actually there for, and which `FIGURE_COVERAGE` bounds from below. `MasteryEvaluator` records the same
-property for the pitch track; it is a feature of the spec's own thresholds, not a defect.
-
-**Stage 4.3, what is built and what is not.** All four of the row's criteria are met, and none needed
-a device. `RhythmScorer` is a pure function of `(pattern, taps, calibration, tolerance)` with no clock
-and no state; `ToleranceWindows` expresses every window as a fraction of the beat and clamps it when
-events crowd; extra and missed taps are counted separately throughout. **§6.3's owed test now exists**
-— `RawAsynchronyIsNeverScoredTest`, written because that section records the debt explicitly: the
-Phase 3 precedent it cites "was found not to exist." It takes two performances differing only in
-asynchrony, both inside the window, and requires everything the adaptive engine reads to be identical
-while the feedback the learner sees differs — including a sweep across the whole window, so a threshold
-hidden anywhere inside it fails.
-
-Three notes for whoever builds on this:
-
-- **Matching takes the closest pair first, not a left-to-right sweep.** Under a sweep one stray early
-  tap consumes the slot its neighbour needed and every later pairing shifts, turning a single mistake
-  into a whole pattern scored wrong. Ties break by earlier event then earlier tap, so the result never
-  depends on iteration order — without which §4.4's byte-identical promise would be false in exactly
-  the case hardest to reproduce.
-- **Drift is a slope, not a magnitude**, per §5.3 criterion 3. `driftSlope` is dimensionless and
-  `driftMsPerBeat(beatMs)` is the readable form. An earlier draft called the dimensionless value
-  `driftMsPerBeat`, which was a name that lied about its units — the sort of thing that survives until
-  someone writes a threshold against it.
-- **Calibration is applied in one place.** An earlier draft of `scoreRelative` took the learner's
-  constant, recorded it on the result, and matched against uncorrected taps — so passing a real
-  constant reported that the learner had missed every event. Caught by the fast-tempo test, which is
-  kept pointed at that function for the purpose.
-
-One finding worth carrying forward: at 100 BPM the tightest window is ±50 ms, so §9's simulation-2
-learner — uniformly 40 ms late — passes *without calibration mattering at all*. Calibration only starts
-to matter as tempo rises and the window shrinks in milliseconds; at 160 BPM the same learner fails every
-event uncalibrated. Both cases are asserted. The practical consequence is that a calibration defect
-would be invisible at the tempo most practice happens at, which is an argument for the device
-measurement Stage 4.1 still owes rather than against it.
-
-**Not built, deliberately.** §8's rhythm `Attempt` fields — `tapTimestamps`, `calibrationOffsetUsed`,
-`toleranceUsed`, `perEventAsynchrony`, `extraTaps`, `missedTaps` — are not persisted yet. They are a
-Room schema change with a migration, and nothing creates a rhythm attempt until Stage 4.5 builds the
-tap surface; adding columns nothing writes would be schema churn ahead of a need. The scoring pipeline's
-replayability does not depend on it: the function is pure, so identical inputs give identical output,
-which is what the criterion asks. Persistence lands with 4.5, and `05-DATA-MODEL.md` §4's migration rules
-apply when it does. Rhythm mastery evaluation (§5.3's five production criteria) is likewise not built —
-this stage produces the numbers those criteria will read, not the criteria.
-
-**Stage 4.2, what is built and what is not.** Both of the row's criteria are met and neither needed a
-device. Built and CI-verified: the rhythm model (`Meter`, `RhythmPattern`, `Takadimi`,
-`MetronomeFadeLevel`, `MetronomePlanner`, `Tempo`), the six difficulty axes under a new
-`DifficultyAxis.Scope.RHYTHM`, `Item.RhythmItem`, `M3ItemGenerator`, and `RhythmRenderer`. All eight
-fade levels are asserted individually in `MetronomePlannerTest` and again audibly in
-`RhythmRendererTest` — separately, because a renderer that dropped the count-in would leave every
-planner test green.
-
-Three decisions worth reading before Stage 4.3 builds on them:
-
-- **Positions are integer ticks, twelve to the beat, never fractions of a beat.** Twelve is the
-  smallest number divisible by 2, 3, 4 and 6, so every division this curriculum uses lands whole.
-  `Double` positions would break `CLAUDE.md` §5's byte-identical requirement, because a third of a beat
-  is not representable and the error depends on the order the arithmetic happened in. Milliseconds
-  appear only at render time.
-- **Rendering mixes onto one timeline rather than concatenating.** Every renderer before this one lays
-  sounds end to end, because in the pitch track nothing overlaps. Here the metronome and the pattern
-  sound together and their alignment is the whole exercise.
-- **`TIMBRE_VARIETY` now belongs to two scopes**, since §5.2 reuses it for rhythm. It keeps its 0–4
-  range in both rather than the 0–3 this document's table gives rhythm: a per-scope maximum would make
-  the stored integer `3` mean "all families" in one module and "not quite all" in another, which is the
-  one-identifier-two-meanings failure `03-CURRICULUM.md` §1 forbids.
-
-**Not built, and not claimed.** Recognition items: §9 gives those nodes to Stage 4.4, and `M3.DOWNBEAT`
-in particular asks *which beat is "one"* — a question whose answers are beat positions rather than
-rhythms, and half-designing it here would leave a shape 4.4 has to undo. The generator refuses a
-recognition node loudly and names the stage. Compound meter and meter change are Stage 4.6's, so only
-simple meters are generated. Rhythm mastery, replay and debug seeding are Stage 4.3's and 4.4's; the
-new scope forced each of those call sites to be handled explicitly rather than defaulted, and each one
-now fails loudly rather than silently treating a rhythm node as a pitch node. And as with 4.0 and 4.1,
-**nothing here is reachable by a learner** — the tap surface and the rhythm screens are Stage 4.5.
-
-**Stage 4.1, what is built and what is not.** Built and CI-verified: `Calibrator`, which is §4.3's six
-steps as one pure function — nearest-beat attribution, the warm-up discard, the median offset, the
-spread as a median absolute deviation, and the sanity bounds, with a typed failure rather than a stored
-constant when a run produces garbage. Per-route storage is real: `RhythmCalibrations` in the model,
-six DataStore keys, and set/clear on `SettingsRepository`, with `ProductionGate` reading the stored
-slots so an uncalibrated route blocks with an explanation. Not done, and not claimed: **the row's first
-criterion**, that the median is stable across repeated runs on one device — nothing in a sandbox can
-produce it, and it is the criterion that decides whether calibration works at all. Also unbuilt: the
-calibration *screen* (§7.1 requires an explanation before it runs), so as with Stage 4.0 nothing here
-is reachable by a learner.
-
-One deviation worth stating. §4.3's sanity bound says an offset "larger than a beat" means failure.
-Under nearest-beat attribution that cannot arise: attribution always picks the nearer beat, so a
-learner tapping on the off-beat is attributed to the *following* beat at an offset approaching half a
-beat, and is rejected as `OFFSET_IMPLAUSIBLE` rather than as an offset larger than a beat. The plausibility check that remains
-is an absolute window plus a fraction-of-a-beat window, whichever is tighter, because one fixed
-millisecond ceiling cannot describe both 40 BPM and 200 BPM. All three of those numbers are reasoned
-rather than measured; what would move them is a real device producing a legitimate constant they reject.
-
-**Stage 4.0, what is built and what is not.** Three of that row's four criteria are device measurements, and this project is developed with no Android SDK and no device (`21-HANDOFF.md` §2). Built and CI-verified: the output-route classification and its fail-safe priority rule, `OutputRouteMonitor` bound to `AudioManager`, the pure `ProductionGate` behind every §4.2/§9-sim-6 block, `OutputTimebase` and the `AudioTrack.getTimestamp()` plumbing that feeds it, and `TapTimeline`. Not done, and not claimed: the backend decision (q1 above), output-timestamp accuracy on hardware (q2), and any observation of the route monitor actually running. **Nothing here is reachable by a learner** — there is no rhythm UI until Stage 4.5, and per `21-HANDOFF.md` §4.1 that is stated rather than left to be discovered. The stage is complete in the sense that its sandbox-doable work is done and green; it is not signed off.
-
-### Required simulations
-
-1. **Accurate tapper** — masters normally through the fade levels.
-2. **Consistently-offset tapper** — perceives correctly, taps uniformly 40 ms late. **Must still master.** Calibration should absorb this entirely. This is Phase 4's equivalent of Phase 3's flat-singer test and decides whether the phase works.
-3. **Drifting tapper** — starts on the beat, progressively rushes. Must *not* master; criterion 3 exists for this learner.
-4. **Metronome-dependent tapper** — accurate at L0–L3, at chance at L6. Must fail `M3.INDEPENDENCE_CHECK`. Direct analog of Phase 1's cadence-dependent learner, and the same trap.
-5. **Recognition-only user** — never taps. Completes every recognition node coherently; correctly cannot complete production nodes.
-6. **Uncalibrated device** — calibration never run or invalid. Production must be blocked with an explanation, not silently mis-scored.
-
-## 10. Open questions before Stage 4.0
-
-1. **Oboe/NDK vs. `AudioTrack`** — inherited from Phase 3 if unanswered there. Decide with measurements on real hardware. ⚠️ **Still open, and deliberately so.** At Stage 4.0 the maintainer instructed that `AudioTrack` stays for now and that the backend-agnostic parts of the stage be built rather than the phase stalling on a measurement the development sandbox cannot produce. That is a decision to defer, not an answer to this question: nothing has been measured. `06-AUDIO-ENGINE.md` §1 records it and states what would reverse it. Stage 4.1 needs a device anyway, and is where this gets settled.
+1. **Oboe/NDK vs. `AudioTrack`** — inherited from Phase 3 if unanswered there. Decide with measurements on real hardware. ⚠️ **Still open, and deliberately so.** At Stage 4.0 the maintainer instructed that `AudioTrack` stays for now and that the backend-agnostic parts of the stage be built rather than the phase stalling on a measurement the development sandbox cannot produce. That is a decision to defer, not an answer to this question: nothing has been measured. `06-AUDIO-ENGINE.md` §1 records it and states what would reverse it. Settling it needs a device.
 2. **Whether Android's reported output latency is trustworthy** (§4.2) or whether calibration must derive everything empirically.
 3. **Interleaving rhythm with pitch in one session** (§2) — pedagogically attractive (variety, and the contextual-interference literature favors it), but it doubles the explanation burden per session and risks the app feeling scattered. ⚠️ Decide with real usage evidence from Phase 2/3.
 4. **Audible tap feedback default** (§7.2).

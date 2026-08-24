@@ -12,7 +12,7 @@ import kotlin.test.assertTrue
 
 /**
  * Stage 2.2's first acceptance criterion — "d-prime scoring correct" — plus simulations 1 and 2 of
- * docs/20-PHASE-2-SPEC.md §7: a competent mode-identification learner masters `M9`, and a mode-deaf
+ * docs/20-PHASE-2-SPEC.md: a competent mode-identification learner masters `M9`, and a mode-deaf
  * learner at chance is never certified.
  */
 class BinaryMasteryEvaluatorTest {

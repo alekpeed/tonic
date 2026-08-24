@@ -8,7 +8,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * docs/40-PHASE-4-SPEC.md §9's Stage 4.3 acceptance, item by item: "Pure function of inputs,
+ * docs/40-PHASE-4-SPEC.md's Stage 4.3 acceptance, item by item: "Pure function of inputs,
  * byte-identical on replay. Windows never overlap. Extra/missed taps distinguished."
  */
 class RhythmScorerTest {

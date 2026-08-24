@@ -132,7 +132,7 @@ class DegreeLadderLayoutTest {
 
     @Test
     fun `all twelve chromatic degrees render, each at or above the minimum touch target`() {
-        // Stage 2.5's acceptance criterion - docs/20-PHASE-2-SPEC.md §7, "ladder legible at 12
+        // Stage 2.5's acceptance criterion - docs/20-PHASE-2-SPEC.md, "ladder legible at 12
         // positions (or redesigned)" - measured rather than asserted, which is the entire reason §8.1
         // decision 1 required this harness before the redesign.
         setLadder(ScaleDegree.ALL_CHROMATIC.toList())

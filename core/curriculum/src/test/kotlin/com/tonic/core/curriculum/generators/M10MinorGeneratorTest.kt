@@ -12,7 +12,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * Stage 2.3's acceptance criteria — docs/20-PHASE-2-SPEC.md §7: "cadence-fade mechanic works
+ * Stage 2.3's acceptance criteria — docs/20-PHASE-2-SPEC.md: "cadence-fade mechanic works
  * identically to `M2`; minor cadence renders correctly at all 8 fade levels."
  *
  * The interesting thing about these tests is how little new machinery they exercise. `M10` reuses

@@ -90,7 +90,7 @@ Consequence, accepted deliberately: a returning learner sees their current modul
 
 **Recall:** every screen that introduces a task shape carries a small, low-emphasis help affordance that reopens the explanation on demand, permanently. Recall shows the identical explanation and worked example, never an abbreviated version, and always the one for the module the learner is currently on — `11-ONBOARDING-CLARITY.md` §5. A user who forgets on their tenth session gets exactly what they got on their first.
 
-**Acceptance:** a build stage that introduces a new task shape is not complete without this screen, and "the code works" does not satisfy it. This applies to every future module and phase (`11-ONBOARDING-CLARITY.md` §4, `20-PHASE-2-SPEC.md` §5.1), and belongs in the acceptance criteria of any `09-BUILD-PLAN.md` stage that adds one.
+A new task shape is genuinely hard to meet cold, and "the code works" is not the same as "a first-time user can tell what to do". Add one of these when something turns out to be confusing to use — see `11-ONBOARDING-CLARITY.md` §1 for the standard it should meet.
 
 ---
 

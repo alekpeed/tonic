@@ -26,7 +26,7 @@ import kotlin.test.assertTrue
 
 /**
  * Stage 2.1's acceptance criteria, against a real Room database rather than fakes —
- * docs/20-PHASE-2-SPEC.md §7: "exported JSON round-trips to identical state when parsed;
+ * docs/20-PHASE-2-SPEC.md: "exported JSON round-trips to identical state when parsed;
  * `amusia_indicator_flag` absent; works offline."
  */
 @RunWith(AndroidJUnit4::class)

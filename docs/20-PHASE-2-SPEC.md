@@ -170,14 +170,14 @@ Extends `07-ADAPTIVE-ENGINE.md`. Most of Phase 1's engine is reused unchanged �
 
 Extends `08-UI-SPEC.md`. Every requirement in that document holds, including §2a (every screen has a way out) and §3a (first-run explanation before any new task shape).
 
-### 5.1 Mandatory explanations for each new item type
+### 5.1 What each new item type needs explaining about
 
-Per `11-ONBOARDING-CLARITY.md` §4, **each of these gets its own first-run explanation screen with a worked example** before it may ship:
+These screens exist. What each one has to get across, if it is ever rewritten:
 
-- Minor mode degree identification (`M10`) — must explain what changed from major and why `♭3` is labeled that way.
-- Mode identification (`M9`) — must explain what "major" and "minor" are being asked about, in plain terms, without assuming the user knows.
-- Chromatic degrees (`M11`) — must explain what a note "between" the familiar ones means and why it has a new label.
-- Prediction items (`M12`) — this one needs the most careful treatment, because the interaction is genuinely different: the user must understand they are meant to *imagine* the note before it plays. A worked example is not optional here; it is the only way this task is comprehensible.
+- Minor mode degree identification (`M10`) — what changed from major, and why `♭3` is labeled that way.
+- Mode identification (`M9`) — what "major" and "minor" are being asked about, in plain terms, without assuming the user knows.
+- Chromatic degrees (`M11`) — what a note "between" the familiar ones means, and why it has a new label.
+- Prediction items (`M12`) — the hardest of the four, because the interaction is genuinely different: the user has to understand they are meant to *imagine* the note before it plays. A worked example is what makes this one comprehensible at all; a description of it does not.
 
 ### 5.2 The degree ladder in minor and chromatic contexts
 
@@ -218,39 +218,7 @@ Small, self-contained, independent of everything above.
 
 ---
 
-## 7. Build plan
-
-Same discipline as `09-BUILD-PLAN.md`: sequential stages, each ending in a **STOP** gate with a delta report. Same verification standard — production-wiring traces, not just passing tests.
-
-| Stage | Content | Key acceptance criteria |
-|---|---|---|
-| 2.0 | Engine generalization: mode as parameter, variable answer alphabet, skill-specific axes | All Phase 1 tests still pass unchanged. Determinism holds. No behavior change to `M2`. |
-| 2.1 | Data export | Exported JSON round-trips to identical state when parsed. `amusia_indicator_flag` absent. Works offline. |
-| 2.2 | `M9` mode identification + explanation screen | d-prime scoring correct. Explanation screen with worked example present and reachable. |
-| 2.3 | `M10` minor mode, sets 1–4 + explanation screen | Cadence-fade mechanic works identically to `M2`. Minor cadence renders correctly at all 8 fade levels. |
-| 2.4 | `M10` natural/harmonic/melodic + independence check | Degree labeling consistent across all three minor forms. |
-| 2.5 | `M11` chromatic degrees | New per-degree mastery criterion enforced. Ladder legible at 12 positions (or redesigned). |
-| 2.6 | `M12` prediction items + explanation screen | New item type and screen. d-prime scoring. Gap indicator creates no time pressure. |
-| 2.7 | `M10.MIXED_MODE` interleaving | Mode randomized and unannounced pre-answer, stated post-answer. |
-| 2.8 | Hardening + full-phase acceptance | All Phase 1 criteria still met. New simulations for every new node type. |
-
-**Stage 2.0 is the risky one.** Generalizing the engine while keeping every Phase 1 behavior byte-identical is exactly the kind of change that silently breaks things — the determinism race in Phase 1 came from a similar "small, safe" refactor. Treat Stage 2.0's acceptance criterion ("no behavior change to `M2`") as literal: same seeds must produce the same items before and after.
-
-### Required simulations (extends `10-TESTING.md` §5)
-
-Each new node type needs a simulated learner, matching the Phase 1 pattern:
-
-1. Mode-identification learner: competent, masters `M9`.
-2. Mode-deaf learner: at chance on `M9.MODE_ID_TRIAD`, correctly never certified.
-3. Minor learner: masters `M10` including the independence check.
-4. Major-only learner: masters `M2`, at chance on `M10.MIXED_MODE` — confirms mixed-mode genuinely tests something `M2` alone does not.
-5. Chromatic learner: masters `M11`, with the per-degree criterion verified to block a learner who is at chance on the newly added degree specifically.
-6. Prediction learner: masters `M12` at `PREDICT_GAP` ≥ 2.
-7. Biased prediction responder: always answers `MATCHED`. Must never be certified — this is the d-prime check.
-
----
-
-## 8. Open questions requiring a decision before Stage 2.0
+## 8. Decisions and findings
 
 **All four were decided by the maintainer on 2026-08-20, before Stage 2.0 began. The decisions are recorded below and are binding; the original questions are kept so the reasoning stays legible.**
 

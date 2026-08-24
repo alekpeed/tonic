@@ -16,7 +16,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * docs/40-PHASE-4-SPEC.md §9, Stage 4.2: "All 8 `METRONOME_FADE` levels render correctly."
+ * docs/40-PHASE-4-SPEC.md, Stage 4.2: "All 8 `METRONOME_FADE` levels render correctly."
  *
  * `MetronomePlannerTest` establishes that each level plans the right clicks; these establish that the
  * plan reaches the audio. The two are separate on purpose — a renderer that silently dropped the

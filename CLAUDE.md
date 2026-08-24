@@ -26,55 +26,67 @@ A desktop (Ubuntu) build is a **future** consideration. It is not in scope now, 
 
 ---
 
-## 2. Phase discipline (hard rule)
+## 2. Working rules
 
-The build is phased. The current phase is defined in `docs/09-BUILD-PLAN.md`.
+The build is phased; `docs/09-BUILD-PLAN.md` records what each phase delivered. Phases 1–3 are built.
+Phase 4 (rhythm) is built through compound meter, meter change and the independence check; its
+hardening pass and every device measurement it owes are outstanding.
 
-Phases 1, 2 and 3 are built. Phase 1 shipped Module 0 (Diagnostic) and Module 2 (Diatonic Functional
-Recognition); Phase 2 added M9 mode identification, M10 minor, M11 chromatic degrees, M12 audiation
-and data export; Phase 3 added the optional sung response across M2, M10, M11 and M12. **Phase 3's
-code is complete and green, but its acceptance is not: every measurement it owes needs a device.** See
-`docs/21-HANDOFF.md` §3 before treating any of it as finished.
+**Default mode: build it, test that it works, move on.** No stage gates, no per-stage delta reports, no
+waiting for approval between stages. Work continuously through a phase. Ask only on a genuine design
+decision or when something is actually broken.
 
-**Phase 4 is specified in `docs/40-PHASE-4-SPEC.md` and has not been started** — rule 3 below governs
-that, and writing a spec is not the instruction rule 3 requires. Its Stage 4.0 is additionally blocked
-on an open question Phase 3 left unanswered (Oboe vs `AudioTrack`); `21-HANDOFF.md` §9 is the bridge.
+These four are kept because each caught a real bug:
 
-See `docs/09-BUILD-PLAN.md` "Where the build actually is" for per-phase state, including what
-"built and green" does not cover.
+1. **Determinism is non-negotiable.** The same seed and state produce the same output, byte for byte,
+   on every run and every device. See §5.
+2. **A feature is not done until production code calls it.** Check that it is reachable, not just that
+   it exists and passes tests. `ProductionGate` was complete, correct and never invoked; the
+   microphone was bound to an "unavailable" stub for three stages; `PlaybackTimebaseSource` was never
+   bound at all. Each looked finished.
+3. **Any axis that removes support or increases required retention moves one level at a time.**
+   `CADENCE_FADE`, `METRONOME_FADE`, `PREDICT_GAP`. Skipping a level does not make an item harder, it
+   makes it unanswerable.
+4. **Audio changes need a listening pass on a real device.** Nothing on the JVM can tell you whether a
+   timbre is pitch-ambiguous or a metronome is playable-along-with.
 
-Rules:
+Two standing constraints that are not process:
 
-1. Build only what the current phase specifies. Do not implement later modules "while you're in there."
-2. At every checkpoint marked **STOP** in `09-BUILD-PLAN.md`, halt, report what was built, report what was verified, and wait for explicit approval before continuing.
-3. Do not start a new phase without an explicit affirmative instruction in chat.
-4. If a spec is ambiguous or a decision is required that is not covered by these documents, **stop and ask**. Do not guess and proceed.
-5. Reserved identifiers for unbuilt modules (M3–M6, M8) exist in `docs/03-CURRICULUM.md` §6. Define the enum/ID constants so the schema is stable, but leave the implementations unbuilt. Two of them — `M8.MINOR_MODE` and `M8.CHROMATIC_DEGREES` — are dead rather than pending, since Phase 2 shipped that work as M10 and M11; they are kept unreused, never repointed. M7 does not exist and its number is retired (`docs/02-PEDAGOGY.md` §9).
+- Reserved identifiers for unbuilt modules (M4–M6, M8) exist in `docs/03-CURRICULUM.md` §6. Define the
+  enum/ID constants so the schema is stable; leave the implementations unbuilt. `M8.MINOR_MODE` and
+  `M8.CHROMATIC_DEGREES` are dead rather than pending — Phase 2 shipped that work as M10 and M11 — and
+  are kept unreused, never repointed. M7 does not exist and its number is retired
+  (`docs/02-PEDAGOGY.md` §9).
+- Do not implement later modules "while you're in there."
 
 ---
 
 ## 3. Document map
 
-| File | Authority over |
+**`CLAUDE.md` is the only file in this repository that contains instructions.** Everything below is
+reference: design reasoning, decisions and open questions. If one of them reads as an order, it is
+stale — this file wins.
+
+| File | Covers |
 |---|---|
-| `CLAUDE.md` | Everything. Conventions, prohibitions, phase discipline |
 | `docs/01-PRODUCT-SPEC.md` | Scope, non-goals, success criteria |
-| `docs/02-PEDAGOGY.md` | Method. Non-negotiable teaching rules the code must honor |
-| `docs/03-CURRICULUM.md` | Skill graph, item generation rules, mastery criteria |
+| `docs/02-PEDAGOGY.md` | Method. The teaching rules the code honors |
+| `docs/03-CURRICULUM.md` | Skill graph, item generation, mastery criteria |
 | `docs/04-ARCHITECTURE.md` | Module boundaries, layering, dependency rules |
 | `docs/05-DATA-MODEL.md` | Room schema, DataStore keys, migrations |
 | `docs/06-AUDIO-ENGINE.md` | Synthesis, timbres, scheduling, tuning |
 | `docs/07-ADAPTIVE-ENGINE.md` | Staircase, spaced repetition, mastery, remediation |
 | `docs/08-UI-SPEC.md` | Screens, widgets, states, accessibility |
-| `docs/09-BUILD-PLAN.md` | Phase order, acceptance criteria, STOP gates |
-| `docs/10-TESTING.md` | Test strategy and determinism requirements |
+| `docs/09-BUILD-PLAN.md` | Record of what was built, in what order |
+| `docs/10-TESTING.md` | Test strategy, determinism, the four simulations |
 | `docs/11-ONBOARDING-CLARITY.md` | In-app explanation standard. Wins over `08` on any explanation detail |
-| `docs/20-PHASE-2-SPEC.md` | Phase 2: minor, chromatic, audiation, export. §3 defines M9–M12; §8 records decisions and per-stage findings |
-| `docs/21-HANDOFF.md` | Working notes, not authority. A dated snapshot — check its claims against the repo before relying on them |
-| `docs/30-PHASE-3-SPEC.md` | Phase 3: optional sung response. Built; §5.5 and §9 carry its measurements and open questions |
-| `docs/40-PHASE-4-SPEC.md` | Phase 4: rhythm (M3). Specified, unbuilt. First phase to require timed production |
+| `docs/20-PHASE-2-SPEC.md` | Minor, chromatic, audiation, export. §3 defines M9–M12; §8 records decisions |
+| `docs/21-HANDOFF.md` | Working notes, not authority. A dated snapshot — check its claims against the repo |
+| `docs/30-PHASE-3-SPEC.md` | Optional sung response. §5.5 and §9 carry its measurements and open questions |
+| `docs/40-PHASE-4-SPEC.md` | Rhythm (M3). §7.6 lists what is not built; §10 the open questions |
 
-If you change behavior that a document describes, update that document in the same commit. Documents that disagree with the code are worse than no documents.
+Update a document when a **design decision** changes. Not for implementation details, and not to
+record that something was built.
 
 ---
 
@@ -179,7 +191,7 @@ Do not, without explicit chat approval:
 - **Never report green without a source, and the only source is a CI run.** Name it: the workflow run
   and its conclusion. "It should pass" is not a report, module tests are not the gate, and a change
   that has not been through CI is unverified — say so rather than implying otherwise.
-- When you finish a phase, produce a short delta report: files added, decisions made, deviations from spec (with reasons), open questions.
+- One short summary at the end of a phase: what was built, what was decided, what is still open. Not per stage.
 - Do not claim something works if you have not run it.
 
 ---

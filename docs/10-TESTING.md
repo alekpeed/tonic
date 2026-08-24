@@ -77,15 +77,24 @@ Test the adaptive engine against **simulated learners** with known properties. T
 
 Build a `SimulatedResponder` with a configurable psychometric function: probability of a correct answer as a function of difficulty level, plus a configurable bias and lapse rate.
 
-Required simulations:
+Four simulations are kept, each because it maps to a failure this project has actually had. The
+others — an improving learner, a plateaued learner, a ninety-day retention horizon — were specified
+and never caught anything.
 
-1. **Staircase convergence.** Responder with a known 70.7% point. Assert the staircase converges near it. Report the measured value.
-2. **Improving learner.** Responder whose ability rises over 500 items. Assert axis levels advance, mastery is eventually reached, and progression is monotonic-ish without thrashing.
-3. **Plateaued learner.** Ability fixed mid-range. Assert the engine stabilizes rather than oscillating, and that mastery is *not* falsely granted.
-4. **Struggling learner.** Ability low. Assert the 60%-accuracy safety valve fires, difficulty drops, and the user is never trapped in an unwinnable state.
-5. **Biased responder.** Always answers "1". Assert mastery is never granted and the confusion tracker identifies the pattern.
-6. **Cadence-dependent learner.** High accuracy at fade L0–L3, chance at L6. Assert `M2.INDEPENDENCE_CHECK` fails and the fade axis is lowered. **This simulation directly tests the app's central pedagogical claim** — if it passes a learner who cannot function without the crutch, the app is broken in exactly the way competing apps are broken.
-7. **Long-horizon retention.** Simulated learner over 90 days of sessions with forgetting. Assert FSRS scheduling produces sensible review intervals and mastered nodes do not decay unnoticed.
+1. **Staircase convergence.** Responder with a known 70.7% point; the staircase should converge near
+   it, and the measured value gets reported. This is the check that surfaced Phase 1's determinism
+   race, where the engine adapted against state it had not finished writing.
+2. **Struggling learner.** Ability low. The 60% safety valve fires, difficulty drops, and the learner
+   is never trapped in an unwinnable state. That last property is not hypothetical: `M3.DOWNBEAT`
+   shipped in Phase 4 as a node whose question had no answer in the audio, and a learner routed to it
+   would have been stuck there permanently.
+3. **Biased responder.** Always answers "1". Mastery is never granted and the confusion tracker names
+   the pattern. This is why `D_PRIME` exists for the binary-answer nodes: on a two-choice task raw
+   accuracy cannot tell a learner who hears the distinction from one who found a lucky habit.
+4. **Cadence-dependent learner.** High accuracy at fade L0–L3, chance at L6; `M2.INDEPENDENCE_CHECK`
+   fails and the fade axis drops. **This tests the app's central pedagogical claim** — if it passes a
+   learner who cannot function without the crutch, the app is broken in exactly the way competing apps
+   are. `M3.INDEPENDENCE_CHECK` is the same test for rhythm.
 
 These simulations are the primary evidence that the engine is correct. Treat their output as a report, not just a pass/fail.
 
@@ -135,9 +144,10 @@ This is not stylistic pedantry. `02-PEDAGOGY.md` §8 makes the language constrai
 - Do not test Compose internals, Room internals, or the framework.
 - Do not write tests that assert implementation details of pure functions (which private helper was called). Assert behavior.
 
-## 11. Manual test checklist (per stage gate)
+## 11. What only a device can tell you
 
-Run on a real mid-range device, with headphones:
+No amount of JVM testing settles these, and they are the standing gap in this project. On a real
+mid-range device, with headphones:
 
 - [ ] All four timbres, full register — pitch clear, loudness matched, no clicks
 - [ ] All eight cadence-fade levels sound as intended

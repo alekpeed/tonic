@@ -6,7 +6,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
- * docs/40-PHASE-4-SPEC.md §9's Stage 4.2 acceptance, in as many words: "All 8 `METRONOME_FADE` levels
+ * docs/40-PHASE-4-SPEC.md's Stage 4.2 acceptance, in as many words: "All 8 `METRONOME_FADE` levels
  * render correctly."
  *
  * Every level gets its own assertion rather than a loop over a table, because the table *is* the

@@ -211,12 +211,12 @@ microphone, so none of them could reveal it. **A stage is not done when its test
 when a person can get to it.** Later stages should state the route a learner takes to the thing being
 built, and check it.
 
-### 6.2 Explanation and worked example (mandatory)
+### 6.2 Explanation and worked example
 
-Per `11-ONBOARDING-CLARITY.md` §1 and §4, before the first sung item:
+What the sung-response introduction covers, before the first sung item:
 
-1. Plain explanation of what will happen and what to do.
-2. **A worked example** — this is not optional and is harder here than elsewhere. The user needs to hear an example of a sung answer being accepted, and understand that approximate is fine.
+1. A plain explanation of what will happen and what to do.
+2. A worked example. Harder here than elsewhere: the user needs to hear a sung answer being accepted, and to understand that approximate is fine.
 3. Explicit statement that singing quality is not being judged, only which note you aimed for.
 4. Dismiss and start. Recallable later via the same help affordance.
 
@@ -250,36 +250,7 @@ Extends `05-DATA-MODEL.md`.
 - Settings gain `sung_response_enabled: Boolean` (default `false`) and `sung_octave_agnostic: Boolean` (default `true`).
 - **No raw audio is ever persisted.** Captured audio exists in memory for the duration of one attempt and is discarded. Nothing recorded, nothing cached, nothing exported.
 
-## 8. Build plan
-
-| Stage | Content | Key acceptance criteria |
-|---|---|---|
-| 3.0 | Mic capture + pitch detection, headless | Detection accurate to within a semitone on synthetic and recorded test signals. Runs off main thread. No dropouts. Report measured latency and CPU. **Code complete 2026-08-22** (`AudioRecordMicrophoneSource`, bound in `AudioBindingsModule`); ⚠️ every measurement in this row is still owed and needs a device |
-| 3.1 | Scoring pipeline (§5.2) | Scooping tolerated. "Unclear" never scores as wrong. Ambiguity-band decision implemented per §5.2. Octave-agnostic verified. |
-| 3.2 | Permission flow + explanation + worked example | Full app functionality with permission denied. Explanation reachable. Copy meets `11-ONBOARDING-CLARITY.md` §9.4. **Built 2026-08-22** — the opt-in, its explanation and the request live in `SungResponseSection`; `SungResponseSectionTest` pins the explanation-before-request ordering |
-| 3.3 | Sung response in `M2` | Tap-only path fully unaffected. Sung and tapped attempts share one `SkillState`. Fallback-to-tap always available. |
-| 3.4 | Sung prediction in `M12` | Sung answer captured during the gap, before the target plays. Cannot be gamed by guessing. **Built 2026-08-22** — see §5.4's four implementation decisions |
-| 3.5 | `M10` and `M11` | Chromatic tolerance bands verified not to produce systematic misreads. **Measured 2026-08-22** — bands reported in §5.5; no misread occurs before the unclear band on any node. `M10`/`M11` need no new wiring: both generate `FunctionalRecognitionItem`, so Stage 3.3's path already serves them |
-| 3.6 | Hardening + acceptance | Every Phase 1/2 criterion still met. No audio persisted. `sungCents` provably unread by the engine. **Built 2026-08-22** — the second and third criteria are now enforced structurally by `NoAudioPersistedTest` and `SungDataNeverReachesTheEngineTest`; the first is the existing suites, which run unchanged |
-
-Same discipline throughout: STOP gate per stage, delta report with production-wiring traces, no starting the next stage until the current one is verified.
-
-### Required simulations (extends `10-TESTING.md` §5)
-
-1. **Accurate singer** — sings correct degrees within tolerance. Masters normally.
-2. **Consistently flat singer** — knows every answer, sings uniformly ~50 cents flat. **Must still master.** This is the single most important test in the phase; if it fails, the app is testing singing, not hearing.
-3. **Unclear-audio user** — mumbles/noise on a fraction of attempts. Those attempts must not enter the mastery window or the confusion matrix as wrong.
-4. **Tap-only user** — never grants mic permission. Must reach full mastery, including every independence check, identically to a Phase 2 user.
-5. **Mixed-input user** — alternates tapping and singing. Both feed one `SkillState` coherently; no double-counting, no split progression.
-6. **Guessing predictor (sung)** — sings random pitches on `M12`. Must never be certified.
-   ⚠️ Note what this does and does not prove once §5.4 is decided as *supplement*: sung pitches never
-   reach scoring, so a random singer who also guesses the button is refused by d-prime, which Phase 2
-   already establishes. The case actually at risk is the inverse — a learner **singing the named degree
-   perfectly and guessing the judgment**, who has not mastered a node whose whole question is the
-   comparison. `SungPredictionSimulationTest` runs both, plus a third check that perfect audiation
-   leaves a competent learner's mastery timeline identical item for item.
-
-## 9. Open questions before Stage 3.0
+## 9. Open questions
 
 1. **`AudioRecord` vs. Oboe/NDK** (§5.1) — decide with measurements, not assumption.
 2. ~~**Ambiguity-band handling** (§5.2) — re-prompt or confirm.~~ **Decided 2026-08-21: re-prompt, at a 10-cent margin.** See §5.2.

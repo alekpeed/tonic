@@ -28,7 +28,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * docs/30-PHASE-3-SPEC.md §8's required simulations 2, 4 and 5, run against the *real* resolver.
+ * docs/30-PHASE-3-SPEC.md's required simulations 2, 4 and 5, run against the *real* resolver.
  *
  * The distinction matters more here than anywhere else in the phase. A simulation that hands the
  * engine a boolean "correct" is only testing the engine; §3's risk is not in the engine, it is in the

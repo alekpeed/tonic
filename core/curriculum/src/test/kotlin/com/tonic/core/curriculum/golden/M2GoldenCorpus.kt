@@ -6,7 +6,7 @@ import com.tonic.core.curriculum.graph.SkillGraph
 import com.tonic.core.model.items.DifficultyAxis
 
 /**
- * The frozen record of what `M2` generation produced before Phase 2 began — docs/20-PHASE-2-SPEC.md §7,
+ * The frozen record of what `M2` generation produced before Phase 2 began — docs/20-PHASE-2-SPEC.md,
  * Stage 2.0: "same seeds must produce the same items before and after," treated as literal.
  *
  * Stage 2.0 threads [com.tonic.core.model.music.Mode] through the generator, widens the answer alphabet

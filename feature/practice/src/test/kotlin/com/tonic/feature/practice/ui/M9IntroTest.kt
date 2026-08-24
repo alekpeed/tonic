@@ -18,7 +18,7 @@ import kotlin.test.assertTrue
 
 /**
  * Stage 2.2's second acceptance criterion — "explanation screen with worked example present and
- * reachable" (docs/20-PHASE-2-SPEC.md §7) — held to docs/08-UI-SPEC.md §3a's actual requirements
+ * reachable" (docs/20-PHASE-2-SPEC.md) — held to docs/08-UI-SPEC.md §3a's actual requirements
  * rather than to the existence of a file.
  */
 @RunWith(AndroidJUnit4::class)

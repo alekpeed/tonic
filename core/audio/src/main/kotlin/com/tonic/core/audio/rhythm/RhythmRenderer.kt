@@ -14,7 +14,7 @@ import com.tonic.core.model.rhythm.Tempo
 import kotlin.math.roundToInt
 
 /**
- * Renders a rhythm item to PCM — docs/40-PHASE-4-SPEC.md §9, Stage 4.2: "All 8 `METRONOME_FADE` levels
+ * Renders a rhythm item to PCM — docs/40-PHASE-4-SPEC.md, Stage 4.2: "All 8 `METRONOME_FADE` levels
  * render correctly."
  *
  * **Mixed onto one timeline, not concatenated.** Every other renderer in this project lays sounds end

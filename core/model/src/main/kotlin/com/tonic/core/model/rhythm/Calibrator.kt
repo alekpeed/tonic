@@ -149,7 +149,7 @@ public object Calibrator {
      * which means the taps were attributed to the wrong beats and the constant is a beat's worth of
      * nonsense.
      *
-     * ⚠️ **All three numbers are reasoned, not measured.** docs/40-PHASE-4-SPEC.md §9's Stage 4.1 row
+     * ⚠️ **All three numbers are reasoned, not measured.** docs/40-PHASE-4-SPEC.md's Stage 4.1 row
      * asks for a median that is "stable across repeated runs on one device," and until someone runs it
      * on hardware these are bounds on plausibility rather than observations of it. What would move them
      * is a real device producing a legitimate constant this rejects.

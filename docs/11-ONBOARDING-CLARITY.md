@@ -39,10 +39,6 @@ This supersedes and expands `08-UI-SPEC.md` §3a with concrete required copy con
 5. **One worked, playable example**, narrated end to end: play the reference, play a target note, show which button is correct and why, in real audio, before asking the user to answer anything themselves.
 6. A single **"Start"** button. No comprehension check, no forced repeat viewing.
 
-## 4. Every future module gets the same treatment before it ships
-
-This is not a one-time patch for Module 2. Before any future module (rhythm, dictation, harmony) plays its first exercise for a first-time user, it must have gone through the same three-step standard in §1, with content specific to that module's mechanic. This requirement is now permanent and belongs in `09-BUILD-PLAN.md`'s acceptance criteria for every future-phase stage that introduces a new exercise type — no stage introducing a new task shape is complete without its explanation screen and worked example.
-
 ## 5. Re-entry and recall
 
 The explanation is shown automatically **every time the learner enters that exercise type** — see `08-UI-SPEC.md` §3a for what "enters" means and why this replaced an earlier once-ever rule. Within a type already entered it does not repeat between items. Alongside that:
@@ -52,64 +48,7 @@ The explanation is shown automatically **every time the learner enters that exer
 - Recall shows the explanation for the exercise currently on screen — decided by the node the user is actually on, never by whichever explanation the session happened to open with.
 - Nothing persistent gates a module's explanation. It is not "used up," so there is no state to clear and no way for it to become unreachable. (The sung-response explanation is the one exception: it describes a way of *answering* rather than a module, is reached only by opting in, and so keeps a once-ever flag.)
 
-## 6. Answer-button labeling: reconsider the bare numbers
-
-**Resolved 2026-08-20, and not yet built.** The decision is recorded in `20-PHASE-2-SPEC.md` §8.1,
-decision 2: the numeral stays the canonical label, and each button carries a small persistent subtitle
-for the first N sessions after its degree set is unlocked, then drops it. Relationship phrases ("Home,"
-"Up a bit") were rejected because no honest phrasing separates `♯4` from `4` and `5`, so they collapse
-at exactly the point Phase 2 needed them; solfège-as-default was rejected because chromatic solfège
-(`di, ri, fi, se, le, te`) is *more* foreign to a beginner than `♭6`, not less.
-
-**Implementation status: none.** The ladder still renders one bare label per button. The only trace in
-the codebase is a note in `ScaleDegree`'s KDoc saying that fading semantic subtitles belong in
-`:core:ui` — where nothing implements them. This is a binding decision with no code behind it, and
-Phase 2 shipped the twelve-position ladder that §8.1 argued makes bare numerals worst.
-
-The original framing of the question is kept below, because the reasoning is what makes the decision
-legible.
-
----
-
-`08-UI-SPEC.md` §3 specifies numbers (1, 3, 5, ...) as the default label on the degree ladder, with solfège as an alternate. That default was put in question, not settled, by the following.
-
-The problem observed directly in real use: even with a full explanation, bare numerals on buttons carry no inherent meaning to a first-time user until they've internalized what those numbers refer to — and that internalization is exactly the thing not yet built on first contact. Bare numerals may be the *right* label once the mapping is second nature, while being actively counterproductive on the first several sessions.
-
-**Requirement:** the button labels — or a persistent, unobtrusive annotation near them — should carry semantic meaning on early encounters, not just positional numbers. Options worth considering, to be resolved in an `08-UI-SPEC.md` revision:
-
-- Labels that state relationship directly on first exposure, e.g. "Home," "Up a bit," "Up more" — fading to bare numbers once a mastery threshold is hit within a skill node.
-- A persistent small subtitle under each numeral for the first N sessions of a newly-unlocked degree set, then removed.
-- Solfège as the earlier default rather than numbers, since "do" carries an inherent "home" connotation that "1" does not, for a user without a lifetime of counting-based musical habit.
-
-This was flagged as an open design decision, to be resolved in its own pass, because it changes a settled part of `08-UI-SPEC.md` and deserves its own consideration rather than being bundled into another fix silently. It was resolved that way — see the header above.
-
-## 7. What "shippable" actually implies for this spec
-
-Concretely, holding the app to a real shipping standard means:
-
-- No exercise ships without passing the three-step standard in §1, verified by someone who has never seen the app pressing "start" cold and being able to complete the first item correctly without external help.
-- The explanation and worked example are treated as core product surface, not optional polish — they get the same design attention as the exercise itself, not a bolted-on tooltip.
-- "The user can technically figure it out with effort" is not the bar. The bar is: a reasonably attentive user gets it from the explanation and the one worked example, without needing to ask anyone anything.
-
-## 8. Immediate required fixes, in priority order
-
-**All five were completed during Phase 1 and this section is discharged.** It is kept as the record of
-what was wrong and in what order it had to be fixed, because the ordering argument — that copy layered
-on an unanswerable question does not make the question answerable — is the reusable part. The standing
-requirements those fixes were built to satisfy live in §1–§7 and §9, which remain in force for every
-future module.
-
-Found through direct use, not theoretical review. Fix in this order — later items assume earlier ones are done, and building copy/UI on top of an unfixed lower-numbered item wastes the work:
-
-1. **`CADENCE_FADE` step-size correction and the L1/warmup consequences (`07-ADAPTIVE-ENGINE.md` §2a).** This is the actual root cause of the worst incident on record — a user stranded at an audibly ambiguous difficulty level. Fix this first; an explanation layered on top of an unanswerable question does not make the question answerable.
-2. **Diagnostic runtime and progress indicator (§9.2).** Measure actual runtime against the 6-minute target; fix early-termination if it isn't firing; replace the ambiguous progress bar with an honest sub-test counter.
-3. **Stage labeling and transition announcement (§9.1).** Every screen states what stage it's in. Moving from calibration to practice is announced, not silent.
-4. **Silent difficulty/axis changes, including warmup transitions (§9.3).** Any change to the reference structure, active degree set, or other axis — including the scheduled warmup-to-normal transition at item 6 — is announced on screen when it happens, in plain forward-progress language.
-5. **Module 2 explanation screen with worked example (§3).**
-
-Nothing else gets worked on until all five of these are done. A first-time user must be able to sit down, always know what stage they're in, always know how much of the diagnostic remains, always be told when the exercise changes shape, always have a real means of answering whatever is currently on screen, and correctly answer the first real item without outside help.
-
-## 9. Always-on labeling and progress transparency (mandatory, currently missing)
+## 9. Always-on labeling and progress transparency
 
 **Gap on record, found through direct use:** a user moved from the diagnostic through several sub-tests into live practice with no screen ever stating which stage they were in, the diagnostic ran far longer than its own spec target with no visible indication of why or how much remained, and the difficulty system silently changed the reference structure mid-session with zero on-screen signal — a change that, per `07-ADAPTIVE-ENGINE.md` §2a, was also a genuine pacing bug and not merely an announcement gap. None of this is acceptable, and none of it requires relitigating the method — it requires the app to say what is happening, at all times, in plain terms, and to only ever put the user in front of a question they have a real means of answering.
 

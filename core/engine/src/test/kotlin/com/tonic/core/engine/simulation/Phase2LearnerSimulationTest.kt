@@ -11,7 +11,7 @@ import kotlin.test.Test
 import kotlin.test.assertTrue
 
 /**
- * docs/20-PHASE-2-SPEC.md §7's seven required simulations, in order, one test each.
+ * docs/20-PHASE-2-SPEC.md's seven required simulations, in order, one test each.
  *
  * The Phase 1 pattern these follow (docs/10-TESTING.md §5) is worth restating, because it is what
  * makes them worth having: a simulated learner with a *known* property is run through the real

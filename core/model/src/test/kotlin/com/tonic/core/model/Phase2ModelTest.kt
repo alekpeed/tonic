@@ -21,7 +21,7 @@ import kotlin.test.assertTrue
 /**
  * The capability Stage 2.0 adds, tested on its own terms. The golden corpus proves Stage 2.0 changed
  * nothing about `M2`; this proves the new surface is actually correct rather than merely present, so
- * Stages 2.2–2.6 build on something verified (docs/20-PHASE-2-SPEC.md §7).
+ * Stages 2.2–2.6 build on something verified (docs/20-PHASE-2-SPEC.md).
  */
 class Phase2ModelTest {
     @Test

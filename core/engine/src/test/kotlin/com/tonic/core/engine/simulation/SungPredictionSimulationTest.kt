@@ -7,7 +7,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * docs/30-PHASE-3-SPEC.md §8's required simulation 6 — the guessing predictor, sung.
+ * docs/30-PHASE-3-SPEC.md's required simulation 6 — the guessing predictor, sung.
  *
  * The spec asks for a learner who "sings random pitches on `M12`" and requires that they are never
  * certified. Under §5.4's decision that the sung prediction *supplements* the button rather than

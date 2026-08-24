@@ -47,7 +47,7 @@ what is or is not built.
 
 `02-PEDAGOGY.md` is the document to internalize. It is the reason the app exists and the source of every constraint that will look arbitrary from inside the code.
 
-**Then, per stage:** `09-BUILD-PLAN.md` names the stage; that stage's acceptance criteria name the documents that govern it.
+`09-BUILD-PLAN.md` records what each phase delivered, and is where a stage number cited in a source comment can be looked up.
 
 ## Authority order
 

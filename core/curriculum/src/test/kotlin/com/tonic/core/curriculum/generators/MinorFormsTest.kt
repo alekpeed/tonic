@@ -10,7 +10,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * Stage 2.4's acceptance criterion — docs/20-PHASE-2-SPEC.md §7: "degree labeling consistent across all
+ * Stage 2.4's acceptance criterion — docs/20-PHASE-2-SPEC.md: "degree labeling consistent across all
  * three minor forms."
  *
  * That sentence is the whole reason §2.1 chose to treat harmonic and melodic minor as *alterations of
