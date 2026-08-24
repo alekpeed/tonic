@@ -70,7 +70,16 @@ object M3ItemGenerator {
         val tempoBpm = if (random.nextBoolean()) slow else fast
 
         val density = level(DifficultyAxis.RHYTHMIC_DENSITY)
-        val fade = MetronomeFadeLevel.fromLevel(level(DifficultyAxis.METRONOME_FADE))
+        // The check runs at a fixed fade whatever the learner's axis says - §5.1: "30 production items
+        // at METRONOME_FADE L6". That is the whole assessment: two beats of count-in and then nothing,
+        // two levels above what mastery required, so a learner who leaned on a long count-in to get
+        // here still has to keep the pulse alone now.
+        val fade =
+            if (skill == SkillIds.M3_INDEPENDENCE_CHECK) {
+                MetronomeFadeLevel.fromLevel(MetronomeFadeLevel.INDEPENDENCE_CHECK_LEVEL)
+            } else {
+                MetronomeFadeLevel.fromLevel(level(DifficultyAxis.METRONOME_FADE))
+            }
 
         // M3.DOWNBEAT is the one node whose pattern and whose question share a secret: how far into
         // the bar playback begins. Drawn once, here, and used by both. Drawing it inside the question
@@ -325,7 +334,7 @@ object M3ItemGenerator {
                     withRests(subdivide(beatTicks, parts = 4, densityLevel, random), random)
 
                 // Emphasis off the beat: the beat itself is missing where the ear expects it.
-                SkillIds.M3_SYNCOPATION_RECOG, SkillIds.M3_SYNCOPATION ->
+                SkillIds.M3_SYNCOPATION_RECOG, SkillIds.M3_SYNCOPATION, SkillIds.M3_INDEPENDENCE_CHECK ->
                     syncopate(beatTicks, meter, random)
 
                 else ->

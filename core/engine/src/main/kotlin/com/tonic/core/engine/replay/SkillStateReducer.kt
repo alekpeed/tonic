@@ -6,12 +6,14 @@ import com.tonic.core.engine.mastery.BinaryMasteryEvaluator
 import com.tonic.core.engine.mastery.IndependenceCheck
 import com.tonic.core.engine.mastery.MasteryEvaluator
 import com.tonic.core.engine.mastery.PredictionMasteryEvaluator
+import com.tonic.core.engine.mastery.RhythmIndependenceCheck
 import com.tonic.core.engine.mastery.RhythmMasteryEvaluator
 import com.tonic.core.engine.mastery.RhythmProductionMasteryEvaluator
 import com.tonic.core.engine.scheduling.AxisScheduler
 import com.tonic.core.engine.scheduling.AxisSchedulerState
 import com.tonic.core.model.attempts.Attempt
 import com.tonic.core.model.ids.SkillId
+import com.tonic.core.model.ids.SkillIds
 import com.tonic.core.model.items.AnswerAlphabet
 import com.tonic.core.model.items.DifficultyAxis
 import com.tonic.core.model.state.FsrsGrade
@@ -97,10 +99,18 @@ object SkillStateReducer : SkillStateReplayer {
                 DifficultyAxis.Scope.RHYTHM -> {
                     val activeFigures = SkillGraph.activeFiguresFor(skillId)
                     return replayRhythm(skillId, real, chronological, totalAttempts, updatedAt) { window, levels ->
-                        if (SkillGraph.usesRecognitionMastery(skillId)) {
-                            RhythmMasteryEvaluator.evaluate(window, activeFigures, levels)
-                        } else {
-                            RhythmProductionMasteryEvaluator.evaluate(window, levels)
+                        when {
+                            // §5.1's capstone is pass-or-fail over 30 items at a fixed fade, not a
+                            // rolling window against six criteria. Judging it with the ordinary
+                            // production evaluator would let a learner "master" the check by being
+                            // good at the last thirty items rather than by passing it.
+                            skillId == SkillIds.M3_INDEPENDENCE_CHECK ->
+                                RhythmIndependenceCheck.evaluate(window).toVerdict()
+
+                            SkillGraph.usesRecognitionMastery(skillId) ->
+                                RhythmMasteryEvaluator.evaluate(window, activeFigures, levels)
+
+                            else -> RhythmProductionMasteryEvaluator.evaluate(window, levels)
                         }
                     }
                 }

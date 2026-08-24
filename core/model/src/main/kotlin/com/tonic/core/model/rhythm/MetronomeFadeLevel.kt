@@ -59,6 +59,15 @@ public enum class MetronomeFadeLevel(
         /** docs/40-PHASE-4-SPEC.md §5.3 criterion 4: a production node cannot master below this level. */
         public val MASTERY_MINIMUM: MetronomeFadeLevel = L4
 
+        /**
+         * Where `M3.INDEPENDENCE_CHECK` runs — docs/40-PHASE-4-SPEC.md §5.1.
+         *
+         * Two levels above [MASTERY_MINIMUM], and that gap is the check's entire reason to exist. L4
+         * and L5 still hand the learner a count-in, so the pulse they keep is one they were just
+         * given; [L6] gives two beats and then nothing.
+         */
+        public const val INDEPENDENCE_CHECK_LEVEL: Int = 6
+
         public fun fromLevel(level: Int): MetronomeFadeLevel =
             entries.find { it.level == level }
                 ?: throw IllegalArgumentException("Metronome fade level must be 0..7, was $level")
