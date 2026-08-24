@@ -85,4 +85,40 @@ class RhythmPatternTest {
             RhythmPattern(Meter.FOUR_FOUR, 1, listOf(-1, 0))
         }
     }
+
+    @Test
+    fun `a meter change moves where the bars start`() {
+        // M3.METER_CHANGE. The beat is the same length in both meters and only the grouping changes,
+        // so what a test has to pin is that the bar boundaries move and the beat grid does not.
+        val pattern =
+            RhythmPattern(
+                meter = Meter.FOUR_FOUR,
+                bars = 3,
+                onsetTicks = listOf(0, Meter.TICKS_PER_BEAT * 4, Meter.TICKS_PER_BEAT * 7),
+                changesTo = MeterChange(atBar = 1, meter = Meter.THREE_FOUR),
+            )
+
+        assertEquals(0, pattern.barStartTick(0))
+        assertEquals(Meter.TICKS_PER_BEAT * 4, pattern.barStartTick(1))
+        assertEquals(Meter.TICKS_PER_BEAT * 7, pattern.barStartTick(2))
+        assertEquals(Meter.TICKS_PER_BEAT * 10, pattern.totalTicks)
+
+        assertTrue(pattern.isDownbeat(Meter.TICKS_PER_BEAT * 7))
+        // Where a single modulus on the original meter would wrongly have put one.
+        assertFalse(pattern.isDownbeat(Meter.TICKS_PER_BEAT * 8))
+    }
+
+    @Test
+    fun `a change that never happens is refused`() {
+        val tooLate =
+            runCatching {
+                RhythmPattern(
+                    meter = Meter.FOUR_FOUR,
+                    bars = 2,
+                    onsetTicks = listOf(0),
+                    changesTo = MeterChange(atBar = 2, meter = Meter.THREE_FOUR),
+                )
+            }.exceptionOrNull()
+        assertTrue(tooLate is IllegalArgumentException, "got $tooLate")
+    }
 }
