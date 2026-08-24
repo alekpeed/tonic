@@ -32,8 +32,7 @@ class RhythmTrackTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
 
-    private fun rhythmFixture() =
-        PracticeFixture(AppSettings(module2IntroSeen = true), track = PracticeTrack.RHYTHM)
+    private fun rhythmFixture() = PracticeFixture(AppSettings(module2IntroSeen = true), PracticeTrack.RHYTHM)
 
     @Test
     fun `the rhythm track starts on a rhythm node, not a pitch one`() =
@@ -43,7 +42,9 @@ class RhythmTrackTest {
 
             val item =
                 withTimeout(TIMEOUT_MS) {
-                    fixture.viewModel.uiState.first { it.item != null }.item
+                    fixture.viewModel.uiState
+                        .first { it.item != null }
+                        .item
                 }
             assertTrue(item is Item.RhythmItem, "asked for rhythm and got ${item?.let { it::class.simpleName }}")
         }
@@ -58,7 +59,9 @@ class RhythmTrackTest {
 
             val item =
                 withTimeout(TIMEOUT_MS) {
-                    fixture.viewModel.uiState.first { it.item != null }.item
+                    fixture.viewModel.uiState
+                        .first { it.item != null }
+                        .item
                 }
             assertTrue(item is Item.FunctionalRecognitionItem)
         }
