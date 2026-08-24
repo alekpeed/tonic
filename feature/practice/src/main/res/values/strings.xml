@@ -206,7 +206,7 @@
     <string name="calibration_failed_interrupted">Something changed while we were measuring. Let\'s run that again.</string>
     <string name="calibration_blocked_bluetooth">Tapping exercises need wired headphones or your phone\'s own speaker. Bluetooth adds a delay that shifts around too much to measure. Everything else works as usual — switch over when you want to tap along.</string>
     <string name="calibration_blocked_route">This audio output isn\'t one we can time tapping against. Switch to wired headphones or your phone\'s speaker when you want to tap along.</string>
-    <string name="calibration_blocked_unknown">We can&apos;t tell where your sound is going just yet. Give it a moment &#8212; if this stays, try unplugging and reconnecting your headphones.</string>
+    <string name="calibration_blocked_unknown">We can\'t tell where your sound is going just yet. Give it a moment — if this stays, try unplugging and reconnecting your headphones.</string>
     <!-- Sung response explanation - docs/30-PHASE-3-SPEC.md §6.2. Plain words only: every term is
          one the learner already has, and the reassurance about not being judged is stated outright
          rather than implied, per docs/11-ONBOARDING-CLARITY.md §9.4. -->
