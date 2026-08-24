@@ -211,10 +211,13 @@ object M3ItemGenerator {
                 .map { (it - shift + total) % total }
                 .distinct()
                 .sorted()
-        // The rotated pattern must still open with a sound, for the same reason every other pattern
-        // does: a rhythm starting in silence asks the learner to guess where it began.
-        val anchored = (moved + 0).distinct().sorted()
-        return RhythmPattern(meter, pattern.bars, anchored)
+        // Deliberately *not* anchored with a sound at tick 0, unlike every other pattern here. This
+        // is a cyclic shift of a figure that repeats once a bar, and forcing an onset at the start
+        // adds a sound to the first bar that no other bar has - which destroys the period the learner
+        // is being asked to find. It also puts back exactly the cue rotation exists to remove: a
+        // pattern that always opens with a sound can be read off the start of the audio, and §3.4
+        // asks for the beat to be found in music that does not announce it.
+        return RhythmPattern(meter, pattern.bars, moved)
     }
 
     /**
