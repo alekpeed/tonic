@@ -441,11 +441,7 @@ object SkillGraph {
             rhythmChain.firstOrNull { node ->
                 node.id !in ROUTING_SUSPENDED &&
                     !mastered(node.id) &&
-                    // A suspended node satisfies the gates that name it. Without this the suspension
-                    // would not step over M3.DOWNBEAT, it would stop the chain dead at the node before
-                    // it: M3.BEAT_DIV_RECOG requires DOWNBEAT, DOWNBEAT can never be mastered because
-                    // nobody is ever sent to it, and every learner would practice M3.BEAT_FIND forever.
-                    gatesFor(node).all { gate -> gate in ROUTING_SUSPENDED || mastered(gate) }
+                    gatesFor(node).all { gate -> gateSatisfied(gate, mastered) }
             }
         return (open ?: rhythmChain.last()).id
     }
@@ -468,7 +464,7 @@ object SkillGraph {
             .lastOrNull { node ->
                 node.id !in ROUTING_SUSPENDED &&
                     rhythmModeFor(node.id) == RhythmMode.RECOGNITION &&
-                    gatesFor(node).all { gate -> gate in ROUTING_SUSPENDED || mastered(gate) }
+                    gatesFor(node).all { gate -> gateSatisfied(gate, mastered) }
             }?.id
 
     /**
@@ -490,6 +486,29 @@ object SkillGraph {
      * blocked behind one either.
      */
     val ROUTING_SUSPENDED: Set<SkillId> = setOf(SkillIds.M3_DOWNBEAT)
+
+    /**
+     * Whether a prerequisite is met, treating a suspended node as met *only if the work behind it is*.
+     *
+     * The recursion is the whole point and its absence was a real defect. A suspended node cannot be
+     * mastered, because nobody is ever sent to it, so its dependents have to be let through or the
+     * chain stops dead at the node before it. But letting them through unconditionally waives
+     * everything behind it too: `M3.BEAT_DIV_RECOG` gates on `M3.DOWNBEAT`, which gates on
+     * `M3.BEAT_FIND`, so a flat "suspended counts as met" opened `BEAT_DIV_RECOG` to a learner who had
+     * not mastered `BEAT_FIND` — the first node in the module. Suspending one node quietly unlocked
+     * the three after it.
+     *
+     * Terminates because `rhythmChain` is a chain: every gate points strictly backwards.
+     */
+    private fun gateSatisfied(
+        gate: SkillId,
+        mastered: (SkillId) -> Boolean,
+    ): Boolean {
+        if (mastered(gate)) return true
+        if (gate !in ROUTING_SUSPENDED) return false
+        val node = rhythmChain.firstOrNull { it.id == gate } ?: return false
+        return gatesFor(node).all { behind -> gateSatisfied(behind, mastered) }
+    }
 
     /**
      * Whether an `M3` node is heard or tapped — docs/40-PHASE-4-SPEC.md §5.1's Mode column.

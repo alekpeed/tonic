@@ -1,6 +1,7 @@
 package com.tonic.feature.practice.ui
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.tonic.core.curriculum.graph.SkillGraph
 import com.tonic.core.model.ids.SkillIds
 import com.tonic.core.model.rhythm.AudioOutputRoute
 import com.tonic.core.model.rhythm.BlockReason
@@ -112,16 +113,16 @@ class ProductionGateTest {
             val blocked =
                 withTimeout(TIMEOUT_MS) { fixture.viewModel.uiState.first { it.productionBlock != null } }
 
-            val alternative = blocked.recognitionAlternative
-            if (alternative == null) {
-                assertTrue(true, "nothing is open yet, and the screen offers no button")
-                return@runBlocking
-            }
+            // Nothing listening-shaped is open to a learner who has not mastered M3.BEAT_FIND: the
+            // first node in the module is a production node, and every recognition node sits behind
+            // it. So the honest answer is that there is no alternative to offer yet, and the screen
+            // shows no button rather than one that leads nowhere.
+            assertNull(blocked.recognitionAlternative)
 
-            assertEquals(SkillIds.M3_DOWNBEAT, alternative, "the most advanced open listening node")
-            fixture.viewModel.onPracticeRecognitionInstead()
-            val running = withTimeout(TIMEOUT_MS) { fixture.viewModel.uiState.first { it.item != null } }
-            assertNull(running.productionBlock)
+            // Once the first node is done, the offer becomes real. M3.DOWNBEAT is suspended - it
+            // cannot be answered - so the most advanced open listening node is the one after it.
+            val later = SkillGraph.currentRhythmRecognitionNodeFor { it == SkillIds.M3_BEAT_FIND }
+            assertEquals(SkillIds.M3_BEAT_DIV_RECOG, later)
         }
 
     private companion object {

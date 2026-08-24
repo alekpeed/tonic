@@ -4,6 +4,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.tonic.core.curriculum.graph.SkillGraph
 import com.tonic.core.model.ids.SkillIds
 import com.tonic.core.model.items.Item
+import com.tonic.core.model.rhythm.RhythmCalibration
+import com.tonic.core.model.rhythm.RhythmCalibrations
 import com.tonic.core.model.rhythm.RhythmQuestion
 import com.tonic.core.model.state.AppSettings
 import com.tonic.core.model.state.PracticeTrack
@@ -32,7 +34,22 @@ class RhythmTrackTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
 
-    private fun rhythmFixture() = PracticeFixture(AppSettings(module2IntroSeen = true), track = PracticeTrack.RHYTHM)
+    /**
+     * Calibrated, because since the production gate landed an uncalibrated learner never reaches a
+     * rhythm item at all — which is the point of that gate and would make every test below wait
+     * forever for a session that is deliberately refused.
+     */
+    private fun rhythmFixture() =
+        PracticeFixture(
+            AppSettings(
+                module2IntroSeen = true,
+                rhythmCalibrations =
+                    RhythmCalibrations(
+                        speaker = RhythmCalibration(offsetMs = 30.0, spreadMs = 10.0, tapsUsed = 12),
+                    ),
+            ),
+            track = PracticeTrack.RHYTHM,
+        )
 
     @Test
     fun `the rhythm track starts on a rhythm node, not a pitch one`() =
