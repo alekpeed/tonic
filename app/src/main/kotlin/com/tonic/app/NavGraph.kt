@@ -190,9 +190,11 @@ fun TonicNavGraph(navController: NavHostController = rememberNavController()) {
                 onOpenCalibration = { navController.navigate(TonicRoute.Calibration.route) },
                 // Debug-only, and a no-op in a release build because the section that fires it is
                 // compiled out. Straight into practice on the seeded node - that is what a "jump to
-                // node" button means, and what the first version conspicuously did not do.
-                onDebugJumpFinished = {
-                    navController.navigate(TonicRoute.Practice.routeFor(PracticeTrack.PITCH)) {
+                // node" button means, and what the first version conspicuously did not do. The screen
+                // tells us which track the jumped-to node belongs to; a rhythm target routed into the
+                // pitch track would silently land on whatever pitch node was already open instead.
+                onDebugJumpFinished = { track ->
+                    navController.navigate(TonicRoute.Practice.routeFor(track)) {
                         popUpTo(TonicRoute.Home.route)
                     }
                 },

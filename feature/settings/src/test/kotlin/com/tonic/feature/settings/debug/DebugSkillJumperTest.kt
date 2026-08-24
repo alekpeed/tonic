@@ -46,6 +46,8 @@ class DebugSkillJumperTest {
                 .keys
 
         suspend fun currentNode() = masteredNodes().let { done -> SkillGraph.currentNodeFor { it in done } }
+
+        suspend fun currentRhythmNode() = masteredNodes().let { done -> SkillGraph.currentRhythmNodeFor { it in done } }
     }
 
     @Test
@@ -111,6 +113,34 @@ class DebugSkillJumperTest {
 
             assertEquals(emptyList(), seeded)
             assertTrue(fixture.masteredNodes().isEmpty())
+        }
+    }
+
+    @Test
+    fun `jumping to a rhythm node walks the rhythm chain, not the pitch chain`() {
+        // The real bug: debugJumpTargets only ever listed SkillGraph.practiceChain, so no M3 node -
+        // M3.DOWNBEAT included - was reachable at all. jumpTo() itself also only checked and walked
+        // practiceChain, so fixing the target list alone would not have been enough.
+        runBlocking {
+            val fixture = Fixture()
+            val target = SkillIds.M3_DOWNBEAT
+
+            val seeded = fixture.jumper.jumpTo(target)
+
+            assertEquals(listOf(SkillIds.M3_BEAT_FIND), seeded)
+            assertEquals(setOf(SkillIds.M3_BEAT_FIND), fixture.masteredNodes())
+            assertEquals(target, fixture.currentRhythmNode())
+        }
+    }
+
+    @Test
+    fun `every rhythm node is reachable by one press, from a state that is not fresh`() {
+        runBlocking {
+            val fixture = Fixture()
+            for (node in SkillGraph.rhythmChain) {
+                fixture.jumper.jumpTo(node.id)
+                assertEquals(node.id, fixture.currentRhythmNode(), "${node.id.raw} was not reachable in one press")
+            }
         }
     }
 

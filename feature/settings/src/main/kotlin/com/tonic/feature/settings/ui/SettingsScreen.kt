@@ -30,9 +30,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.tonic.core.curriculum.graph.SkillGraph
 import com.tonic.core.model.ids.SkillId
 import com.tonic.core.model.state.AppSettings
 import com.tonic.core.model.state.LabelStyle
+import com.tonic.core.model.state.PracticeTrack
 import com.tonic.core.model.state.ThemeMode
 import com.tonic.core.ui.theme.TonicSpacing
 import com.tonic.core.ui.theme.TonicTheme
@@ -49,8 +51,13 @@ fun SettingsScreen(
      * is not a jump — reaching the node still meant backing out and starting a session by hand, which
      * is exactly how the first version read as doing nothing at all. Supplied by `:app`, which owns
      * navigation; defaulted so this screen stays previewable and testable on its own.
+     *
+     * Takes the track to land on: the jump targets mix [SkillGraph.practiceChain] and
+     * [SkillGraph.rhythmChain] nodes, and sending a jump to a rhythm node into `:feature:practice`'s
+     * pitch track would land on whatever pitch node the learner already had open — silently ignoring
+     * the jump rather than reaching it.
      */
-    onDebugJumpFinished: () -> Unit = {},
+    onDebugJumpFinished: (PracticeTrack) -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -85,7 +92,9 @@ fun SettingsScreen(
     LaunchedEffect(navigateTo) {
         if (navigateTo != null) {
             viewModel.onDebugJumpNavigationHandled()
-            onDebugJumpFinished()
+            val track =
+                if (SkillGraph.rhythmChain.any { it.id == navigateTo }) PracticeTrack.RHYTHM else PracticeTrack.PITCH
+            onDebugJumpFinished(track)
         }
     }
 

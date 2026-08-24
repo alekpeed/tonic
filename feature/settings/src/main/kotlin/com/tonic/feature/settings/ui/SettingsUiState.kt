@@ -18,10 +18,11 @@ data class SettingsUiState(
     val pendingExport: PendingExport? = null,
     val exportResult: ExportResult? = null,
     /**
-     * Every node in [com.tonic.core.curriculum.graph.SkillGraph.practiceChain], for the debug-only
-     * "jump to node" tool (`BuildConfig.DEBUG` only — see `SettingsScreen`'s debug section). Populated
-     * unconditionally; it is the screen that decides whether to render it, since a `BuildConfig` check
-     * belongs at the Android edge, not in a ViewModel this module's own JVM tests exercise.
+     * Every node in [com.tonic.core.curriculum.graph.SkillGraph.practiceChain] and
+     * [com.tonic.core.curriculum.graph.SkillGraph.rhythmChain], for the debug-only "jump to node" tool
+     * (`BuildConfig.DEBUG` only — see `SettingsScreen`'s debug section). Populated unconditionally; it
+     * is the screen that decides whether to render it, since a `BuildConfig` check belongs at the
+     * Android edge, not in a ViewModel this module's own JVM tests exercise.
      */
     val debugJumpTargets: List<SkillId> = emptyList(),
     val debugJumpResult: DebugJumpResult? = null,

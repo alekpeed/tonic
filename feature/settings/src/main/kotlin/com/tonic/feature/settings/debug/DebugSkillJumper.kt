@@ -15,9 +15,11 @@ import javax.inject.Inject
  * The orchestration behind `:feature:settings`' debug-only "jump to node" tool
  * (`BuildConfig.DEBUG` only — see [com.tonic.feature.settings.ui.SettingsScreen]).
  *
- * Walks [SkillGraph.practiceChain] the same way [SkillGraph.currentNodeFor] does, stamping each node
- * before the target as mastered ([DebugMasterySeeder.masteredStateFor]) so the next node's gates see
- * real persisted state rather than an assumption about chain order.
+ * Walks [SkillGraph.practiceChain] the same way [SkillGraph.currentNodeFor] does — or, for a target in
+ * [SkillGraph.rhythmChain], walks that chain via [SkillGraph.currentRhythmNodeFor] instead, since the
+ * two tracks are independent and neither function knows about the other's nodes. Either way, each node
+ * before the target is stamped as mastered ([DebugMasterySeeder.masteredStateFor]) so the next node's
+ * gates see real persisted state rather than an assumption about chain order.
  *
  * Two properties, both learned the hard way across three broken builds:
  *
@@ -58,9 +60,14 @@ class DebugSkillJumper
             // the whole app graph fail to compile with a MissingBinding. Tests call this under
             // runBlocking and await the result, so a real dispatcher costs them nothing.
             withContext(Dispatchers.Default) {
-                require(SkillGraph.practiceChain.any { it.id == target }) {
-                    "${target.raw} is not a node in the practice chain"
+                // Pitch and rhythm are independent tracks (SkillGraph.rhythmChain's KDoc) with their
+                // own "what's next" function; a target belongs to exactly one, and that decides which
+                // function walks it below.
+                val inRhythmChain = SkillGraph.rhythmChain.any { it.id == target }
+                require(inRhythmChain || SkillGraph.practiceChain.any { it.id == target }) {
+                    "${target.raw} is not a node in either practice chain"
                 }
+                val chainSize = if (inRhythmChain) SkillGraph.rhythmChain.size else SkillGraph.practiceChain.size
 
                 debugProgressRepository.resetProgress()
                 // The diagnostic is placement, not progress, and resetProgress does not touch it - but a
@@ -73,9 +80,14 @@ class DebugSkillJumper
                 val mastered = mutableSetOf<SkillId>()
                 val seeded = mutableListOf<SkillId>()
                 while (true) {
-                    val next = SkillGraph.currentNodeFor { it in mastered }
+                    val next =
+                        if (inRhythmChain) {
+                            SkillGraph.currentRhythmNodeFor { it in mastered }
+                        } else {
+                            SkillGraph.currentNodeFor { it in mastered }
+                        }
                     if (next == target) break
-                    check(seeded.size < SkillGraph.practiceChain.size) {
+                    check(seeded.size < chainSize) {
                         "walked the whole chain without reaching ${target.raw} - the graph's gates and " +
                             "its chain order disagree"
                     }

@@ -42,7 +42,12 @@ class SettingsViewModel
     ) : ViewModel() {
         private val _uiState =
             MutableStateFlow(
-                SettingsUiState(debugJumpTargets = SkillGraph.practiceChain.map { it.id }),
+                SettingsUiState(
+                    // Both tracks - see DebugSkillJumper's KDoc. M3.DOWNBEAT was missing from this list
+                    // entirely (every M3 node was, not just that one) because this only ever read the
+                    // pitch chain; rhythm has its own, independent chain that this dropped on the floor.
+                    debugJumpTargets = (SkillGraph.practiceChain + SkillGraph.rhythmChain).map { it.id },
+                ),
             )
         val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 

@@ -9,6 +9,7 @@ import androidx.compose.ui.test.performScrollToNode
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.tonic.core.curriculum.graph.SkillGraph
 import com.tonic.core.model.ids.SkillIds
+import com.tonic.core.model.state.PracticeTrack
 import com.tonic.core.model.time.Clock
 import com.tonic.core.ui.theme.TonicTheme
 import com.tonic.feature.settings.debug.DebugSkillJumper
@@ -121,6 +122,25 @@ class SettingsDebugSectionTest {
         compose.waitUntil(timeoutMillis = 30_000) { navigated > 0 }
 
         assertEquals(1, navigated, "a jump must navigate exactly once")
+    }
+
+    @Test
+    fun `every M3 node gets a button too, and jumping to one routes to the rhythm track`() {
+        // The real bug: debugJumpTargets only ever listed the pitch chain, so M3.DOWNBEAT (and every
+        // other rhythm node) had no button at all. A rhythm target must also route into RHYTHM, not
+        // silently into PITCH like the first fix for the missing button alone would still have done.
+        var routedTo: PracticeTrack? = null
+        compose.setContent {
+            TonicTheme {
+                SettingsScreen(viewModel = viewModel(), onDebugJumpFinished = { track -> routedTo = track })
+            }
+        }
+        compose.waitForIdle()
+
+        scrollToAndClick("settings_debug_jump_${SkillIds.M3_DOWNBEAT.raw}")
+        compose.waitUntil(timeoutMillis = 30_000) { routedTo != null }
+
+        assertEquals(PracticeTrack.RHYTHM, routedTo)
     }
 
     @Test
