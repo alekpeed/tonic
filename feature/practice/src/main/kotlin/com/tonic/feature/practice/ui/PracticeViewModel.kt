@@ -479,6 +479,20 @@ class PracticeViewModel
                             correctAnswerLabel = if (itemChanged) null else it.correctAnswerLabel,
                             revealedMode = if (itemChanged) null else it.revealedMode,
                             inputEnabled = if (itemChanged) false else it.inputEnabled,
+                            // Reset with the item, in the same emission, not by the phase timer that
+                            // runs a moment later. Between those two points the screen was showing the
+                            // *previous* item's phase over the new item's audio - a caption reading
+                            // "Your turn" while the next reference was already playing, which is the
+                            // caption-versus-audio mismatch this file was corrected for once before.
+                            // It stayed invisible while every item type began at REFERENCE, since that
+                            // is also the default; M3 begins at LISTENING and made it a wrong word on
+                            // screen rather than a redundant assignment.
+                            phase =
+                                if (itemChanged) {
+                                    startingPhaseFor(loopState.currentItem)
+                                } else {
+                                    it.phase
+                                },
                             // Re-evaluated per item rather than once: M9 has no pitch to sing, so the
                             // control must disappear when the loop reaches one and come back after.
                             sungResponseAvailable = sungAvailableFor(loopState.currentItem),
@@ -512,6 +526,19 @@ class PracticeViewModel
                 }
             }
         }
+
+        /**
+         * The phase an item opens in, before its timer has run.
+         *
+         * Every pitch item starts by playing something that sets up a question asked about something
+         * else, which is what [PlaybackPhase.REFERENCE] names. A rhythm item starts by playing the
+         * question itself.
+         */
+        private fun startingPhaseFor(item: Item?): PlaybackPhase =
+            when (item) {
+                is Item.RhythmItem -> PlaybackPhase.LISTENING
+                else -> PlaybackPhase.REFERENCE
+            }
 
         /**
          * docs/08-UI-SPEC.md §4's reference -> gap -> target -> "your turn" sequence, timed from the
