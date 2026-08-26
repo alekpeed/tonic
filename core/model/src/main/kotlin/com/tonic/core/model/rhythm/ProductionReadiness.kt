@@ -31,7 +31,7 @@ public sealed interface ProductionReadiness {
  * fits none of the cases: "tapping is unavailable."
  *
  * ⚠️ **No user-facing string exists for any of these yet.** The screen that shows them is Stage 4.5.
- * docs/21-HANDOFF.md §4.1 is the standing warning about exactly this shape of gap — three Phase 3
+ * docs/21-HANDOFF.md §8 is the standing warning about exactly this shape of gap — three Phase 3
  * stages shipped fully tested behind a door no learner could open — so what is owed is not another
  * test of the policy below, which is covered, but the test that asks whether a learner in a blocked
  * state can reach an explanation and read it. That test belongs with the screen, and is recorded as

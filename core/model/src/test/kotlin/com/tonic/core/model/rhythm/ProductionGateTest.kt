@@ -14,7 +14,7 @@ import kotlin.test.assertTrue
  * Simulation 6 is a phase-level acceptance criterion, and this is the half of it a JVM test can hold
  * to account: that the *policy* blocks. The other half — that a blocked learner reaches a screen and
  * reads why — needs the screen, which is Stage 4.5, and is recorded as owed rather than assumed.
- * docs/21-HANDOFF.md §4.1 is what that distinction cost the last time it was not drawn.
+ * docs/21-HANDOFF.md §8 is what that distinction cost the last time it was not drawn.
  */
 class ProductionGateTest {
     private val allSlots = CalibrationSlot.entries.toSet()

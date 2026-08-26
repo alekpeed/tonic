@@ -18,7 +18,7 @@ import kotlin.test.assertTrue
  *
  * Rendered rather than read. Three of Phase 2's four wiring bugs were a correct screen and a correct
  * resolver joined by one wrong line in the composition layer, in a place nothing tested
- * (docs/21-HANDOFF.md §6, docs/20-PHASE-2-SPEC.md §8.4–8.5) — so the join is what these check.
+ * (docs/21-HANDOFF.md §8, docs/20-PHASE-2-SPEC.md §8.4–8.5) — so the join is what these check.
  */
 @RunWith(AndroidJUnit4::class)
 class SungResponseIntroTest {

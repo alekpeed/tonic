@@ -220,6 +220,6 @@ class PitchDetectorTest {
  * Not covered here, and not fakeable: Stage 3.0's remaining acceptance criteria — accuracy on *recorded*
  * signals, running off the main thread, absence of dropouts, and measured latency and CPU. Every one of
  * those is a property of capture on real hardware, which this environment does not have. Writing a
- * simulated microphone to produce a green check for them would be the exact failure docs/21-HANDOFF.md §6
+ * simulated microphone to produce a green check for them would be the exact failure docs/21-HANDOFF.md §2
  * records: a fake cannot disagree with you.
  */

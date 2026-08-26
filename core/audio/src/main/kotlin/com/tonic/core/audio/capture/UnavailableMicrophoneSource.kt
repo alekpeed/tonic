@@ -8,7 +8,7 @@ import javax.inject.Inject
  * **This is a placeholder, and it is deliberately one that cannot pretend.** Real capture is Stage
  * 3.0's unfinished half: `AudioRecord` on a dedicated thread, measured latency and CPU, dropout
  * behavior, accuracy on recorded rather than synthesized signals — every one of those is a property of
- * hardware, and docs/21-HANDOFF.md §6 records at length what happens when a simulated stand-in is
+ * hardware, and docs/21-HANDOFF.md §2 records at length what happens when a simulated stand-in is
  * allowed to produce green checks for them instead.
  *
  * So it says [isAvailable] is false, which is a state the whole feature already handles as ordinary

@@ -4,7 +4,7 @@
 #
 # Why this exists. This project was developed on the assumption that its sandboxes have no Android
 # SDK and therefore cannot compile at all — docs/21-HANDOFF.md §2 states it outright ("CI is the
-# compiler"), and most of that file's §6 and §7 are consequences of it: five to eleven minutes per
+# compiler"), and most of that file's §8 is consequences of it: five to eleven minutes per
 # round, one failure category at a time, scripts/symcheck.py written to approximate a compiler, and a
 # run burned on a member access no local check could see. On 2026-08-22 the assumption was tested
 # rather than inherited, and it was wrong: the SDK downloads and installs fine, and
@@ -86,7 +86,7 @@ fi
 
 # --- 3. check what was installed, rather than that a command exited 0 ----------------------------
 #
-# docs/21-HANDOFF.md §7, on a scripted edit that matched nothing and was pushed anyway: assert the
+# docs/21-HANDOFF.md §8, on a scripted edit that matched nothing and was pushed anyway: assert the
 # intended result is present afterward. An sdkmanager that succeeds having installed nothing is
 # exactly that failure wearing a zero exit code.
 

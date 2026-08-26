@@ -55,7 +55,7 @@ internal abstract class AudioBindingsModule {
      * Output-route reporting, for Phase 4's production gate - docs/40-PHASE-4-SPEC.md §4.2.
      *
      * Bound from the stage it is written in rather than the stage it is first consumed in. That is the
-     * direct correction of docs/21-HANDOFF.md §4.1: three Phase 3 stages shipped complete and green
+     * direct correction of docs/21-HANDOFF.md §8: three Phase 3 stages shipped complete and green
      * behind a binding that reported "unavailable" forever, and nothing caught it because every test
      * used a fake. A production binding that exists is a thing a device can be pointed at.
      */

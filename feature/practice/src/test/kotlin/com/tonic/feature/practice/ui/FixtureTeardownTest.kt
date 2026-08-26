@@ -21,7 +21,7 @@ import kotlin.test.assertTrue
  * eight others — and it took a CI failure on `M2IntroTest` to notice. Asserting the mechanism rather
  * than trusting it is the difference between a fix and a fix-shaped comment.
  *
- * docs/21-HANDOFF.md §4.1, generalized: state the route, then check the route.
+ * docs/21-HANDOFF.md §8, generalized: state the route, then check the route.
  */
 @RunWith(AndroidJUnit4::class)
 class FixtureTeardownTest {
